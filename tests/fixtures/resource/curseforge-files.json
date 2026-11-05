@@ -1,0 +1,1 @@
+{"data":[{"id":84,"displayName":"Demo 1.0","fileName":"demo.jar","downloadUrl":"https://example.test/demo.jar","fileLength":12,"hashes":[{"value":"0123456789012345678901234567890123456789","algo":1}],"gameVersions":["1.21.1"],"modLoaders":[{"name":"Fabric"}],"releaseType":1,"dependencies":[{"modId":7,"relationType":1}]}],"pagination":{"totalCount":1}}

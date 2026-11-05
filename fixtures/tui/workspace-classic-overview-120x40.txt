@@ -1,0 +1,40 @@
+
+ ┌────────────────────────────────────────────────────|tmcl-0.3.0|────────────────────────────────────────────────────┐
+ │ Overview │ Instances │ Download │ Tasks │ Accounts │ Logs │ Settings                      no instance · no account │
+ └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+ ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+ │ Overview | Game settings | Install | Mods | Resource packs | Shaders | Worlds | Manage                             │
+ │┌────────────────────────────────────────────────────|Overview|────────────────────────────────────────────────────┐│
+ ││ Name            BattleArmory TACZ                                                                                ││
+ ││ Version         1.20.1                                                                                           ││
+ ││ Loader          Forge 47.4.22                                                                                    ││
+ ││ Path            C:/games/versions/BattleArmory TACZ                                                              ││
+ ││ Launches        7                                                                                                ││
+ ││ Play time       2h 2m                                                                                            ││
+ ││ Size on disk    measuring…                                                                                       ││
+ ││ Contents        0 mods · 0 packs · 0 shaders · 0 worlds                                                          ││
+ ││ Launch overrides All following global                                                                            ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││                                                                                                                  ││
+ ││   L Launch · e Rename · o Open                                                                                   ││
+ │└─────────────────────────────────────────────────────────────────────────────────────────────────────────────|1/9|┘│
+ │[↑↓→ Navigate] [L→ Launch] [e→ Rename] [o→ Open] [x→ Export script] [U→ Update modpack] [[ ]→ Category] [Esc→ Back] │
+ │Ready                                                                                                               │
+ └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+

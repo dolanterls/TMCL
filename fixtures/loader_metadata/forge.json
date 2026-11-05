@@ -1,0 +1,18 @@
+[
+  {
+    "mcversion": "1.21.1",
+    "version": "52.0.1",
+    "stable": true,
+    "installer": "https://example.test/forge.jar",
+    "maven": "net.minecraftforge:forge:1.21.1-52.0.1",
+    "install_profile": {
+      "version": "1.21.1-52.0.1"
+    }
+  },
+  {
+    "mcversion": "1.20.6",
+    "version": "50.1.0",
+    "stable": true,
+    "installer": "https://example.test/old-forge.jar"
+  }
+]

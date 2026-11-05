@@ -1,0 +1,40 @@
+  ◆ TMCL v0.3.0  · creeper                                                                                ○ no account
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭────────────────────╮ ╭─ INSTANCE ─────────╮╭─ SEARCH ──────────────────────────────────────────────────────────────╮
+ │      ████████      │ │  Overview          ││ ⌕  Type to search · enter                                             │
+ │      ██ ██ ██      │ │  Game settings     │╰───────────────────────────────────────────────────────────────────────╯
+ │      ███▀▀███      │ │  Install           │╭─ RESOURCE PACKS ──────────────────────────────────────────────────────╮
+ │      ██▄▄▄▄██      │ │  Mods              ││                                                                       │
+ │ TMCL  launcher     │ │▌ Resource packs    ││                                   ◆                                   │
+ │                    │ │  Shaders           ││                No resource packs in this instance yet                 │
+ │  ◈ Overview        │ │  Worlds            ││   Downloads go to this instance · Enter to open the download centre   │
+ │                    │ │  Manage            ││                                                                       │
+ │▌ ▤ Instances       │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ⇣ Download        │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ◷ Tasks           │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ◉ Accounts        │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ≡ Logs            │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ◫ Settings        │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │ ◈ 0 running        │ │                    ││                                                                       │
+ │ ◆ 1 instances      │ │                    ││                                                                       │
+ │ ↻ 0s               │ │                    ││                                                                       │
+ ╰────────────────────╯ ╰────────────────────╯╰───────────────────────────────────────────────────────────────────────╯
+  ↑↓  Navigate   Enter  Download   i  Import   o  Open   /  Search   [ ]  Category   Esc  Back
+
+  · Ready                                                                                                         ↻ 0s

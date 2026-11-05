@@ -1,0 +1,40 @@
+  ▛█▜ █▖▟▌▗▛▜▖▜▛
+   █  ███▌█   ▐▌                                                             Minecraft Java Edition · in your terminal
+   █  █▝▐▌▜▖▗▖▐▌▗▌                                                           0.3.0                         3 instances
+  ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘
+  Overview   Instances   Download   Tasks   Accounts   Logs   Settings
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  ● Live game log   Create Above and Beyond
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Search …                                                                                                       6 / 6
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  I Starting Minecraft 1.21.4
+  I [main/INFO] Loading 214 mods
+  I [main/INFO] Preloading 391 textures
+  W [main/WARN] mixin conflict: create vs sodium
+  I [main/INFO] Sound engine started
+  ▌E java.lang.NoClassDefFoundError: create/Flywheel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  / Search   f Follow   g Bottom   c Clear view   ? Help   Tab Next page   q Quit
+  ● Ready

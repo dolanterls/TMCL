@@ -1,0 +1,24 @@
+ TMCL  0.3.0
+ Home   Inst   Down   Tasks   Acct   Logs   Set
+ ──────────────────────────────────────────────────────────────────────────────
+ All 4   Running 1   Queued 1   Done 1   Failed 1
+ ──────────────────────────────────────────────────────────────────────────────
+ Running  ─────────────────────────────────────────────────────────────────────
+ ▌ Installing NeoForge 21.1.247                                         Running
+ ▌                                                           ███████░░░░░   62%
+ Queued  ──────────────────────────────────────────────────────────────────────
+   Downloading farmingtales-1.4.3.jar                                    Queued
+                                                             ░░░░░░░░░░░░    0%
+ Finished  ────────────────────────────────────────────────────────────────────
+   Downloading library-2.0.jar                                        Completed
+                                                             ████████████  100%
+   Installing Fabric loader                                              Failed
+                                                             ░░░░░░░░░░░░     —
+   ✕ connection reset by peer
+
+
+
+
+
+ Enter Details   p Pause   d Delete   ? Help   Tab Next page   q Quit
+ ● Ready

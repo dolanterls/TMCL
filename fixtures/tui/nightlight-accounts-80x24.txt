@@ -1,0 +1,24 @@
+
+  ☾
+          Accounts
+  1 ◈     No accounts. Press n for an offline account or m for Microsoft login
+  2 ▤
+  3 ⇣
+  4 ◷
+  5 ◉
+  6 ≡
+  7 ◫
+
+
+
+
+
+
+
+
+
+
+ 16:00
+────────────────────────────────────────────────────────────────────────────────
+      Enter Use current   n Offline account   ? Help   Tab Next page   q Quit
+ · Ready

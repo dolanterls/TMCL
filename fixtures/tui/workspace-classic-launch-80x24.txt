@@ -1,0 +1,24 @@
+
+ ┌────────────────────────────────|tmcl-0.3.0|────────────────────────────────┐
+ │ Home │ Inst │ Down │ Tasks │ Acct │ Logs │ Set                             │
+ └────────────────────────────────────────────────────────────────────────────┘
+ ┌────────────────────────────────────────────────────────────────────────────┐
+ │ ‹ Game settings ›  2/8                                                     │
+ │┌─────────────────────────────|Game settings|──────────────────────────────┐│
+ ││ Memory mode     Follow global（ Automatic）  Space toggle                  ││
+ ││ Minimum memory  Not editable while memory is automatic                   ││
+ ││ Maximum memory  Not editable while memory is automatic                   ││
+ ││ Window mode     Follow global（ Windowed）                                 ││
+ ││ Window size     ‹ Follow global 1280×720 ›                               ││
+ ││ Game Java       Automatic                                                ││
+ ││ JVM arguments   Follow global (0)                                        ││
+ ││ Game arguments  Follow global (0)                                        ││
+ ││ Auto-connect    Follow global（ No auto-connect）                          ││
+ ││                                                                          ││
+ ││                                                                          ││
+ ││   ←/→ Adjust · Space Toggle · Enter Edit · R Reset                       ││
+ │└─────────────────────────────────────────────────────────────────────|1/9|┘│
+ │[↑↓→ Navigate] [←/→→ Adjust] [Space→ Toggle] [R→ Reset] [Esc→ Back]         │
+ │Ready                                                                       │
+ └────────────────────────────────────────────────────────────────────────────┘
+

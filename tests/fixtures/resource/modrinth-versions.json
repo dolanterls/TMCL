@@ -1,0 +1,1 @@
+[{"id":"demo-file","version_type":"release","game_versions":["1.21.1"],"loaders":["fabric"],"dependencies":[{"project_id":"dep","version_id":null,"dependency_type":"required"}],"files":[{"hashes":{"sha1":"0123456789012345678901234567890123456789"},"url":"https://example.test/demo.jar","filename":"demo.jar","size":12}]}]

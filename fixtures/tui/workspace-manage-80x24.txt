@@ -1,0 +1,24 @@
+  ◆ TMCL v0.3.0  · creeper                                        ○ no account
+ ──────────────────────────────────────────────────────────────────────────────
+ ╭────╮  ‹ Manage ›  8/8
+ │  ◈ │ ╭─ MANAGE ────────────────────────────────────────────────────────────╮
+ │    │ │ Rename instance                                                     │
+ │▌ ▤ │ │ Repair missing files                                                │
+ │    │ │ Export modpack                                                      │
+ │  ⇣ │ │─────────────────────────────────────────────────────────────────────│
+ │    │ │ ! Empty trash                                                       │
+ │  ◷ │ │ ! Delete instance                                                   │
+ │    │ │                                                                     │
+ │  ◉ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ≡ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ◫ │ │                                                                     │
+ │    │ │                                                                     │
+ │    │ │                                                                     │
+ │    │ │ ◆ Emptying the trash and deleting the instance cannot be undone; b… │
+ │    │ │   Enter Run · d Delete                                              │
+ ╰────╯ ╰──────────────────────────────────────────────────────────────────1/5╯
+  ↑↓  Navigate   Enter  Run   d  Delete   [ ]  Category   Esc  Back
+
+  · Ready                                                                 ↻ 0s

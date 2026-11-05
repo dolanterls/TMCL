@@ -1,0 +1,9 @@
+{
+  "game_dirs": ["C:/Games/.minecraft"],
+  "java_path": "C:/Program Files/Java/jdk-21/bin/java.exe",
+  "auto_download_java": true,
+  "download_sources": ["bmclapi", "official"],
+  "current_account": "offline-alex",
+  "current_instance": "vanilla-1.21",
+  "log_retention_days": 14
+}

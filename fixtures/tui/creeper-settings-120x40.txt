@@ -1,0 +1,40 @@
+  ◆ TMCL v0.3.0  · creeper                                                                                ○ no account
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭────────────────────╮ ╭─ SETTINGS ───────────╮ ╭─ GENERAL ──────────────────────────────────────────────────────────╮
+ │      ████████      │ │▌ General           6 │ │▌ Launcher visibility       ‹ Keep open › ←/→ adjust                │
+ │      ██ ██ ██      │ │  Game settings    10 │ │  Auto check updates        ● ON                                    │
+ │      ███▀▀███      │ │  Java runtimes       │ │  Check for updates now     ▶ Check now                             │
+ │      ██▄▄▄▄██      │ │  Downloads         9 │ │  Add tmcl to PATH          ▶ Add                                   │
+ │ TMCL  launcher     │ │  Appearance        4 │ │  Server address            -                                       │
+ │                    │ │  Logs              8 │ │  Process priority          ‹ Default ›                             │
+ │  ◈ Overview        │ │  Game directories    │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │  ▤ Instances       │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │  ⇣ Download        │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │  ◷ Tasks           │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │  ◉ Accounts        │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │  ≡ Logs            │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │▌ ◫ Settings        │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │                    │ │                      │ │                                                                    │
+ │ ◈ 0 running        │ │                      │ │────────────────────────────────────────────────────────────────────│
+ │ ◆ 0 instances      │ │                      │ │◆ Keep the launcher visible after the game starts; hiding keeps it …│
+ │ ↻ 0s               │ │ [ ] switch category  │ │  Saved immediately · written to the config file                    │
+ ╰────────────────────╯ ╰──────────────────────╯ ╰─────────────────────────────────────────────────────────────────1/6╯
+  ←/→  Adjust   Enter  Toggle   [ ]  Category   /  Search   ?  Help   Tab  Next page   q  Quit
+  · Ready                                                                                                         ↻ 0s

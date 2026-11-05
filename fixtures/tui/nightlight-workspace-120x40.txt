@@ -1,0 +1,40 @@
+
+     ▛█▜ █▖▟▌▗▛▜▖▜▛
+      █  ███▌█   ▐▌                              Overview
+      █  █▝▐▌▜▖▗▖▐▌▗▌        Overview            ▎ Name              TMCL-Test
+     ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘        Game settings         Version           1.21.4
+                             Install               Loader            Fabric 0.16.9
+  1 Overview                 Mods                  Path              D:/games/.minecraft/versions/TMCL-Test
+                             Resource packs        Launches          0
+  2 Instances                Shaders               Play time         0m
+                             Worlds                Size on disk      measuring…
+  3 Download                 Manage                Contents          0 mods · 0 packs · 0 shaders · 0 worlds
+                                                   Launch overrides  All following global
+  4 Tasks
+
+  5 Accounts
+
+  6 Logs
+
+  7 Settings
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ☾ day · 16:00
+  v0.3.0 · live                                    L Launch · e Rename · o Open
+  0s
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+            ↑↓ Navigate   L Launch   e Rename   o Open   x Export script   U Update modpack   [ ] Category   Esc Back
+ · Ready

@@ -1,0 +1,29 @@
+[
+  {
+    "loader": {
+      "version": "0.16.5",
+      "stable": true,
+      "maven": "net.fabricmc:fabric-loader:0.16.5"
+    },
+    "minecraft_version": "1.21.1",
+    "launcher_meta": {
+      "mainClass": "net.fabricmc.loader.impl.launch.knot.KnotClient"
+    }
+  },
+  {
+    "loader": {
+      "version": "0.16.4",
+      "stable": true,
+      "maven": "net.fabricmc:fabric-loader:0.16.4"
+    },
+    "minecraft_version": "1.21.1"
+  },
+  {
+    "loader": {
+      "version": "0.16.3",
+      "stable": false,
+      "maven": "net.fabricmc:fabric-loader:0.16.3"
+    },
+    "minecraft_version": "1.20.4"
+  }
+]

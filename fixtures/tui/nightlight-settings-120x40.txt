@@ -1,0 +1,40 @@
+
+     ▛█▜ █▖▟▌▗▛▜▖▜▛
+      █  ███▌█   ▐▌                                  General
+      █  █▝▐▌▜▖▗▖▐▌▗▌        General            6    ▎ Launcher visibility                               ‹ Keep open ›
+     ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘        Game settings     10      Auto check updates                                         ● ON
+                             Java runtimes      0      Check for updates now                               Check now ▶
+  1 Overview                 Downloads          9      Add tmcl to PATH                                          Add ▶
+                             Appearance         8      Server address                                                -
+  2 Instances                Logs               8      Process priority                                    ‹ Default ›
+                             Game directories   0
+  3 Download
+
+  4 Tasks
+
+  5 Accounts
+
+  6 Logs
+
+  7 Settings
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ☾ day · 16:00
+  v0.3.0 · live                                    Keep the launcher visible after the game starts; hiding keeps it ru…
+  0s
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                ←/→ Adjust   Enter Toggle   [ ] Category   / Search   ? Help   Tab Next page   q Quit
+ · Ready

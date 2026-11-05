@@ -1,0 +1,40 @@
+
+     ▛█▜ █▖▟▌▗▛▜▖▜▛          All 0    Running 0    Queued 0    Done 0    Failed 0
+      █  ███▌█   ▐▌
+      █  █▝▐▌▜▖▗▖▐▌▗▌
+     ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘         Tasks
+                              No tasks in this filter.
+  1 Overview
+
+  2 Instances
+
+  3 Download
+
+  4 Tasks
+
+  5 Accounts
+
+  6 Logs
+
+  7 Settings
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ☾ day · 16:00
+  v0.3.0 · live
+  0s
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                             Enter Details   p Pause   d Delete   [ ] Change filter   ? Help   Tab Next page   q Quit
+ · Ready

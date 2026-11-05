@@ -1,0 +1,24 @@
+ TMCL  0.3.0
+ Home   Inst   Down   Tasks   Acct   Logs   Set
+ ──────────────────────────────────────────────────────────────────────────────
+ 3 accounts
+ ▌ Steve                                                                current
+ ▌ Offline
+ ▌ Local profile
+   Alex
+   Microsoft
+   Credential valid for 1h
+   Herobrine
+   Microsoft
+   Auto-renew
+
+
+
+
+
+
+
+
+
+ Enter Use current   n Offline account   ? Help   Tab Next page   q Quit
+ ● Ready

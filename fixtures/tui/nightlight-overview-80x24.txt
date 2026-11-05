@@ -1,0 +1,24 @@
+
+  ☾
+          Current instance
+  1 ◈     TMCL-Test                                                         ▶
+  2 ▤     1.21.4 · Fabric 0.16.9
+  3 ⇣     12h Played  ·  34 Launches
+  4 ◷
+  5 ◉     Inst 1                              Tasks 0
+  6 ≡
+  7 ◫     Acct 0                              Java —
+
+
+          Active tasks
+          Recent
+          instance verified
+
+
+
+
+
+ 16:00
+────────────────────────────────────────────────────────────────────────────────
+            Enter Launch   n New   i Import   ? Help   Tab Next page   q Quit
+ · Ready

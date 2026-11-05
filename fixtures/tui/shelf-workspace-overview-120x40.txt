@@ -1,0 +1,40 @@
+  ▛█▜ █▖▟▌▗▛▜▖▜▛
+   █  ███▌█   ▐▌                                                             Minecraft Java Edition · in your terminal
+   █  █▝▐▌▜▖▗▖▐▌▗▌                                                           0.3.0                         1 instances
+  ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘
+  Overview   Instances   Download   Tasks   Accounts   Logs   Settings
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  Overview   Game settings   Install   Mods   Resource packs   Shaders   Worlds   Manage
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+  ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+
+  ╭ Overview ────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+  │▌Name            TMCL-Test                                                                                        │
+  │ Version         1.21.4                                                                                           │
+  │ Loader          Fabric 0.16.9                                                                                    │
+  │ Path            D:/games/.minecraft/versions/TMCL-Test                                                           │
+  │ Launches        0                                                                                                │
+  │ Play time       0m                                                                                               │
+  │ Size on disk    measuring…                                                                                       │
+  │ Contents        0 mods · 0 packs · 0 shaders · 0 worlds                                                          │
+  │ Launch overrides All following global                                                                            │
+  │                                                                                                                  │
+  │                                                                                                                  │
+  │                                                                                                                  │
+  │                                                                                                                  │
+  │                                                                                                                  │
+  │                                                                                                                  │
+  │   L Launch · e Rename · o Open                                                                                   │
+  ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────1 / 9╯
+  ↑↓ Navigate   L Launch   e Rename   o Open   x Export script   U Update modpack   [ ] Category   Esc Back
+  ● Ready

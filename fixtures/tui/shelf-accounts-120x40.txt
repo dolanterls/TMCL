@@ -1,0 +1,40 @@
+  ▛█▜ █▖▟▌▗▛▜▖▜▛
+   █  ███▌█   ▐▌                                                             Minecraft Java Edition · in your terminal
+   █  █▝▐▌▜▖▗▖▐▌▗▌                                                           0.3.0                         3 instances
+  ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘
+  Overview   Instances   Download   Tasks   Accounts   Logs   Settings
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3 accounts
+  ▌ Steve                                                                                                      current
+  ▌ Offline
+  ▌ Local profile
+    Alex
+    Microsoft
+    Credential valid for 1h
+    Herobrine
+    Microsoft
+    Auto-renew
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  Enter Use current   n Offline account   m Microsoft login   d Remove   ? Help   Tab Next page   q Quit
+  ● Ready

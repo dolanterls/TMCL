@@ -1,0 +1,123 @@
+TMCL
+Copyright (c) TMCL contributors
+
+This product includes software and interface design derived from binsider
+(https://github.com/orhun/binsider), copyright Orhun Parmaksız, licensed under
+the MIT License (or Apache-2.0 at your option).
+
+Reference revision: 7f0633d1a69af15cc3be9e0533cb36dbe67eb598 (binsider 0.3.2).
+
+The following parts are derived from binsider's TUI layer:
+
+- overall frame geometry: 1-cell margin, 3-row bordered header, bordered body,
+  key hints on the last line of the body;
+- header composition: centered |name-version| title, tabs on the left,
+  right-aligned context;
+- panel titles rendered as |Title| with dim pipes and an accent title;
+- table decoration: bold header, bottom-right |n/m| counter, up/down scrollbar;
+- key hint format: [key -> label] with dim brackets and yellow keys;
+- selectable list widget (src/tui/widgets/list.rs);
+- command/keymap structure (src/tui/command.rs).
+
+binsider is distributed under the MIT OR Apache-2.0 license. A copy of the MIT
+license text is available at
+https://github.com/orhun/binsider/blob/main/LICENSE-MIT
+
+Files that carry derived code include a short attribution header naming the
+source revision.
+
+---
+
+Separate note on the `creeper` TUI preset (MIT, no derived code)
+
+The `creeper` preset studies the *interface language* of a third-party terminal
+launcher (sidebar navigation, rounded card grid, gradient rule, status pills,
+floating toast). That project is distributed under GPL-3.0-only, which is not
+compatible with this MIT-licensed crate, so no source file, constant table,
+string, glyph bitmap or asset was copied from it.
+
+What was taken: the general layout vocabulary and the palette direction
+(dark navy surface, neon green/cyan/purple accents).
+
+What was written for TMCL: every module under `src/tui/preset/`,
+`src/tui/app/preset/` and `src/tui/modal/render_creeper.rs`, including the
+colour maths, card/pill/progress primitives, page compositions, modal rendering
+and the block logo.
+
+The reference project is therefore not a dependency, not a vendored subtree and
+not a source of copied code; it is a design reference only.
+
+
+---
+
+Separate note on the instance-workspace feature (MIT, no derived code)
+
+The instance-management feature (per-instance launch overrides, loader install,
+mod / resource-pack / shader / world management) studies the *feature
+decomposition and data organisation* of HMCL (https://github.com/HMCL-dev/HMCL),
+which is distributed under GPL-3.0. That licence is not compatible with this
+MIT-licensed crate, so no Java source, constant table, UI string, class name or
+asset is copied or translated.
+
+What was studied: which settings may be overridden per instance, how a version
+directory is laid out, how mod metadata files are prioritised, how the resource
+pack list is stored in `options.txt`, and which fields of `level.dat` a launcher
+shows.
+
+What was written for TMCL: every module under `src/core/content/`,
+`src/core/instance/overrides.rs`, `src/tui/pages/workspace.rs`,
+`src/tui/app/workspace*.rs` and `src/tui/app/preset/workspace.rs`, including the
+scanner, metadata parsers, trash/backup logic and all rendering.
+
+HMCL is not a dependency, not a vendored subtree and not a source of copied
+code; it is a behavioural reference only.
+
+## nightlight preset (nightlightd)
+
+The `nightlight` TUI preset studies the *visual language* of `nightlightd`
+(https://github.com/umdinceryananer/nightlightd), version 0.3.1, which is
+distributed under GPL-3.0-or-later. That licence is not compatible with this
+MIT-licensed crate, so no Rust source, constant table, function body, string or
+ASCII layout is copied or translated.
+
+What was studied: one accent colour deriving a whole brightness ladder, the
+absence of card borders, a numbered icon sidebar whose selected row is a
+full-width accent bar, a single full-width footer under the sidebar, and a
+"live" accent that warms with the clock.
+
+What was written for TMCL: every module under `src/tui/nightlight/` and
+`src/tui/app/nightlight/`, plus `src/tui/modal/render_nightlight.rs`. The palette
+ratios, the black-body curve, the smoothstep clock ramps and the layout were
+re-derived and are asserted value-by-value in-tree
+(`src/tui/nightlight/tone.rs`, `live.rs`). Colour values were chosen by hue from
+the public screenshots, not read out of the reference source.
+
+`nightlightd` is not a dependency, not a vendored subtree and not a source of
+copied code; it is a design reference only.
+
+## shelf preset (tuiba)
+
+The `shelf` TUI preset studies the *visual language* of `tuiba`
+(https://github.com/Huseynteymurzade28/tuiba), revision
+e4cab2c32d0336d069993b5c6ba8d259da97ba1b, which is distributed under the MIT
+License.
+
+What was studied: one accent colour over a neutral ink ladder, a rounded panel
+outline that leaves the page colour showing through, a selection that fades out
+towards the right instead of filling the whole row, and a side-by-side
+list/preview split with a persistent facts column.
+
+What was written for TMCL: every module under `src/tui/app/view/shelf/`, plus
+`src/tui/modal/shelf.rs`, `src/tui/widgets/cover.rs` and `src/core/cover.rs`.
+The palette was re-derived and is asserted for contrast in-tree
+(`src/tui/app/view/shelf/tone.rs`); the secondary ink was raised from tuiba's
+`#6F6888` (3.59:1 on the page) to `#8A82A8` (5.23:1) to meet this project's
+4.5:1 floor. The half-block cover pipeline, the cover source order
+(`icon.png` → newest world screenshot → procedural tile) and the placeholder
+pattern are original to TMCL.
+
+tuiba is not a dependency, not a vendored subtree and not a source of copied
+code; it is a design reference only. Unlike the GPL references above, its MIT
+licence would have allowed copying — the preset is nevertheless an independent
+implementation, because a colour table means nothing without this project's
+semantic tokens.

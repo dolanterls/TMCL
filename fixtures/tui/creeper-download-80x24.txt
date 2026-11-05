@@ -1,0 +1,24 @@
+  ◆ TMCL v0.3.0  · creeper                                        ○ no account
+ ──────────────────────────────────────────────────────────────────────────────
+ ╭────╮  ⌕  browse popular · type to search · enter  0 versions
+ │  ◈ │  Game Versions   Mods   Modpacks   Resource Packs   Shaders   Worlds
+ │    │ ╭─ MINECRAFT VERSIONS ────────────────────────────────────────────────╮
+ │  ▤ │ │                                                                     │
+ │    │ │                                  ◆                                  │
+ │▌ ⇣ │ │        No results. Change the search or refresh the source.         │
+ │    │ │                                                                     │
+ │  ◷ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ◉ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ≡ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ◫ │ │                                                                     │
+ │    │ │                                                                     │
+ │    │ │                                                                     │
+ │    │ │                                                                     │
+ │    │ │                                                                     │
+ ╰────╯ ╰─────────────────────────────────────────────────────────────────────╯
+  Enter  Open / install   /  Search   s  Source   o  Sort   f  Filter
+  [ ]  Category   ?  Help   Tab  Next page   q  Quit
+  · Ready                                                                 ↻ 0s

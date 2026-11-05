@@ -1,0 +1,24 @@
+
+  ☾
+          General
+  1 ◈     ▎ Launcher visibility                                  ‹ Keep open ›
+  2 ▤       Auto check updates                                            ● ON
+  3 ⇣       Check for updates now                                  Check now ▶
+  4 ◷       Add tmcl to PATH                                             Add ▶
+  5 ◉       Server address                                                   -
+  6 ≡       Process priority                                       ‹ Default ›
+  7 ◫
+
+
+
+
+
+
+
+
+
+        Keep the launcher visible after the game starts; hiding keeps it runni…
+ 16:00
+────────────────────────────────────────────────────────────────────────────────
+   ←/→ Adjust   Enter Toggle   [ ] Category   ? Help   Tab Next page   q Quit
+ · Ready

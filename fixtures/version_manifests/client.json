@@ -1,0 +1,57 @@
+{
+  "libraries": [
+    {
+      "name": "example:library:1.0",
+      "natives": {
+        "windows": "natives-windows-${arch}",
+        "osx": "natives-macos",
+        "linux": "natives-linux"
+      },
+      "downloads": {
+        "artifact": {
+          "path": "example/example.jar",
+          "url": "https://example.test/example.jar",
+          "sha1": "c42b2247c7467caed77ee71cc67a234c327aa9d3",
+          "size": 4
+        },
+        "classifiers": {
+          "natives-windows-64": {
+            "path": "example/example-natives.jar",
+            "url": "https://example.test/example-natives.jar"
+          },
+          "natives-windows-32": {
+            "path": "example/example-natives-x86.jar",
+            "url": "https://example.test/example-natives-x86.jar"
+          },
+          "natives-linux": {
+            "path": "example/example-natives-linux.jar",
+            "url": "https://example.test/example-natives-linux.jar"
+          }
+        }
+      }
+    },
+    {
+      "name": "example:macos-only:1.0",
+      "rules": [
+        {
+          "action": "allow",
+          "os": {
+            "name": "osx"
+          }
+        }
+      ],
+      "downloads": {
+        "artifact": {
+          "path": "example/example-macos.jar",
+          "url": "https://example.test/example-macos.jar",
+          "sha1": "1111111111111111111111111111111111111111",
+          "size": 4
+        }
+      }
+    }
+  ],
+  "assetIndex": {
+    "id": "test-assets",
+    "url": "https://example.test/assets.json"
+  }
+}

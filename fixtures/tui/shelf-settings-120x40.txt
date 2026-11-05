@@ -1,0 +1,40 @@
+  ▛█▜ █▖▟▌▗▛▜▖▜▛
+   █  ███▌█   ▐▌                                                             Minecraft Java Edition · in your terminal
+   █  █▝▐▌▜▖▗▖▐▌▗▌                                                           0.3.0                         3 instances
+  ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘
+  Overview   Instances   Download   Tasks   Accounts   Logs   Settings
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  General   Game settings   Java runtimes   Downloads   Appearance   Logs   Game directories
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ▌ Launcher visibility                                                                                 ‹ Keep open ›
+    Auto check updates                                                                                           ● ON
+    Check for updates now                                                                                   Check now
+    Add tmcl to PATH                                                                                              Add
+    Server address                                                                                                  -
+    Process priority                                                                                      ‹ Default ›
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Keep the launcher visible after the game starts; hiding keeps it running in the background.               ←/→ adjust
+  ←/→ Adjust   Enter Toggle   [ ] Category   / Search   ? Help   Tab Next page   q Quit
+  ● Ready

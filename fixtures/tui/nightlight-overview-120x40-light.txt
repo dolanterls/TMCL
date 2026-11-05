@@ -1,0 +1,40 @@
+
+     ▛█▜ █▖▟▌▗▛▜▖▜▛
+      █  ███▌█   ▐▌           Current instance                                       Current account
+      █  █▝▐▌▜▖▗▖▐▌▗▌         TMCL-Test                                         ▶    ● No account
+     ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘         1.21.4 · Fabric 0.16.9                                 Open Accounts
+
+  1 Overview                  ▗█  ▟▀▙ ▜▌                ▟▀▙  ▟█
+                               █   ▄▛ ▐▙▜▖               ▄▛ ▟▘█
+  2 Instances                  █  ▟▘▄ ▐▌▐▌              ▄ █ ▀▀█▘
+                              ▀▀▀ ▀▀▀ ▀▘▝▘              ▝▀▘  ▝▀▘
+  3 Download                  Played                    Launches
+
+  4 Tasks
+                              Inst 1                 Tasks 0                Acct 0                 Java —
+  5 Accounts
+
+  6 Logs
+                              Active tasks
+  7 Settings                  Recent
+                              instance verified
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ☾ day · 16:00
+  v0.3.0 · live
+  0s
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                    Enter Launch   n New   i Import   ? Help   Tab Next page   q Quit
+ · Ready

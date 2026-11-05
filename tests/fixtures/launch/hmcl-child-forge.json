@@ -1,0 +1,17 @@
+{
+  "id": "forge-1.20.1",
+  "inheritsFrom": "1.20.1",
+  "mainClass": "net.minecraft.launchwrapper.Launch",
+  "libraries": [
+    {
+      "name": "net.minecraftforge:forge:1.20.1-47.4.22",
+      "downloads": {
+        "artifact": {
+          "path": "net/minecraftforge/forge/1.20.1-47.4.22/forge-1.20.1-47.4.22-universal.jar",
+          "url": "https://example.invalid/forge-universal.jar",
+          "sha1": "4444444444444444444444444444444444444444"
+        }
+      }
+    }
+  ]
+}

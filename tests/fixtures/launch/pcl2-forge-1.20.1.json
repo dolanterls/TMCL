@@ -1,0 +1,36 @@
+{
+  "id": "1.20.1-forge-47.4.22",
+  "type": "release",
+  "mainClass": "cpw.mods.bootstraplauncher.BootstrapLauncher",
+  "javaVersion": { "component": "java-runtime-gamma", "majorVersion": 17 },
+  "libraries": [
+    {
+      "name": "net.minecraftforge:forge:1.20.1-47.4.22",
+      "downloads": {
+        "artifact": {
+          "path": "net/minecraftforge/forge/1.20.1-47.4.22/forge-1.20.1-47.4.22-client.jar",
+          "url": "https://example.invalid/forge.jar",
+          "sha1": "1111111111111111111111111111111111111111"
+        }
+      }
+    },
+    {
+      "name": "cpw.mods:bootstraplauncher:1.1.2",
+      "downloads": {
+        "artifact": {
+          "path": "cpw/mods/bootstraplauncher/1.1.2/bootstraplauncher-1.1.2.jar",
+          "url": "https://example.invalid/boot.jar",
+          "sha1": "2222222222222222222222222222222222222222"
+        }
+      }
+    }
+  ],
+  "arguments": {
+    "game": ["--launchTarget", "forgeclient"],
+    "jvm": [
+      "-p",
+      "${library_directory}/cpw/mods/bootstraplauncher/1.1.2/bootstraplauncher-1.1.2.jar",
+      "-DignoreList=forge-,${version_name}.jar,${primary_jar_name}"
+    ]
+  }
+}

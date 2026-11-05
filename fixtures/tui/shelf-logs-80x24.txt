@@ -1,0 +1,24 @@
+ TMCL  0.3.0
+ Home   Inst   Down   Tasks   Acct   Logs   Set
+ ──────────────────────────────────────────────────────────────────────────────
+ ● Live game log   Create Above and Beyond
+ ──────────────────────────────────────────────────────────────────────────────
+ Search …                                                                 6 / 6
+ ──────────────────────────────────────────────────────────────────────────────
+ I Starting Minecraft 1.21.4
+ I [main/INFO] Loading 214 mods
+ I [main/INFO] Preloading 391 textures
+ W [main/WARN] mixin conflict: create vs sodium
+ I [main/INFO] Sound engine started
+ ▌E java.lang.NoClassDefFoundError: create/Flywheel
+
+
+
+
+
+
+
+
+
+ / Search   f Follow   g Bottom   ? Help   Tab Next page   q Quit
+ ● Ready

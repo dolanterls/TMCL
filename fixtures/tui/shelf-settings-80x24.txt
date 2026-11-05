@@ -1,0 +1,24 @@
+ TMCL  0.3.0
+ Home   Inst   Down   Tasks   Acct   Logs   Set
+ ──────────────────────────────────────────────────────────────────────────────
+ General   Game settings   Java runtimes   Downloads   Appearance   Logs
+ ──────────────────────────────────────────────────────────────────────────────
+ ▌ Launcher visibility                                           ‹ Keep open ›
+   Auto check updates                                                     ● ON
+   Check for updates now                                             Check now
+   Add tmcl to PATH                                                        Add
+   Server address                                                            -
+   Process priority                                                ‹ Default ›
+
+
+
+
+
+
+
+
+
+ ──────────────────────────────────────────────────────────────────────────────
+ Keep the launcher visible after the game starts; hiding keeps it…   ←/→ adjust
+ ←/→ Adjust   Enter Toggle   [ ] Category   ? Help   Tab Next page   q Quit
+ ● Ready

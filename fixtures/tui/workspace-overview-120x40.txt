@@ -1,0 +1,40 @@
+  ◆ TMCL v0.3.0  · creeper                                                                                ○ no account
+ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ╭────────────────────╮ ╭─ INSTANCE ─────────╮╭─ OVERVIEW ────────────────────────────────────────────────────────────╮
+ │      ████████      │ │▌ Overview          ││ Name            BattleArmory TACZ                                     │
+ │      ██ ██ ██      │ │  Game settings     ││ Version         1.20.1                                                │
+ │      ███▀▀███      │ │  Install           ││ Loader          Forge 47.4.22                                         │
+ │      ██▄▄▄▄██      │ │  Mods              ││ Path            C:/games/versions/BattleArmory TACZ                   │
+ │ TMCL  launcher     │ │  Resource packs    ││ Launches        7                                                     │
+ │                    │ │  Shaders           ││ Play time       2h 2m                                                 │
+ │  ◈ Overview        │ │  Worlds            ││ Size on disk    measuring…                                            │
+ │                    │ │  Manage            ││ Contents        0 mods · 0 packs · 0 shaders · 0 worlds               │
+ │▌ ▤ Instances       │ │                    ││ Launch overrides All following global                                 │
+ │                    │ │                    ││                                                                       │
+ │  ⇣ Download        │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ◷ Tasks           │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ◉ Accounts        │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ≡ Logs            │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │  ◫ Settings        │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │                    │ │                    ││                                                                       │
+ │ ◈ 0 running        │ │                    ││                                                                       │
+ │ ◆ 1 instances      │ │                    ││                                                                       │
+ │ ↻ 0s               │ │                    ││   L Launch · e Rename · o Open                                        │
+ ╰────────────────────╯ ╰────────────────────╯╰────────────────────────────────────────────────────────────────────1/9╯
+  ↑↓  Navigate   L  Launch   e  Rename   o  Open   x  Export script   U  Update modpack   [ ]  Category   Esc  Back
+
+  · Ready                                                                                                         ↻ 0s

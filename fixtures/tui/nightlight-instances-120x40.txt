@@ -1,0 +1,40 @@
+
+     ▛█▜ █▖▟▌▗▛▜▖▜▛          All    Vanilla    Fabric    Forge    NeoForge    Quilt
+      █  ███▌█   ▐▌
+      █  █▝▐▌▜▖▗▖▐▌▗▌
+     ▝▀▘ ▀ ▝▘ ▀▀ ▀▀▀▘         Instances
+                              No instances. Press n to create or i to import one.
+  1 Overview
+
+  2 Instances
+
+  3 Download
+
+  4 Tasks
+
+  5 Accounts
+
+  6 Logs
+
+  7 Settings
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  ☾ day · 16:00
+  v0.3.0 · live
+  0s
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+          Enter Details   l Launch   n New   i Import   I Import modpack   r Rename   ? Help   Tab Next page   q Quit
+ · Ready

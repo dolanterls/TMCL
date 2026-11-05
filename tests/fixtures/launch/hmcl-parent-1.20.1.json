@@ -1,0 +1,19 @@
+{
+  "id": "1.20.1",
+  "type": "release",
+  "mainClass": "net.minecraft.client.main.Main",
+  "javaVersion": { "component": "java-runtime-gamma", "majorVersion": 17 },
+  "libraries": [
+    {
+      "name": "com.mojang:brigadier:1.0.18",
+      "downloads": {
+        "artifact": {
+          "path": "com/mojang/brigadier/1.0.18/brigadier-1.0.18.jar",
+          "url": "https://example.invalid/brigadier.jar",
+          "sha1": "3333333333333333333333333333333333333333"
+        }
+      }
+    }
+  ],
+  "arguments": { "game": [], "jvm": [] }
+}

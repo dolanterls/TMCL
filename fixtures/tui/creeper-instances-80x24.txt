@@ -1,0 +1,24 @@
+  ◆ TMCL v0.3.0  · creeper                                        ○ no account
+ ──────────────────────────────────────────────────────────────────────────────
+ ╭────╮  All   Vanilla   Fabric   Forge   NeoForge   Quilt
+ │  ◈ │ ╭─ INSTANCES ─────────────────────────────────────────────────────────╮
+ │    │ │                                                                     │
+ │▌ ▤ │ │                                  ◆                                  │
+ │    │ │         No instances. Press n to create or i to import one.         │
+ │  ⇣ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ◷ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ◉ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ≡ │ │                                                                     │
+ │    │ │                                                                     │
+ │  ◫ │ │                                                                     │
+ │    │ │                                                                     │
+ │    │ │                                                                     │
+ │    │ │                                                                     │
+ │    │ │                                                                     │
+ ╰────╯ ╰─────────────────────────────────────────────────────────────────────╯
+  Enter  Details   l  Launch   n  New   i  Import   I  Import modpack
+  r  Rename   d  Remove   ?  Help   Tab  Next page   q  Quit
+  · Ready                                                                 ↻ 0s

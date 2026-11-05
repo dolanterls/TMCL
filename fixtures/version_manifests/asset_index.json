@@ -1,0 +1,8 @@
+{
+  "objects": {
+    "example/resource.txt": {
+      "hash": "abcdef",
+      "size": 6
+    }
+  }
+}

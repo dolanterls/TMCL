@@ -1,0 +1,24 @@
+ TMCL  0.3.0
+ Home   Inst   Down   Tasks   Acct   Logs   Set
+ ──────────────────────────────────────────────────────────────────────────────
+ 3 instances
+
+
+   Create Above and Beyond
+   1.21.4 · NeoForge 21.1.247
+   Ready · 2h
+
+   Better MC
+   1.20.1 · Forge 47.3.0
+   Ready · 30m
+
+   All the Mods 10
+   1.21.1 · NeoForge 21.1.72
+   Installing · 0m
+
+
+
+
+
+ Enter Details   l Launch   n New   i Import   ? Help   Tab Next page   q Quit
+ ● Ready

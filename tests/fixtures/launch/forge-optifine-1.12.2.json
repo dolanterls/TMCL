@@ -1,0 +1,21 @@
+{
+  "id": "1.12.2-forge-14.23.5.2860",
+  "type": "release",
+  "mainClass": "net.minecraft.launchwrapper.Launch",
+  "libraries": [
+    {
+      "name": "net.minecraftforge:forge:1.12.2-14.23.5.2860",
+      "downloads": {
+        "artifact": {
+          "path": "net/minecraftforge/forge/1.12.2-14.23.5.2860/forge-1.12.2-14.23.5.2860-universal.jar",
+          "url": "https://example.invalid/forge-universal.jar",
+          "sha1": "6666666666666666666666666666666666666666"
+        }
+      }
+    }
+  ],
+  "arguments": {
+    "game": ["--tweakClass", "optifine.OptiFineForgeTweaker"],
+    "jvm": []
+  }
+}
