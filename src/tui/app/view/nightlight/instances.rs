@@ -260,7 +260,7 @@ impl App {
             return;
         }
         // The clamp used by the wheel lives on `App`; a pane that never sets it
-        // swallows every notch because the maximum stays at zero.
+        // receives no scroll input because the maximum stays at zero.
         let max = widgets::detail_pane(frame, inner, self.detail_lines(), self.pane_scroll, pal);
         self.pane_max_scroll.set(max);
     }

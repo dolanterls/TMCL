@@ -95,10 +95,7 @@ impl App {
         if facts_width < 20 {
             return;
         }
-        let loader = match &item.loader_version {
-            Some(version) => format!("{} {version}", self.loader_label(&item.loader)),
-            None => self.loader_label(&item.loader),
-        };
+        let loader = self.instance_loader_text(item);
         let account = self
             .current_account()
             .map_or_else(|| self.i18n.text("common.none"), |account| account.username);
@@ -112,13 +109,21 @@ impl App {
                 || self.i18n.text("overview.no_runtime"),
                 |java| format!("Java {}", java.major),
             );
+        // The instance the launcher will start says `当前`, not `就绪`: the
+        // same swap classic, creeper, nightlight and paper make.
+        let (status, status_color) = if self.shelf_marks_current(item) {
+            (self.i18n.text("common.current"), pal.accent)
+        } else {
+            (localize_instance_status(&item.status, &self.i18n), pal.text)
+        };
         let facts = [
-            (self.i18n.text("overview.version"), item.version.clone()),
-            (self.i18n.text("overview.loader"), loader),
             (
-                self.i18n.text("overview.status"),
-                localize_instance_status(&item.status, &self.i18n),
+                self.i18n.text("overview.version"),
+                item.version.clone(),
+                pal.text,
             ),
+            (self.i18n.text("overview.loader"), loader, pal.text),
+            (self.i18n.text("overview.status"), status, status_color),
             (
                 self.i18n.text("overview.launches_time"),
                 format!(
@@ -126,11 +131,16 @@ impl App {
                     item.launch_count,
                     format_play_time(item.play_time_seconds)
                 ),
+                pal.text,
             ),
-            (self.i18n.text("overview.current_account"), account),
-            (self.i18n.text("shell.java"), java.clone()),
+            (
+                self.i18n.text("overview.current_account"),
+                account,
+                pal.text,
+            ),
+            (self.i18n.text("shell.java"), java.clone(), pal.text),
         ];
-        for (row, (label, value)) in facts.iter().enumerate() {
+        for (row, (label, value, color)) in facts.iter().enumerate() {
             let y = facts_y.saturating_add(row as u16);
             if y >= area.bottom() {
                 return;
@@ -140,6 +150,7 @@ impl App {
                 Rect::new(facts_x, y, facts_width, 1),
                 label,
                 value,
+                *color,
                 pal,
             );
         }
@@ -172,6 +183,7 @@ impl App {
                 Rect::new(facts_x, y, facts_width, 1),
                 label,
                 value,
+                pal.text,
                 pal,
             );
         }
@@ -183,6 +195,7 @@ impl App {
         area: Rect,
         label: &str,
         value: &str,
+        value_color: ratatui::style::Color,
         pal: &Palette,
     ) {
         let label_width = crate::tui::palette::width(label);
@@ -194,7 +207,7 @@ impl App {
                 Span::styled(label.to_owned(), Style::default().fg(pal.faint).bg(pal.bg)),
                 Span::styled(
                     format!("  {}", truncate(value, room)),
-                    Style::default().fg(pal.text).bg(pal.bg),
+                    Style::default().fg(value_color).bg(pal.bg),
                 ),
             ]))
             .style(Style::default().bg(pal.bg)),

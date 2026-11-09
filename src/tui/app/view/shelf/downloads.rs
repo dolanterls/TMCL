@@ -1,11 +1,10 @@
 //! `shelf` download centre: a full-width catalogue with a record column.
 //!
-//! The head is four rows — categories with the position on the right, a rule,
-//! the search line, a second rule — and the list below it is one of three
-//! shapes: game versions, the project index, or one project's files. Only the
-//! project index keeps a record column: the file table already says what the
-//! record would (channel, dependencies, compatibility), and the version rows
-//! carry their own date and type.
+//! The head is four rows: categories with the position on the right, a rule, the
+//! search line, a second rule. The list below is game versions, the project
+//! index, or one project's files. Only the index keeps a record column; the file
+//! table already says what the record would, and version rows carry their own
+//! date and type.
 
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
@@ -264,8 +263,8 @@ impl App {
     }
 
     /// Version list: id, kind, release date. Drawn whole and windowed by
-    /// `RowWindow::Versions`, exactly like `paper` — pre-slicing with
-    /// `version_scroll` puts the wheel and the painter on two different rows.
+    /// `RowWindow::Versions`, as in `paper`; pre-slicing with `version_scroll`
+    /// puts the wheel and the painter on two different rows.
     fn shelf_download_versions(&self, frame: &mut Frame<'_>, list: Rect, pal: &Palette) {
         let indices = self.filtered_version_indices();
         let selected = self.version_selected.min(indices.len().saturating_sub(1));
@@ -382,10 +381,10 @@ impl App {
 
     /// The second level: one project's files.
     ///
-    /// The columns are the other presets' file table — channel, dependency
+    /// The columns match the other presets' file table: channel, dependency
     /// count, compatibility. The compatibility column keeps its colour on the
-    /// selected row, which is why a row here is banded rather than filled with
-    /// the accent: `ERROR` on `ACCENT` is about 1.6:1.
+    /// selected row, so the row is banded rather than filled with the accent;
+    /// `ERROR` on `ACCENT` is about 1.6:1.
     fn shelf_download_files(&self, frame: &mut Frame<'_>, list: Rect, pal: &Palette) {
         let selected = self
             .download_center
@@ -414,13 +413,18 @@ impl App {
         }
 
         let targeted = self.download_center.category.targets_instance();
-        let compatibility_width = self
-            .compatibility_column_width()
-            .max(palette::width(&self.i18n.text("download.compatibility")) as u16);
-        let dependencies_width = if targeted {
-            self.dependencies_column_width()
+        // A modpack builds an instance of its own: there is no target to
+        // compare its files against and no dependency list to count, so both
+        // columns go. `paper` has always done this; shelf kept printing
+        // `兼容性 未知` down the whole list.
+        let (compatibility_width, dependencies_width) = if targeted {
+            (
+                self.compatibility_column_width()
+                    .max(palette::width(&self.i18n.text("download.compatibility")) as u16),
+                self.dependencies_column_width(),
+            )
         } else {
-            0
+            (0, 0)
         };
         let channel_width = self.channel_column_width();
 
@@ -517,28 +521,29 @@ impl App {
                     Rect::new(dependencies_x, rect.y, dependencies_width, 1),
                 );
             }
-            let state =
-                crate::core::resource::compatibility::file_compatibility(file, target.as_ref());
-            let colour = match state {
-                Compatibility::Compatible => pal.ok,
-                Compatibility::Unknown => pal.faint,
-                Compatibility::Incompatible => pal.error,
-            };
-            frame.render_widget(
-                Paragraph::new(Span::styled(
-                    localize_compatibility(state, &self.i18n),
-                    Style::default().fg(colour).bg(bg),
-                ))
-                .alignment(Alignment::Right),
-                Rect::new(compatibility_x, rect.y, compatibility_width, 1),
-            );
+            if compatibility_width > 0 {
+                let state =
+                    crate::core::resource::compatibility::file_compatibility(file, target.as_ref());
+                let colour = match state {
+                    Compatibility::Compatible => pal.ok,
+                    Compatibility::Unknown => pal.faint,
+                    Compatibility::Incompatible => pal.error,
+                };
+                frame.render_widget(
+                    Paragraph::new(Span::styled(
+                        localize_compatibility(state, &self.i18n),
+                        Style::default().fg(colour).bg(bg),
+                    ))
+                    .alignment(Alignment::Right),
+                    Rect::new(compatibility_x, rect.y, compatibility_width, 1),
+                );
+            }
         }
     }
 
     /// The record column: the same `detail_lines()` the detail sheet prints, so
     /// author, project id, downloads, versions, loaders, tags and the summary
-    /// are all here — a reduced card of its own would quietly lose half of
-    /// them.
+    /// are all here. A reduced card of its own would drop half of them.
     fn shelf_download_record(&self, frame: &mut Frame<'_>, area: Rect, pal: &Palette) {
         if area.width < 8 || area.height < 4 {
             return;
@@ -547,8 +552,9 @@ impl App {
         if inner.height == 0 {
             return;
         }
-        let paragraph =
-            Paragraph::new(self.styled_detail_lines(self.shelf_theme())).wrap(Wrap { trim: false });
+        let paragraph = Paragraph::new(self.styled_detail_lines(self.shelf_theme(), pal.dim))
+            .style(Style::default().fg(pal.dim).bg(pal.bg))
+            .wrap(Wrap { trim: false });
         let total = paragraph.line_count(inner.width);
         let max_scroll = total.saturating_sub(usize::from(inner.height));
         self.pane_max_scroll.set(max_scroll);

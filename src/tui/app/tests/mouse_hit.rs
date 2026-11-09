@@ -132,9 +132,9 @@ fn clicking_inside_the_help_card_keeps_it_open() {
     app.help_open = true;
     draw(&app);
 
-    // The blocker has to cover the card the painter actually draws, not the
-    // 16-row default: clicking the lower half of the reference used to count
-    // as an outside click and closed it.
+    // The blocker has to cover the card the painter draws, not the 16-row
+    // default: with the default, clicking the lower half of the reference counts
+    // as an outside click and closes it.
     let rect = crate::tui::app::view::help_rect(Rect::new(0, 0, WIDTH, HEIGHT), &app.help_lines());
     click(&mut app, rect.x + 2, rect.y + 2);
     assert!(app.help_open, "the top of the card is inside it");
@@ -318,7 +318,7 @@ fn a_click_on_a_drawn_row_selects_that_row() {
             })
             .copied();
         // With two instances the second row may be off-screen in the smallest
-        // layouts; only click it when the frame actually offered it.
+        // layouts; only click it when the frame offered it.
         if let Some(row) = row {
             click(&mut app, row.rect.x + 1, row.rect.y);
             assert_eq!(app.instances.focused, 1, "{preset:?}");
@@ -418,10 +418,10 @@ fn shelf_instance_cards_are_clickable_at_their_drawn_rows() {
 
 /// A click on a row that is already on screen must not move the list.
 ///
-/// The window used to be derived from the selection alone, so picking any row
-/// above the last visible one re-anchored the whole list: the clicked row slid
-/// down to the bottom edge and the row under the pointer changed. Every preset
-/// shares this contract.
+/// A window derived from the selection alone re-anchors the whole list when the
+/// reader picks any row above the last visible one: the clicked row slides to the
+/// bottom edge and the row under the pointer changes. Every preset shares this
+/// contract.
 #[test]
 fn clicking_a_drawn_row_leaves_the_instance_list_where_it_is() {
     for preset in UiPreset::ALL {
@@ -891,8 +891,8 @@ fn both_step_arrows_are_drawn_under_their_hit_boxes() {
     app.settings.select_category(SettingsCategory::Appearance);
     draw(&app);
 
-    // A short value used to leave `›` right after the text while its two
-    // clickable cells sat on blank space at the end of the row.
+    // A short value leaves `›` right after the text, so its two clickable cells
+    // must sit there rather than on blank space at the end of the row.
     for (by, glyph) in [(-1i8, '‹'), (1, '›')] {
         let hitbox = app
             .hitmap
@@ -1218,8 +1218,8 @@ fn version_picker_chips_and_search_are_clickable_and_hover() {
         );
 
         // The click toggled the filter, so the chip has to look different on the
-        // next frame. `nightlight` used to accept keys `1`-`4` without drawing
-        // any chip at all, which made the filter state invisible.
+        // next frame. A preset that accepts keys `1`-`4` without drawing a chip
+        // leaves the filter state invisible.
         draw_sized(&app, 120, 40);
         assert_ne!(
             row_colours(&app, chip),
@@ -2165,9 +2165,9 @@ fn the_closing_settings_arrow_is_a_click_target() {
 
 /// The category row is the pointer's way to switch the download source.
 ///
-/// The click really changes the category, which starts a source search; that
-/// needs a Tokio context, so the test carries one instead of asserting the hit
-/// value alone.
+/// The click changes the category, which starts a source search. That needs a
+/// Tokio context, so the test carries one instead of asserting the hit value
+/// alone.
 #[tokio::test]
 async fn shelf_category_labels_switch_the_download_category() {
     use crate::core::resource::model::ResourceKind;
@@ -2199,7 +2199,7 @@ async fn shelf_category_labels_switch_the_download_category() {
     );
 }
 
-/// A task entry is two rows tall and the whole entry is the target — clicking
+/// A task entry is two rows tall and the whole entry is the target, so clicking
 /// the progress line selects the job above it.
 #[test]
 fn shelf_task_entries_are_clickable_as_a_block() {
@@ -2455,4 +2455,139 @@ fn the_shelf_help_card_blocks_the_page_behind_it() {
     click(&mut app, tab.x, tab.y);
     assert!(!app.help_open, "a click outside the card closes it");
     assert_eq!(app.page, Page::Instances, "and never reaches the page");
+}
+
+/// A picker's foot is a key row, not a sentence.
+///
+/// A sentence there (`↑/↓：选择 … Esc：返回`) leaves the one row of the dialog that
+/// looks like buttons as plain text, so `Esc` closes the list from the keyboard
+/// and does nothing under the pointer. All five presets paint the same caps and
+/// register them; this walks every preset to prove the cap is printed where it
+/// can be clicked.
+#[test]
+fn a_picker_foot_cap_closes_the_list_in_every_preset() {
+    use crate::tui::action::ModalAct;
+    use crate::tui::modal::{FormAction, Modal};
+
+    for preset in UiPreset::ALL {
+        let mut app = instances_app(1);
+        app.config.state.ui.preset = preset;
+        let mut modal = Modal::form(
+            "Choose",
+            &["Target"],
+            &[String::new()],
+            FormAction::SelectResourceTarget,
+        )
+        .with_selection_picker(0, vec!["alpha".to_owned(), "beta".to_owned()]);
+        assert!(modal.open_selection_picker(0), "{preset:?}: open the list");
+        app.modal = Some(modal);
+        draw(&app);
+
+        let cap = app
+            .hitmap
+            .hitboxes()
+            .iter()
+            .rev()
+            .find(|hitbox| hitbox.action == Action::Modal(ModalAct::CloseOptions))
+            .map(|hitbox| hitbox.rect)
+            .unwrap_or_else(|| panic!("{preset:?}: the picker foot offers no clickable Esc"));
+
+        let backend = TestBackend::new(WIDTH, HEIGHT);
+        let mut terminal = Terminal::new(backend).expect("create test terminal");
+        terminal.draw(|frame| app.draw(frame)).expect("draw app");
+        let buffer = terminal.backend().buffer();
+        let row = (0..WIDTH)
+            .map(|column| buffer[(column, cap.y)].symbol())
+            .collect::<String>();
+        assert!(
+            row.contains("Esc"),
+            "{preset:?}: the cap is clickable on a row that does not print it: {row:?}"
+        );
+
+        click(&mut app, cap.x + 1, cap.y);
+        match app.modal.as_ref() {
+            Some(Modal::Form {
+                selection_picker_open,
+                ..
+            }) => assert_eq!(
+                *selection_picker_open, None,
+                "{preset:?}: the Esc cap must close the list"
+            ),
+            other => panic!("{preset:?}: the dialog must stay open, got {other:?}"),
+        }
+    }
+}
+
+/// Hovering a key cap tints the cap, not the row that shares its action.
+///
+/// A picker's `Enter` cap and the option it would choose are both
+/// `Modal(Option(selected))`. Looking the rectangle up by action alone takes
+/// whichever box was registered last, so the pointer sits on `Enter` and the first
+/// row of the list lights up.
+#[test]
+fn hovering_a_picker_cap_tints_the_cap_and_not_the_option() {
+    use crate::tui::action::ModalAct;
+    use crate::tui::modal::{FormAction, Modal};
+
+    for preset in UiPreset::ALL {
+        let mut app = instances_app(1);
+        app.config.state.ui.preset = preset;
+        let mut modal = Modal::form(
+            "Choose",
+            &["Target"],
+            &[String::new()],
+            FormAction::SelectResourceTarget,
+        )
+        .with_selection_picker(0, vec!["alpha".to_owned(), "beta".to_owned()]);
+        assert!(modal.open_selection_picker(0), "{preset:?}: open the list");
+        app.modal = Some(modal);
+        draw(&app);
+
+        // Both the cap and the highlighted row act on option 0; the cap is the
+        // one nearest the foot of the card.
+        let mut boxes = app
+            .hitmap
+            .hitboxes()
+            .into_iter()
+            .filter(|hitbox| hitbox.action == Action::Modal(ModalAct::Option(0)))
+            .map(|hitbox| hitbox.rect)
+            .collect::<Vec<_>>();
+        boxes.sort_by_key(|rect| rect.y);
+        assert!(
+            boxes.len() >= 2,
+            "{preset:?}: the cap and the option row must both be registered"
+        );
+        let (row, cap) = (boxes[0], *boxes.last().expect("nearest the foot"));
+
+        let plain = frame_buffer(&app);
+        mouse(&mut app, MouseEventKind::Moved, cap.x + 1, cap.y);
+        let tinted = frame_buffer(&app);
+
+        assert!(
+            region_changed(&plain, &tinted, cap),
+            "{preset:?}: hovering the Enter cap changed nothing"
+        );
+        assert!(
+            !region_changed(&plain, &tinted, row),
+            "{preset:?}: the first option row lit up instead of the cap"
+        );
+    }
+}
+
+fn frame_buffer(app: &App) -> ratatui::buffer::Buffer {
+    let backend = TestBackend::new(WIDTH, HEIGHT);
+    let mut terminal = Terminal::new(backend).expect("create test terminal");
+    terminal.draw(|frame| app.draw(frame)).expect("draw app");
+    terminal.backend().buffer().clone()
+}
+
+fn region_changed(
+    before: &ratatui::buffer::Buffer,
+    after: &ratatui::buffer::Buffer,
+    rect: Rect,
+) -> bool {
+    (rect.top()..rect.bottom()).any(|y| {
+        (rect.left()..rect.right())
+            .any(|x| before[(x, y)].fg != after[(x, y)].fg || before[(x, y)].bg != after[(x, y)].bg)
+    })
 }

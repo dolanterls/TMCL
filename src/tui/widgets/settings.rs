@@ -120,10 +120,9 @@ pub fn step_cell(row: &SettingRow) -> Option<String> {
 
 /// The two glyph cells of one steppable row, in screen coordinates.
 ///
-/// The table left-aligns the value cell, so the closing `›` sits right after
-/// the text — placing its target at the far edge of the column put the box
-/// dozens of cells away from the glyph it advertises, which is why `›` looked
-/// dead while `‹` worked.
+/// The table left-aligns the value cell, so the closing `›` sits right after the
+/// text. A target at the far edge of the column would sit dozens of cells from
+/// the glyph it advertises.
 pub fn step_targets(value: Rect, row: &SettingRow, y: u16) -> Option<(Rect, Rect)> {
     let text = step_cell(row)?;
     if value.width < 3 {

@@ -1,11 +1,10 @@
 //! Reusing the Minecraft access token between launches.
 //!
-//! Every Microsoft launch used to run the whole chain: OAuth refresh → Xbox
-//! Live → XSTS → `login_with_xbox` → entitlements → profile. That is six
-//! requests per launch, and `login_with_xbox` is rate limited — a handful of
-//! relaunches in a row is enough to earn HTTP 429 (it is in the launcher log),
-//! and any transient failure anywhere in the chain aborts the launch even
-//! though the token from the previous launch was still valid.
+//! The full chain is OAuth refresh → Xbox Live → XSTS → `login_with_xbox` →
+//! entitlements → profile: six requests per launch. `login_with_xbox` is rate
+//! limited, so a handful of relaunches in a row earns HTTP 429, and any transient
+//! failure anywhere in the chain aborts the launch even though the token from the
+//! previous launch was still valid.
 //!
 //! The token lives for about a day, so keep it in the secret store and reuse
 //! it until it is nearly expired. Only an expiring token pays for the chain.
@@ -153,7 +152,7 @@ mod tests {
 
         // Too close to expiry to survive a launch.
         assert!(cached(&store, &account, 10_000 - EXPIRY_MARGIN_SECS).is_none());
-        // And long expired, obviously.
+        // And far past expiry.
         assert!(cached(&store, &account, 20_000).is_none());
 
         std::fs::remove_dir_all(root).ok();

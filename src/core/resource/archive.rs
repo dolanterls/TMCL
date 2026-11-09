@@ -1,17 +1,15 @@
 //! Opening modpack archives without rejecting otherwise readable packs.
 //!
 //! `zip` refuses a whole archive when the optional Info-ZIP Unicode Path extra
-//! field (0x7075) carries a CRC that does not match the stored name, and then
-//! reports the failure as `Could not find EOCD` — indistinguishable from a
-//! truncated download. Packers do get that CRC wrong: they compute it over a
-//! different encoding of the name than the one they finally write, so packs
-//! made on Windows can carry dozens of stale checksums. Every other reader
-//! (Explorer, 7-Zip, PCL2, HMCL) ignores the field, which is why those packs
-//! open everywhere but here.
+//! field (0x7075) carries a CRC that does not match the stored name, and reports
+//! the failure as `Could not find EOCD`, indistinguishable from a truncated
+//! download. Packers do get that CRC wrong: they compute it over a different
+//! encoding of the name than the one they write, so packs made on Windows carry
+//! dozens of stale checksums. Explorer, 7-Zip, PCL2 and HMCL ignore the field,
+//! so those packs open everywhere but here.
 //!
-//! The field is redundant whenever the name it describes is already stored in
-//! the record, so recovery is just rewriting the four CRC bytes that make it
-//! consistent. Nothing else in the archive moves: local headers, data offsets
+//! The field is redundant whenever the name it describes is already stored in the
+//! record, so recovery is rewriting the four CRC bytes that make it consistent. Nothing else in the archive moves: local headers, data offsets
 //! and the central directory length stay exactly as they were.
 
 use std::fs::{File, OpenOptions};
@@ -48,8 +46,8 @@ fn open_once(path: &Path) -> Result<zip::ZipArchive<File>> {
     zip::ZipArchive::new(file).map_err(|error| {
         let text = error.to_string();
         // `zip` reports every central-directory problem as a missing end record,
-        // so a packer's broken extra field reads exactly like a half-downloaded
-        // file. Say what the reader can actually verify.
+        // so a packer's broken extra field reads like a half-downloaded file. Say
+        // what the reader can verify.
         if text.contains("Could not find EOCD") {
             Error::Download(format!(
                 "read modpack archive: no end record — the file is truncated, still downloading, or not a ZIP ({text})"
@@ -235,8 +233,8 @@ mod tests {
         out
     }
 
-    /// A 0x7075 field whose checksum does not match `name` — what packers that
-    /// hash the pre-conversion name leave behind.
+    /// A 0x7075 field whose checksum does not match `name`: what packers that hash
+    /// the pre-conversion name leave behind.
     fn stale_unicode_path(name: &[u8], stored_crc: u32) -> Vec<u8> {
         let mut field = Vec::new();
         field.extend_from_slice(&0x7075u16.to_le_bytes());

@@ -6,10 +6,9 @@
 //! array stays empty on purpose: the mods are inside the archive, not fetched
 //! from a CDN, which is what makes the export usable offline.
 //!
-//! The `tmcl.json` entry is reference material for other tools. Importers must
-//! not copy it over the destination instance — `extract_modpack_archive` skips
-//! that name so a pack cannot overwrite the identity of the instance it is
-//! installed into.
+//! The `tmcl.json` entry is reference material for other tools. Importers must not
+//! copy it over the destination instance: `extract_modpack_archive` skips that name
+//! so a pack cannot overwrite the identity of the instance it is installed into.
 
 use std::fs::{self, File};
 use std::io;

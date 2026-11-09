@@ -1,0 +1,1 @@
+[stdout] java.lang.NoSuchMethodError: 'no such method: sun.misc.Unsafe.defineAnonymousClass(Class,byte[],Object[])Class/invokeVirtual'

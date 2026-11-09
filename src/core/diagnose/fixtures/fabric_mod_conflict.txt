@@ -1,0 +1,1 @@
+[stdout] ModResolutionException: Found conflicting mods: create conflicts with flywheel

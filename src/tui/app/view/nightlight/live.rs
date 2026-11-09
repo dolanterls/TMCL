@@ -1,8 +1,8 @@
 //! The warm accent curve used by the `live` theme.
 //!
-//! This is a clock, not a sunrise calculation: the screen simply gets warmer as
-//! the day ends. Two smoothstep ramps move the colour temperature between a
-//! candle-lit 2400 K and a neutral 4300 K; everything in between is flat.
+//! This is a clock, not a sunrise calculation: the accent warms as the day ends.
+//! Two smoothstep ramps move the colour temperature between a candle-lit 2400 K
+//! and a neutral 4300 K; everything in between is flat.
 //!
 //! Clean-room notice: the black-body approximation below is a textbook fit
 //! reimplemented from the published formula, not lifted from `nightlightd`.

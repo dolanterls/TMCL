@@ -1,0 +1,1 @@
+[stderr] There is insufficient memory for the Java Runtime Environment to continue

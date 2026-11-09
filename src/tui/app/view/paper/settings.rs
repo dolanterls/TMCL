@@ -31,8 +31,8 @@ impl App {
             return;
         }
         if self.is_narrow() {
-            // One folded line stands in for the rail: the categories are still
-            // reachable by mouse, they just do not get a column.
+            // One folded line stands in for the rail: the categories stay
+            // reachable by mouse without a column of their own.
             let strip = Rect::new(area.x, area.y, area.width, 1);
             self.paper_settings_strip(frame, strip, pal);
             kit::rule(
@@ -114,9 +114,8 @@ impl App {
             .map(|(_, _, _, width)| *width)
             .sum::<u16>()
             .saturating_add(u16::try_from(entries.len().saturating_sub(1)).unwrap_or(0));
-        // Seven names do not fit every terminal. Start at the current one so the
-        // reader can see where they are, rather than showing the first four and
-        // hiding the category they just switched to.
+        // Seven names do not fit every terminal. Start at the current one rather
+        // than showing the first four and hiding the category the reader picked.
         let start = if required > area.width {
             let current = entries
                 .iter()

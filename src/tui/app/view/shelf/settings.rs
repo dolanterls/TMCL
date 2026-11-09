@@ -2,8 +2,8 @@
 //!
 //! Values sit on the right edge; the ones that answer to `←/→` are wrapped in
 //! `‹ ›` so the glyphs and the click targets are the same two cells. The
-//! footnote under the list explains the highlighted row and prints the key that
-//! operates it — a hint inside the row would jump around with the selection.
+//! footnote explains the highlighted row and prints its key, because a hint
+//! inside the row would move with the selection.
 
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
@@ -450,8 +450,8 @@ impl App {
                 String::new()
             };
             let marker_width = palette::width(&marker) as u16;
-            // Only reserve the marker column when there is a marker; a plain
-            // row keeps the two cells it used to have.
+            // Only reserve the marker column when there is a marker; a plain row
+            // keeps two cells of gap.
             let marker_gap = if marker_width > 0 { 2 } else { 0 };
             let name_x = rect.x.saturating_add(TEXT_INSET);
             let name_width = rect

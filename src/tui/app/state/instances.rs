@@ -34,17 +34,48 @@ impl App {
         labels
     }
 
-    /// Display name of a loader. Only Vanilla has a translated name — the rest
-    /// are brand names — but the mapping belongs in one place so the filter
-    /// tabs, the list rows and the detail pane cannot drift apart.
+    /// Display name of a loader. Only Vanilla has a translated name; the rest are
+    /// brand names. The mapping belongs in one place so the filter tabs, the list
+    /// rows and the detail pane cannot drift apart.
     ///
-    /// The comparison stays on the canonical English spelling, which is also
-    /// what the loader filter matches against.
+    /// The comparison stays on the canonical English spelling, which is also what
+    /// the loader filter matches against.
     pub(in crate::tui::app) fn loader_label(&self, loader: &str) -> String {
         if loader.eq_ignore_ascii_case("vanilla") {
             self.i18n.text("loader.vanilla")
         } else {
             loader.to_owned()
+        }
+    }
+
+    /// `原版` / `Fabric 0.16.5`, an instance's loader ready to print.
+    ///
+    /// One implementation for four screens: with four copies of "loader, plus the
+    /// version when there is one", some skipped [`Self::loader_label`] and
+    /// `Vanilla` surfaced untranslated in the current-instance block.
+    pub(in crate::tui::app) fn instance_loader_text(
+        &self,
+        item: &crate::tui::pages::instances::InstanceSummary,
+    ) -> String {
+        match item.loader_version.as_deref() {
+            Some(version) => format!("{} {version}", self.loader_label(&item.loader)),
+            None => self.loader_label(&item.loader),
+        }
+    }
+
+    /// The same line for the workspace's draft loader, which is not a summary
+    /// yet; the install screen prints it before anything is written.
+    pub(in crate::tui::app) fn draft_loader_text(
+        &self,
+        loader: &crate::core::instance::models::InstanceLoader,
+    ) -> String {
+        use crate::core::instance::models::InstanceLoader;
+        match loader {
+            InstanceLoader::Vanilla => self.i18n.text("loader.vanilla"),
+            InstanceLoader::Fabric { version } => format!("Fabric {version}"),
+            InstanceLoader::Quilt { version } => format!("Quilt {version}"),
+            InstanceLoader::Forge { version } => format!("Forge {version}"),
+            InstanceLoader::NeoForge { version } => format!("NeoForge {version}"),
         }
     }
 
@@ -129,6 +160,17 @@ impl App {
             .first()
             .map(|path| display_path(path))
             .unwrap_or_default();
+        // `原版|vanilla`: the field prints the translated name, the value stays
+        // the code the loader parser reads. The other four are brand names, so
+        // their display text is already the value and needs no bar.
+        let loader_option = |code: &str| {
+            let label = self.loader_label(code);
+            if label == code {
+                code.to_owned()
+            } else {
+                format!("{label}|{code}")
+            }
+        };
         let mut modal = Modal::form(
             self.i18n.text("form.create_instance"),
             &[
@@ -142,7 +184,7 @@ impl App {
                 game_directory,
                 String::new(),
                 version,
-                "vanilla".into(),
+                loader_option("vanilla"),
                 String::new(),
             ],
             FormAction::CreateInstance,
@@ -153,7 +195,7 @@ impl App {
             CREATE_LOADER_FIELD,
             ["vanilla", "fabric", "quilt", "forge", "neoforge"]
                 .into_iter()
-                .map(str::to_owned)
+                .map(loader_option)
                 .collect(),
         )
         .with_selection_picker(CREATE_LOADER_VERSION_FIELD, Vec::new());

@@ -267,9 +267,9 @@ pub fn sidebar_nav_rect(sidebar: Rect) -> Rect {
     )
 }
 
-/// The framed shell. The footer is a two-band block: key hints on top, the
-/// status line underneath — the same rhythm `creeper` and `nightlight` use, so
-/// switching presets does not move the status bar.
+/// The framed shell. The footer is a two-band block: key hints on top, the status
+/// line underneath, the same rhythm `creeper` and `nightlight` use, so switching
+/// presets does not move the status bar.
 pub fn layout_chrome(area: Rect) -> ChromeRegions {
     layout_chrome_with_footer(area, 2)
 }
@@ -447,10 +447,9 @@ pub const SHELF_WORDMARK_COLS: u16 = 16;
 /// Rows the `shelf` head takes: the wordmark on every size class that can
 /// spare four rows.
 ///
-/// `Compact` used to collapse to a single text line, which meant a 120×35
-/// terminal — four rows short of `Full` — showed a small `TMCL 0.3.0` where the
-/// mark belongs, with two thirds of the screen empty underneath. Four rows out
-/// of thirty still leaves the pages their room; `Narrow` keeps the plain line
+/// `Compact` collapses to a single text line only when the page cannot spare the
+/// rows; a 120×35 terminal, four rows short of `Full`, keeps the mark. Four rows
+/// out of thirty still leaves the pages their room; `Narrow` keeps the plain line
 /// because at 80×24 the block face would eat a quarter of the page and the
 /// cover column is gone at that width anyway.
 pub fn shelf_header_rows(mode: LayoutMode) -> u16 {
@@ -677,7 +676,7 @@ mod tests {
         assert_eq!(regions.body.bottom(), regions.footer.y);
         assert_eq!(regions.main, regions.body);
 
-        // A narrow terminal still gets a page, just with a two-cell margin.
+        // A narrow terminal still gets a page, with a two-cell margin.
         let narrow = super::layout_chrome_paper(Rect::new(0, 0, 80, 24));
         assert_eq!(narrow.mode, LayoutMode::Narrow);
         assert_eq!(narrow.header.x, 1);
@@ -699,8 +698,8 @@ mod tests {
 
     #[test]
     fn shelf_compact_keeps_the_block_wordmark_and_its_context() {
-        // 120×35: four rows short of `Full`, and the page has room to spare —
-        // this size used to collapse to a single text line.
+        // 120×35: four rows short of `Full`, and the page has room to spare. This
+        // size keeps the block wordmark.
         let regions = super::layout_chrome_shelf(Rect::new(0, 0, 120, 35));
         assert_eq!(regions.mode, LayoutMode::Compact);
         assert_eq!(regions.header.height, 4);

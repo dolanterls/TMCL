@@ -1,0 +1,1 @@
+[stdout] java.lang.NoSuchMethodError: 'void sun.security.util.ManifestEntryVerifier.<init>(java.util.jar.Manifest)'

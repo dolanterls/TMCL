@@ -1,10 +1,10 @@
 //! World backups: zip in, zip out, nothing hidden.
 //!
-//! A world is a directory of regions, dat files and player data — copying it can
-//! take seconds and hundreds of megabytes, so every entry point here is meant to
-//! run off the UI thread. The archive lives inside the instance
-//! (`.tmcl-backups/`) so moving or exporting the instance carries its backups,
-//! and restores are always preceded by a safety backup.
+//! A world is a directory of regions, dat files and player data, so copying it can
+//! take seconds and hundreds of megabytes and every entry point here runs off the
+//! UI thread. The archive lives inside the instance (`.tmcl-backups/`), so moving
+//! or exporting the instance carries its backups, and a restore is always preceded
+//! by a safety backup.
 
 use std::fs::{self, File};
 use std::io;
@@ -35,8 +35,8 @@ pub fn backup_world(instance_root: &Path, world: &Path) -> Result<PathBuf> {
     let name = file_name(world)?;
     let directory = instance_root.join(BACKUP_DIR);
     fs::create_dir_all(&directory)?;
-    // Two backups of the same world inside one second would otherwise write to
-    // the same file — exactly what a restore does (safety copy, then unpack).
+    // Two backups of the same world inside one second would otherwise write to the
+    // same file, which is exactly what a restore does (safety copy, then unpack).
     let stamp = crate::core::content::trash::now_stamp();
     let mut path = directory.join(format!("{name}-{stamp}.zip"));
     let mut index = 2;

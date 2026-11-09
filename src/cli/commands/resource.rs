@@ -1,9 +1,8 @@
 //! The download centre: search, look at a project, install it.
 //!
 //! Every command here is three steps: build the service, ask `core` what would
-//! happen, print it. The decisions — which provider, which file, which
-//! destination — all live in `core::resource`, so a `--dry-run` and the real run
-//! cannot disagree.
+//! happen, print it. The decisions (which provider, which file, which destination)
+//! all live in `core::resource`, so a `--dry-run` and the real run cannot disagree.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

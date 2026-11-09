@@ -228,10 +228,7 @@ impl App {
                 ))),
                 version,
             );
-            let loader_text = item.loader_version.as_ref().map_or_else(
-                || item.loader.clone(),
-                |version| format!("{} {version}", item.loader),
-            );
+            let loader_text = self.instance_loader_text(item);
             frame.render_widget(
                 Paragraph::new(Line::from(Span::styled(
                     palette::truncate(&loader_text, usize::from(LOADER_W)),

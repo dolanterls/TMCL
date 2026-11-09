@@ -5,9 +5,9 @@
 //! switch plus one macro; the interesting part is *where* the hooks are, not how
 //! they write.
 //!
-//! Diagnostics never go to stdout: `tmcl … --json | jq` must keep working even
-//! while someone is debugging it. The TUI does not enable them either — stderr
-//! is the screen while it runs, and one diagnostic line is a torn frame.
+//! Diagnostics never go to stdout: `tmcl … --json | jq` must keep working while
+//! someone is debugging it. The TUI does not enable them either, because stderr is
+//! the screen while it runs and one diagnostic line is a torn frame.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -44,10 +44,10 @@ pub fn emit(scope: &str, message: std::fmt::Arguments<'_>) {
     }
 }
 
-/// `diagnostic!("http", "GET {url}")` — a no-op unless diagnostics are on.
+/// `diagnostic!("http", "GET {url}")`: a no-op unless diagnostics are on.
 ///
-/// The formatting arguments are only evaluated when the switch is on, so a hot
-/// path does not pay for messages nobody asked to see.
+/// The formatting arguments are evaluated only when the switch is on, so a hot path
+/// does not pay for messages nobody asked to see.
 macro_rules! diagnostic {
     ($scope:literal, $($arg:tt)*) => {
         if $crate::core::diagnostics::enabled() {
@@ -66,7 +66,7 @@ mod tests {
     /// would race each other over the same atomic.
     ///
     /// `TMCL_LOG` is read but never written here: mutating the environment is
-    /// unsafe in edition 2024 and would leak into the other tests.
+    /// unsafe in edition 2024 and would reach the other tests.
     #[test]
     fn the_switch_controls_whether_a_line_is_written() {
         set_enabled(false);

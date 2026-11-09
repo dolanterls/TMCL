@@ -54,8 +54,8 @@ pub struct AssetIndexReference {
 pub struct Library {
     pub name: String,
     /// Platform rules. A library that only applies to another OS must not be
-    /// demanded here — `1.20.1` ships `java-objc-bridge`, which is macOS-only,
-    /// and requiring it made every instance look 88 files short on Windows.
+    /// demanded here: `1.20.1` ships `java-objc-bridge`, which is macOS-only, and
+    /// requiring it makes every instance look 88 files short on Windows.
     #[serde(default)]
     pub rules: Vec<ArgumentRule>,
     /// `{ "windows": "natives-windows-${arch}" }`, the same map the launcher

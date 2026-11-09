@@ -1,0 +1,1 @@
+[stdout] The directories below appear to be extracted jar files. Fix this before you continue

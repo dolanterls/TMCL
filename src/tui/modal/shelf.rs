@@ -254,9 +254,11 @@ impl Modal {
                 if body.is_empty() {
                     return;
                 }
-                // Two rows for the question, wrapped: the name of the thing
-                // about to be deleted is often longer than the slab.
-                let prompt_rows = body.height.min(2);
+                // Every row above the key line is available: `Modal::area`
+                // sized the card for the wrapped prompt, and a two-row cap
+                // clipped anything longer. The key row keeps its own row at the
+                // foot, so a long prompt can never push it out.
+                let prompt_rows = body.height.saturating_sub(1).max(1);
                 frame.render_widget(
                     Paragraph::new(Line::from(Span::styled(
                         prompt.as_str(),
@@ -678,27 +680,20 @@ impl Modal {
         }
         pad_to_bottom(&mut lines, body, 1);
         let picker_help = version_picker.filter(|picker| picker.field == field);
-        lines.push(Line::from(Span::styled(
-            match (picker_help, selection_states.get(&field)) {
-                (Some(picker), Some(SelectionState::Error(_))) if picker.editing_search => {
-                    i18n.text("modal.search_help")
-                }
-                (Some(_), Some(SelectionState::Error(_))) => i18n.text("modal.retry_filters_help"),
-                (_, Some(SelectionState::Error(_))) => i18n.text("modal.retry_help"),
-                (_, Some(SelectionState::Loading | SelectionState::Unavailable(_))) => {
-                    i18n.text("modal.back_help")
-                }
-                (Some(picker), _) if picker.editing_search => i18n.text("modal.search_help"),
-                (Some(_), _) => i18n.text("modal.filter_help"),
-                (None, _) if options.is_empty() => i18n.text("modal.load_retry_help"),
-                (None, _) => i18n.text("modal.choose_help"),
-            },
-            ink(pal, pal.faint),
-        )));
+        let (keys, acts) = super::picker_key_row(&super::picker_key_hints(
+            picker_help,
+            selection_states.get(&field),
+            selection_selected,
+            options.is_empty(),
+        ));
+        let key_line = lines.len();
+        let (row, caps) = shelf_key_row(i18n, pal, &keys, false);
+        lines.push(row);
         frame.render_widget(
             Paragraph::new(lines).style(Style::default().bg(pal.surface)),
             body,
         );
+        super::register_caps(hits, body, key_line, &caps, &acts);
         for (line, index) in &option_rows {
             hits.add(
                 Rect::new(

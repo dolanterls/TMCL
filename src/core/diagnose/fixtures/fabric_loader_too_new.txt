@@ -1,0 +1,1 @@
+[stdout] java.lang.NoClassDefFoundError: org/spongepowered/asm/mixin/transformer/FabricMixinTransformerProxy

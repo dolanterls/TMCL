@@ -1,4 +1,4 @@
-//! Brand header, gradient rule, sidebar, footer and floating toast.
+//! Brand header, gradient rule, sidebar, footer and status toasts.
 
 use crate::tui::app::view::sheet::Sheet;
 use ratatui::layout::{Alignment, Rect};
@@ -340,8 +340,8 @@ pub(in crate::tui::app) fn sidebar(
 /// Two-band footer, mirroring the Hot-RS launcher: key hints on top, a live
 /// status/log line underneath.
 ///
-/// The status band keeps its own row, so a long hint set can never push the
-/// last log message off screen — the layout grows downwards instead.
+/// The status band keeps its own row, so a long hint set cannot push the last
+/// log message off screen; the layout grows downwards instead.
 pub(in crate::tui::app) fn footer(
     app: &App,
     frame: &mut Frame<'_>,
@@ -526,11 +526,11 @@ fn hints_line(app: &App, hints: &[crate::tui::chrome::Hint]) -> Line<'static> {
     Line::from(spans)
 }
 
-/// Recent status messages as floating cards above the footer, sliding in and
-/// fading out. Rendering-only state: the status machine itself is untouched.
+/// Recent status messages as cards above the footer, sliding in and fading out.
+/// Rendering-only state: the status machine itself is untouched.
 ///
-/// Up to three distinct messages stack upwards; repeating the same text does
-/// not enqueue a new card.
+/// Up to three distinct messages stack upwards; repeating the same text does not
+/// enqueue a new card.
 pub(in crate::tui::app) fn toast(app: &App, frame: &mut Frame<'_>, t: f64) {
     if !app.motion {
         return;

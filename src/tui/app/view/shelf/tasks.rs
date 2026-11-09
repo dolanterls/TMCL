@@ -1,8 +1,8 @@
 //! `shelf` tasks: groups of two-row entries under a filter line.
 //!
 //! A task is a name with its state on the right, then a block bar under it.
-//! Failed jobs get a third row for the reason — the one line nobody should have
-//! to open a dialog to read.
+//! Failed jobs get a third row for the reason, which should not require opening
+//! a dialog.
 
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};

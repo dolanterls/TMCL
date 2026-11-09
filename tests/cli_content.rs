@@ -1,8 +1,10 @@
 //! End-to-end checks of `content`, `trash`, `world` and `mod`.
 //!
-//! The binary is run for real, so what is asserted is what a user sees: exit
-//! codes, stdout shape and the files left on disk. Each test owns a temporary
-//! `APPDATA` and game directory.
+//! The binary is run for real, so what is asserted is what a user sees: exit codes,
+//! stdout shape and the files left on disk. Each test owns a folder with a launcher
+//! of its own, and the launcher keeps its data next to itself.
+
+mod support;
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -17,16 +19,10 @@ struct Sandbox {
 
 impl Sandbox {
     fn new(tag: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "tmcl-content-{tag}-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("clock")
-                .as_nanos()
-        ));
+        let root = support::sandbox_root(&format!("tmcl-content-{tag}"));
+        support::install_launcher(&root);
         let instance = root.join("game").join("versions").join("demo");
         std::fs::create_dir_all(&instance).expect("instance dir");
-        std::fs::create_dir_all(root.join("appdata")).expect("appdata");
         std::fs::write(instance.join("demo.jar"), b"jar").expect("jar");
         std::fs::write(instance.join("demo.json"), CLIENT).expect("client json");
         std::fs::write(
@@ -69,8 +65,7 @@ impl Sandbox {
     }
 
     fn run(&self, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_tmcl"))
-            .env("APPDATA", self.root.join("appdata"))
+        Command::new(support::launcher_at(&self.root))
             .args(args)
             .output()
             .expect("run tmcl")

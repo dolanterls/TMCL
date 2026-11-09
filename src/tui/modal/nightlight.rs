@@ -17,7 +17,7 @@ use crate::tui::action::{Action, ModalAct, ScrollTarget};
 use crate::tui::app::view::nightlight::tone::Palette;
 use crate::tui::app::view::nightlight::widgets::{dialog_card, width};
 use crate::tui::hit::Hitmap;
-use crate::tui::palette::truncate;
+use crate::tui::palette::{truncate, wrap};
 
 use super::{
     Modal, SelectionState, VersionPickerState, selection_display, selection_picker_options,
@@ -349,15 +349,27 @@ fn confirm(
     if inner.is_empty() {
         return;
     }
+    // A prompt longer than the card must wrap rather than be cut mid-word: in a
+    // destructive dialog the object being deleted is exactly the part that would
+    // vanish. `Modal::area` sizes the card for these rows.
+    let lines = wrap(&format!("! {prompt}"), usize::from(inner.width).max(1));
+    let rows = u16::try_from(lines.len())
+        .unwrap_or(1)
+        .min(inner.height.saturating_sub(1))
+        .max(1);
     frame.render_widget(
-        Paragraph::new(Line::from(Span::styled(
-            // A prompt longer than the card used to be cut mid-word with no
-            // ellipsis, which is the worst case for a destructive dialog: the
-            // object being deleted was exactly the part that vanished.
-            truncate(&format!("! {prompt}"), usize::from(inner.width)),
-            Style::default().fg(pal.err).bg(pal.surface),
-        ))),
-        Rect::new(inner.x, inner.y + 1, inner.width, 1),
+        Paragraph::new(
+            lines
+                .into_iter()
+                .map(|line| {
+                    Line::from(Span::styled(
+                        line,
+                        Style::default().fg(pal.err).bg(pal.surface),
+                    ))
+                })
+                .collect::<Vec<_>>(),
+        ),
+        Rect::new(inner.x, inner.y + 1, inner.width, rows),
     );
     hints_row(
         frame,
@@ -477,15 +489,13 @@ fn checklist(
 
 /// The four version-category chips, one row under the search header.
 ///
-/// `nightlight` used to leave this row out and put the search field there
-/// instead, which made keys `1`-`4` (shared by all three presets) change a
-/// filter that nothing displayed. Returns whether the row was drawn, so the
-/// list can start below it.
+/// Keys `1`-`4` are shared by all three presets, so this row must be present:
+/// without it they change a filter that nothing displays. Returns whether the row
+/// was drawn, so the list can start below it.
 ///
-/// The row degrades rather than disappearing: counts are dropped when the
-/// dialog is too narrow for them, and only then the labels. All four chips stay
-/// visible and clickable at any width, because a hidden control is worse than
-/// a terse one.
+/// The row degrades rather than disappearing: counts are dropped when the dialog
+/// is too narrow, and only then the labels. All four chips stay visible and
+/// clickable at any width, because a hidden control is worse than a terse one.
 fn draw_filter_chips(
     frame: &mut Frame<'_>,
     inner: Rect,
@@ -635,13 +645,11 @@ fn picker(
         Paragraph::new(Line::from(header)).style(Style::default().bg(pal.surface)),
         header_rect,
     );
-    // The header doubles as the search field, so it has to take a click: `/`
-    // was the only way in, and a field you can see but not click is a dead
-    // control.
+    // The header doubles as the search field, so it has to take a click: `/` was
+    // the only way in, and a field that cannot be clicked is a dead control.
     hits.add(header_rect, Action::Modal(ModalAct::EditSearch));
-    // The chip row the other two presets draw. Without it, `1`-`4` toggled a
-    // filter that nothing on screen showed — the same "state exists, nothing
-    // renders it" bug the classic settings search had.
+    // The chip row the other two presets draw. Without it, `1`-`4` toggle a
+    // filter nothing on screen shows: state exists and nothing renders it.
     let chips = version_picker
         .is_some_and(|picker| draw_filter_chips(frame, inner, picker, i18n, pal, hits));
     let (list_top, rows) = if chips {
@@ -722,8 +730,8 @@ fn picker(
         );
     }
     // Every cap here has to do what the key does. `Enter` picks the highlighted
-    // option and `Esc` only closes the list — the dialog's own save and cancel
-    // are the form's keys, not the list's.
+    // option and `Esc` only closes the list; the dialog's own save and cancel
+    // belong to the form, not to the list.
     let mut hints: Vec<(&str, String)> = Vec::new();
     let mut acts: Vec<Option<ModalAct>> = Vec::new();
     let failed = matches!(selection_states.get(&field), Some(SelectionState::Error(_)));

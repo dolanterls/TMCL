@@ -1,0 +1,1 @@
+[stdout] net.fabricmc.loader.impl.FormattedException: ModResolutionException: something went wrong

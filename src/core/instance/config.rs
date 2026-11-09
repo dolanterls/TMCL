@@ -71,8 +71,8 @@ fn repair_from_client_json(config: &mut InstanceConfig, instance_dir: &Path) -> 
 
 /// Which loader the client json describes, if any.
 ///
-/// The client json is the authority — `InstanceLoader` in `tmcl.json` is a cache
-/// of this answer — so the instance workspace asks the file, not the metadata.
+/// The client json is the authority; `InstanceLoader` in `tmcl.json` caches this
+/// answer. The instance workspace therefore asks the file, not the metadata.
 pub(crate) fn detect_loader(
     json: &serde_json::Value,
     minecraft_version: &str,

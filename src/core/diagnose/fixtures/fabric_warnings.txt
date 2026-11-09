@@ -1,0 +1,1 @@
+[stdout] Warnings were found!

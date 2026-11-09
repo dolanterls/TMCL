@@ -25,14 +25,20 @@ impl App {
     }
 
     pub(in crate::tui::app) fn mode(&self) -> Mode {
-        if self.help_open {
-            Mode::Help
-        } else if let Some(modal) = &self.modal {
+        // Same order as `top_layer` (its inverse, since that one walks from the
+        // top down): a dialog owns the keyboard, then the help card, then the
+        // diagnosis card. The two must agree about help and dialog; keeping them
+        // apart only works while `?` cannot be pressed with a dialog open.
+        if let Some(modal) = &self.modal {
             match modal {
                 Modal::Confirm { action, .. } => Mode::Confirm(*action),
                 Modal::Form { action, .. } | Modal::Prompt { action, .. } => Mode::Form(*action),
                 Modal::Checklist { .. } => Mode::Filter,
             }
+        } else if self.help_open {
+            Mode::Help
+        } else if self.diagnosis_open {
+            Mode::Diagnosis
         } else if self.detail_open {
             Mode::Detail(self.detail_target())
         } else if let Some(state) = &self.search {
@@ -62,6 +68,10 @@ impl App {
     pub(in crate::tui::app) fn go_back(&mut self) {
         if self.help_open {
             self.help_open = false;
+            return;
+        }
+        if self.diagnosis_open {
+            self.diagnosis_open = false;
             return;
         }
         if self.detail_open {

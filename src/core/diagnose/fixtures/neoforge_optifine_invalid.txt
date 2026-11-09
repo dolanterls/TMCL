@@ -1,0 +1,1 @@
+[stdout] cpw.mods.modlauncher.InvalidLauncherSetupException: Invalid Services found OptiFine

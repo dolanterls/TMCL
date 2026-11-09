@@ -62,12 +62,7 @@ impl App {
         );
         let loader = current.map_or_else(
             || self.i18n.text("common.none"),
-            |item| {
-                item.loader_version.as_ref().map_or_else(
-                    || item.loader.clone(),
-                    |loader_version| format!("{} {loader_version}", item.loader),
-                )
-            },
+            |item| self.instance_loader_text(item),
         );
         let account = self
             .current_account()
@@ -161,7 +156,7 @@ impl App {
                 vec![
                     item.name.clone(),
                     item.version.clone(),
-                    item.loader.clone(),
+                    self.instance_loader_text(item),
                     format_play_time(item.play_time_seconds),
                     localize_instance_status(&item.status, &self.i18n),
                 ]

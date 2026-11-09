@@ -1,8 +1,8 @@
 //! Workspace mouse acceptance: the page is reachable with the pointer alone.
 //!
-//! Every case clicks a hitbox the draw pass actually registered, so a region
-//! that stops being drawn (or moves) fails here instead of silently working in
-//! one preset only.
+//! Every case clicks a hitbox the draw pass registered, so a region that stops
+//! being drawn (or moves) fails here instead of silently working in one preset
+//! only.
 
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::Rect;
@@ -123,10 +123,9 @@ fn clicking_the_rail_switches_category_in_every_preset() {
             "{preset:?}: the rail must be clickable"
         );
         // The body was redrawn for the new category, not left on the old one.
-        // `nightlight` renders the manage list as a menu — a click runs the
-        // command, which its own test (`nightlight_manage_rows_run_on_a_single_click`)
-        // locks in — so its rows register `WorkspaceRun` instead of
-        // `WorkspaceRow`. Either shape proves the body followed the click.
+        // `nightlight` renders the manage list as a menu, where a click runs the
+        // command, so its rows register `WorkspaceRun` instead of `WorkspaceRow`.
+        // Either shape proves the body followed the click.
         draw(&app);
         let row_zero = if preset == UiPreset::Nightlight {
             Action::Page {
@@ -182,9 +181,9 @@ fn workspace_rows(app: &App) -> Vec<(usize, Rect)> {
 
 /// The workspace list keeps its window under a click, like the instance list.
 ///
-/// Its rows are drawn by hand (`offset`, then one row per entry), so the window
-/// came from the selection alone and any click above the last visible row
-/// re-anchored it — the row jumped to the bottom edge in all three presets.
+/// Its rows are drawn by hand (`offset`, then one row per entry), so a window
+/// taken from the selection alone re-anchors on any click above the last visible
+/// row and the row jumps to the bottom edge in all three presets.
 #[test]
 fn clicking_a_drawn_content_row_keeps_the_workspace_list_still() {
     for preset in UiPreset::ALL {

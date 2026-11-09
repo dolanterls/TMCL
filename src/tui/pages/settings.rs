@@ -96,6 +96,10 @@ pub enum SettingId {
     LiveAccent,
     Language,
     Mouse,
+    /// `跟随终端` only: lift auxiliary text to a legible floor.
+    LiftDimText,
+    /// `跟随终端` only: ask the terminal for its background colour.
+    DetectTerminal,
     // Logs
     LauncherLogs,
     GameDebug,
@@ -104,7 +108,8 @@ pub enum SettingId {
     LauncherLogDirectory,
     ExportLauncherLogs,
     ExportGameLogs,
-    ExportCrashReport,
+    ExportDiagnosisBundle,
+    DiagnoseAutoOpen,
 }
 
 /// One focus only: the category is navigation, the selected row is the cursor.

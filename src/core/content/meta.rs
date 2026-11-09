@@ -154,10 +154,10 @@ fn fabric(bytes: &[u8]) -> Option<ContentMeta> {
 
 fn forge(bytes: &[u8]) -> Option<ContentMeta> {
     let text = std::str::from_utf8(bytes).ok()?;
-    // Only the first `[[mods]]` block matters for a launcher list. Cutting at
-    // the next table header is essential: dependency blocks repeat `modId`
-    // (`forge`, `minecraft`) and used to win whenever the mod's own keys had a
-    // trailing comment.
+    // Only the first `[[mods]]` block matters for a launcher list. Cutting at the
+    // next table header is essential: dependency blocks repeat `modId` (`forge`,
+    // `minecraft`), and they win whenever the mod's own keys carry a trailing
+    // comment.
     let block = first_mod_block(text)?;
     let id = toml_string(block, "modId").filter(|value| !value.contains("${"))?;
     let name = toml_string(block, "displayName")
@@ -293,14 +293,13 @@ pub fn flatten_text_component(value: &Value) -> String {
 ///    '''
 /// ```
 ///
-/// A bare `'''` on its own line used to fall through to the single-quote
-/// branch and produce `"'"`, which then showed up as a lone apostrophe in the
-/// workspace note strip (40 of 97 mods in one real instance).
+/// A bare `'''` on its own line must not fall through to the single-quote branch:
+/// that produces `"'"`, which shows up as a lone apostrophe in the workspace note
+/// strip (40 of 97 mods in one real instance).
 ///
-/// Inline `# comments` are common in Forge templates (`modId="x" #mandatory`)
-/// and must be removed before the value is quoted-checked, otherwise the reader
-/// silently skips to the next `modId` — which is the dependency's `forge` or
-/// `minecraft`.
+/// Inline `# comments` are common in Forge templates (`modId="x" #mandatory`) and
+/// must be removed before the value is quoted-checked, otherwise the reader skips
+/// to the next `modId`, which is the dependency's `forge` or `minecraft`.
 fn toml_string(text: &str, key: &str) -> Option<String> {
     let lines = text.lines().collect::<Vec<_>>();
     let mut index = 0;
@@ -565,7 +564,7 @@ mod tests {
         let root = temp_dir("forge-comments");
         let jar = root.join("accelerated-rendering.jar");
         // Real Forge templates annotate every key and repeat `modId` in the
-        // dependency tables. Both used to leak into the parsed identity.
+        // dependency tables. Neither may reach the parsed identity.
         let toml = br#"modLoader="javafml" #mandatory
 loaderVersion="[47,)" #mandatory
 [[mods]] #mandatory
@@ -676,8 +675,8 @@ description='''Fast vertex transform and caching.'''
 
     #[test]
     fn an_unterminated_triple_quote_is_not_a_lone_apostrophe() {
-        // Parsing this as a single-quoted string used to yield "'", which the
-        // workspace then drew as a stray apostrophe.
+        // A single-quoted parse yields "'", which the workspace draws as a stray
+        // apostrophe.
         let text = "[[mods]]\ndescription='''\n";
         assert_ne!(toml_string(text, "description").as_deref(), Some("'"));
     }

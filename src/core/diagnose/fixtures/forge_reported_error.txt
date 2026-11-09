@@ -1,0 +1,3 @@
+[stdout] An exception was thrown, the game will display an error screen and halt.
+[stdout] 	java.lang.NullPointerException: Cannot invoke RecipeManager
+[stdout] 		at com.example.mod.RecipeFix.apply(RecipeFix.java:31)

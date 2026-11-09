@@ -152,9 +152,8 @@ impl App {
     }
 
     /// `Java runtimes`: the same list the other two presets render, in the
-    /// nightlight table style. The category used to fall through to the plain
-    /// settings rows and render an empty card, because those rows come from
-    /// `settings_rows()` and this category is not part of it.
+    /// nightlight table style. The category cannot use the plain settings rows,
+    /// because those come from `settings_rows()` and do not include it.
     fn nightlight_java_table(&self, frame: &mut Frame<'_>, area: Rect, pal: &Palette) {
         let inner = card(frame, area, &self.i18n.text("java.runtime"), pal);
         if inner.is_empty() {

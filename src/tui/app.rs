@@ -100,7 +100,8 @@ pub enum Page {
 enum LogExportKind {
     Launcher,
     Game,
-    CrashReport(PathBuf),
+    /// The diagnosis bundle: several files in one zip, not one log.
+    Bundle,
 }
 
 const CREATE_VERSION_FIELD: usize = 2;
@@ -272,7 +273,7 @@ pub struct App {
     regions_size: Cell<(u16, u16)>,
     /// `nightlight` palette cache: minute, theme, preset, mode, contrast.
     nightlight_cache: view::nightlight::PaletteCache,
-    /// Test-only: how many times the palette was actually derived.
+    /// Test-only: how many times the palette was derived.
     #[cfg(test)]
     nightlight_computes: Cell<usize>,
     /// Test-only clock override: snapshots must not move with the wall clock.
@@ -286,6 +287,14 @@ pub struct App {
     row_windows: RowWindows,
     /// Target currently under the pointer, if any.
     hover: Option<Action>,
+    /// Cell the pointer sat on when `hover` was resolved.
+    ///
+    /// The action alone cannot say which rectangle to tint: a control and the
+    /// thing it acts on can carry the same `Action` (a picker's `Enter` cap and
+    /// the option it would choose are both `Option(n)`). Looking the action up
+    /// picked whichever box was registered last, so the highlight landed on the
+    /// first row of the list while the pointer sat on the key.
+    hover_at: Option<(u16, u16)>,
     /// Previous click, for double-click detection.
     last_click: Option<(
         Action,
@@ -307,9 +316,21 @@ pub struct App {
     modpack_browse_request: Option<PathBuf>,
     save_file_browse_request: Option<(PathBuf, String)>,
     pending_log_export: Option<LogExportKind>,
-    last_crash_report: Option<PathBuf>,
+    /// The last finished run. Holds the paths and the identity of the launch
+    /// the diagnosis and the export bundle describe.
+    last_run: Option<crate::core::diagnose::RunRecord>,
+    /// The ranked verdict for [`Self::last_run`], built off the UI thread.
+    diagnosis: Option<crate::core::diagnose::Diagnosis>,
+    diagnosis_open: bool,
+    diagnosis_scroll: usize,
+    /// Bumped on every launch. A verdict that arrives for an older run is
+    /// dropped instead of being shown against the new one.
+    launch_seq: u64,
     update_check_in_flight: bool,
     terminal_width: u16,
+    /// `Some(true)` when the terminal reported a light background (OSC 11).
+    /// `None` means nobody asked or the terminal did not answer.
+    terminal_background: Option<bool>,
     download_target_id: Option<Uuid>,
     download_center: DownloadCenterState,
     /// Cached category lists, keyed by `(source, kind)`.
@@ -470,6 +491,7 @@ impl App {
             hitmap: Hitmap::default(),
             row_windows: RowWindows::default(),
             hover: None,
+            hover_at: None,
             last_click: None,
             resize_gen: 0,
             detail_open: false,
@@ -481,9 +503,14 @@ impl App {
             modpack_browse_request: None,
             save_file_browse_request: None,
             pending_log_export: None,
-            last_crash_report: None,
+            last_run: None,
+            diagnosis: None,
+            diagnosis_open: false,
+            diagnosis_scroll: 0,
+            launch_seq: 0,
             update_check_in_flight: false,
             terminal_width,
+            terminal_background: None,
             download_target_id: None,
             download_center: DownloadCenterState::default(),
             resource_categories: state::downloads_categories::CategoryCache::default(),
@@ -565,6 +592,32 @@ impl App {
         });
     }
 
+    /// Re-read `accounts.json` and point the selection at the current account.
+    ///
+    /// Separate from [`App::reload`] because a failed launch needs it too: a
+    /// rejected credential is retired on disk during that launch, and the row
+    /// must stop promising `自动续期` right away instead of waiting for the next
+    /// full reload.
+    pub(in crate::tui::app) fn reload_accounts(&mut self) -> Result<()> {
+        self.accounts.accounts = AccountStore::new(&self.paths.accounts_file).load()?;
+        self.accounts.current = self
+            .config
+            .state
+            .current_account_id
+            .as_deref()
+            .and_then(|id| Uuid::parse_str(id).ok());
+        if let Some(current) = self.accounts.current
+            && let Some(index) = self
+                .accounts
+                .accounts
+                .iter()
+                .position(|account| account.id == current)
+        {
+            self.accounts.selected = index;
+        }
+        Ok(())
+    }
+
     fn reload(&mut self) -> Result<()> {
         self.config = load_or_default(&self.paths)?;
         let exclusions_before = self.config.excluded_instances.len();
@@ -608,23 +661,10 @@ impl App {
             .download_target_id
             .filter(|id| self.instances.items.iter().any(|item| item.id == *id))
             .or(current);
-        self.accounts.accounts = AccountStore::new(&self.paths.accounts_file).load()?;
+        self.reload_accounts()?;
+        // A reload means the config was re-read, so any half-finished device
+        // code belongs to a flow nobody is watching any more.
         self.accounts.device_code = None;
-        self.accounts.current = self
-            .config
-            .state
-            .current_account_id
-            .as_deref()
-            .and_then(|id| Uuid::parse_str(id).ok());
-        if let Some(current) = self.accounts.current
-            && let Some(index) = self
-                .accounts
-                .accounts
-                .iter()
-                .position(|account| account.id == current)
-        {
-            self.accounts.selected = index;
-        }
         self.set_task_snapshots(self.task_engine.snapshots());
         // Discovery spawns `java -version` per candidate, so the refresh runs
         // in the background and lands as `AppEvent::JavaScanned`. The list
@@ -649,50 +689,6 @@ pub(in crate::tui::app) fn resource_registry(
     client: std::sync::Arc<crate::core::version::http::HttpClient>,
 ) -> crate::core::resource::ProviderRegistry {
     crate::core::resource::registry(client)
-}
-
-#[cfg(windows)]
-fn open_verification_url(url: &str) -> std::io::Result<()> {
-    use std::{ffi::OsStr, os::windows::ffi::OsStrExt};
-
-    use windows::Win32::UI::{Shell::ShellExecuteW, WindowsAndMessaging::SW_SHOWNORMAL};
-    use windows::core::PCWSTR;
-
-    let mut url: Vec<u16> = OsStr::new(url).encode_wide().collect();
-    url.push(0);
-    let result =
-        unsafe { ShellExecuteW(None, None, PCWSTR(url.as_ptr()), None, None, SW_SHOWNORMAL) };
-    if result.0 as usize <= 32 {
-        return Err(std::io::Error::other(format!(
-            "Windows could not open the URL (ShellExecuteW result {})",
-            result.0 as usize
-        )));
-    }
-    Ok(())
-}
-
-#[cfg(target_os = "macos")]
-fn open_verification_url(url: &str) -> std::io::Result<()> {
-    std::process::Command::new("open")
-        .arg(url)
-        .spawn()
-        .map(|_| ())
-}
-
-#[cfg(all(unix, not(target_os = "macos")))]
-fn open_verification_url(url: &str) -> std::io::Result<()> {
-    std::process::Command::new("xdg-open")
-        .arg(url)
-        .spawn()
-        .map(|_| ())
-}
-
-#[cfg(not(any(windows, unix)))]
-fn open_verification_url(_url: &str) -> std::io::Result<()> {
-    Err(std::io::Error::new(
-        std::io::ErrorKind::Unsupported,
-        "automatic browser opening is not supported on this platform",
-    ))
 }
 
 impl Default for App {

@@ -461,18 +461,101 @@ async fn launch(args: InstanceLaunchArgs, output: OutputOptions) -> Result<()> {
         .checked_sub(retention)
         .unwrap_or(std::time::UNIX_EPOCH);
     let _ = crate::core::config::log_retention::cleanup_logs(&paths.logs_dir, cutoff);
+    let verdict = launch_verdict(
+        &config,
+        &instance,
+        &result.log_path,
+        result.crash_report.clone(),
+        result.exit_code,
+        result.duration.as_secs(),
+    );
     let summary = LaunchRow {
         pid: result.pid,
         exit_code: result.exit_code,
         log_path: result.log_path,
         crash_report: result.crash_report,
+        diagnosis: verdict.as_ref().map(|verdict| verdict.row.clone()),
     };
     output.print(&summary, || {
-        format!(
+        let mut line = format!(
             "Game exited with {:?}; log: {}",
             summary.exit_code,
             summary.log_path.display()
-        )
+        );
+        if let Some(verdict) = &verdict {
+            line.push_str(" · ");
+            line.push_str(&verdict.sentence);
+        }
+        line
+    })
+}
+
+/// The verdict for a finished run, or `None` when it ended cleanly.
+///
+/// The analysis is the same call the card and `tmcl diagnose` make; this
+/// function only decides whether it is worth printing.
+struct Verdict {
+    row: LaunchDiagnosis,
+    sentence: String,
+}
+
+fn launch_verdict(
+    config: &Config,
+    instance: &ResolvedInstance,
+    log_path: &std::path::Path,
+    crash_report: Option<PathBuf>,
+    exit_code: Option<i32>,
+    duration_secs: u64,
+) -> Option<Verdict> {
+    let run = crate::core::diagnose::RunRecord {
+        instance_id: instance.config.id,
+        instance_name: instance.config.name.clone(),
+        instance_dir: instance.config.path.clone(),
+        log_path: log_path.to_path_buf(),
+        crash_report,
+        exit_code,
+        duration_secs,
+        // The run already ended; `instance.json` says when it began.
+        started_at_epoch: common::current_unix_seconds().saturating_sub(duration_secs),
+        launch_command: None,
+        log_scope: crate::core::diagnose::LogScope::Run,
+    };
+    let facts = crate::core::diagnose::Facts {
+        instance_name: instance.config.name.clone(),
+        minecraft_version: instance.config.minecraft_version.clone(),
+        loader: match instance.config.loader.version() {
+            Some(version) => format!("{} {version}", instance.config.loader.key()),
+            None => instance.config.loader.key().to_owned(),
+        },
+        max_memory_mb: config.launch.max_memory_mb,
+        system_memory_mb: crate::core::launch::memory::detect().total_mb,
+        ..crate::core::diagnose::Facts::default()
+    };
+    let diagnosis = crate::core::diagnose::for_run(facts, &run);
+    if !diagnosis.exit.is_crash() {
+        return None;
+    }
+    let i18n = crate::i18n::I18n::new(config.state.ui.language);
+    let sentence = match &diagnosis.primary {
+        Some(finding) => {
+            let rule = crate::core::diagnose::rules::rule_for(finding.rule);
+            i18n.format(
+                "diagnose.badge",
+                &[(
+                    "reason",
+                    &i18n.format(rule.reason_key, &finding.arguments()),
+                )],
+            )
+        }
+        None => i18n.text("diagnose.unknown.reason"),
+    };
+    Some(Verdict {
+        row: LaunchDiagnosis {
+            rule: diagnosis.primary.as_ref().map(|finding| finding.rule.id()),
+            stage: diagnosis.stage,
+            unknown: diagnosis.unknown,
+        },
+        sentence,
     })
 }
 
@@ -645,10 +728,10 @@ fn format_rows(rows: &[InstanceRow]) -> String {
 
 /// Builds one line per instance, sized to the window.
 ///
-/// A terminal wraps anything wider than the window, and a wrapped row reads
-/// like a second, empty-path instance — that is what "the list shows every
-/// instance twice" was. So the path column gives way first: it shrinks, then
-/// it is dropped, and only then are the name and version columns squeezed.
+/// A terminal wraps anything wider than the window, and a wrapped row reads like a
+/// second instance with an empty path, so the path column gives way first: it
+/// shrinks, then it is dropped, and only then are the name and version columns
+/// squeezed.
 ///
 /// `terminal` is `None` when stdout is redirected, where nothing wraps and a
 /// script wants the whole path.
@@ -820,6 +903,21 @@ struct LaunchRow {
     exit_code: Option<i32>,
     log_path: PathBuf,
     crash_report: Option<PathBuf>,
+    /// The verdict, when the run ended badly. Added in M2: the fields above
+    /// keep their names and order, so a script that reads them still works.
+    diagnosis: Option<LaunchDiagnosis>,
+}
+
+/// What `--json` says about a crash.
+///
+/// `rule` is the rule name in PascalCase, matching `tmcl diagnose --json`;
+/// `stage` names where the run died. The human sentence is built from the same
+/// data, so the two never describe different verdicts.
+#[derive(Debug, Clone, serde::Serialize)]
+struct LaunchDiagnosis {
+    rule: Option<&'static str>,
+    stage: crate::core::diagnose::LaunchStage,
+    unknown: bool,
 }
 
 #[cfg(test)]

@@ -1,12 +1,9 @@
 //! `paper` help: the keyboard reference printed on a slip.
 //!
-//! The reference is a dialog in every preset, and paper keeps that: the same
-//! card geometry as `classic` and `nightlight` (width follows the longest row,
-//! height stops at `HELP_VIEWPORT_ROWS`, the page behind it dimmed), so `?`
-//! never swallows the running head and the key band that get you out again.
-//! Only the surface is paper's: no border, a sheet one step brighter than the
-//! page, the title, a hairline, then sections in the accent colour with keys in
-//! one column and their meaning in the other.
+//! The reference is a dialog in every preset and paper keeps that: the same card
+//! geometry as `classic` and `nightlight`, so `?` never covers the running head
+//! and the key band that close it. Only the surface is paper's: no border, a
+//! sheet one step brighter than the page, and sections separated by hairlines.
 //!
 //! The rectangle and the body come from `help_layout`, the same call
 //! `help_max_scroll` and `help_page_rows` make; a card whose scroll limit came

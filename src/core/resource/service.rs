@@ -119,9 +119,9 @@ impl ResourceService {
 
     /// The provider behind one source, validated for `kind`.
     ///
-    /// Exposed so a caller can run a second query against the same provider —
-    /// dependency resolution needs it, and building a fresh registry per
-    /// dependency would lose the availability check that produced the error.
+    /// Exposed so a caller can run a second query against the same provider.
+    /// Dependency resolution needs it, and building a fresh registry per dependency
+    /// would lose the availability check that produced the error.
     pub fn provider(
         &self,
         source: ResourceSource,

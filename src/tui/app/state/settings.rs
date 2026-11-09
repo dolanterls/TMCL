@@ -138,7 +138,7 @@ impl App {
             SettingId::LauncherLogDirectory => self.open_log_directory(),
             SettingId::ExportLauncherLogs => self.begin_log_export(LogExportKind::Launcher),
             SettingId::ExportGameLogs => self.begin_log_export(LogExportKind::Game),
-            SettingId::ExportCrashReport => self.begin_crash_report_export(),
+            SettingId::ExportDiagnosisBundle => self.begin_diagnosis_export(),
             SettingId::LauncherVisibility
             | SettingId::ProcessPriority
             | SettingId::JavaSelection
@@ -158,9 +158,12 @@ impl App {
             | SettingId::HighContrast
             | SettingId::LiveAccent
             | SettingId::Mouse
+            | SettingId::LiftDimText
+            | SettingId::DetectTerminal
             | SettingId::AutoRepair
             | SettingId::LauncherLogs
-            | SettingId::GameDebug => self.toggle_setting(setting),
+            | SettingId::GameDebug
+            | SettingId::DiagnoseAutoOpen => self.toggle_setting(setting),
             SettingId::ServerAddress
             | SettingId::JvmArguments
             | SettingId::GameArguments
@@ -289,9 +292,16 @@ impl App {
             }
             SettingId::Mouse => config.state.ui.show_mouse = !config.state.ui.show_mouse,
             SettingId::LiveAccent => config.state.ui.live_accent = !config.state.ui.live_accent,
+            SettingId::LiftDimText => {
+                config.state.ui.lift_dim_text = !config.state.ui.lift_dim_text
+            }
+            SettingId::DetectTerminal => {
+                config.state.ui.detect_terminal = !config.state.ui.detect_terminal
+            }
             SettingId::AutoRepair => config.launch.auto_repair = !config.launch.auto_repair,
             SettingId::LauncherLogs => config.logs.launcher_enabled = !config.logs.launcher_enabled,
             SettingId::GameDebug => config.logs.game_debug = !config.logs.game_debug,
+            SettingId::DiagnoseAutoOpen => config.diagnosis.auto_open = !config.diagnosis.auto_open,
             _ => {}
         });
         self.finish_setting_save(result);
@@ -643,8 +653,8 @@ impl App {
     /// Trims the download cache to its configured limit, off the UI thread.
     ///
     /// Called from reload, which runs after every task. The sweep is throttled
-    /// and only reports back when something was actually freed, so a normal
-    /// refresh never replaces the status line with a cache message.
+    /// and reports back only when bytes were freed, so a normal refresh never
+    /// replaces the status line with a cache message.
     pub(in crate::tui::app) fn enforce_cache_limit(&mut self) {
         let limit_mb = self.config.downloads.cache_limit_mb;
         if limit_mb == 0 {
@@ -666,7 +676,7 @@ impl App {
         handle.spawn_blocking(move || {
             let limit = limit_mb.saturating_mul(1024 * 1024);
             // Ten minutes of protection: a file written by the download that
-            // just finished is about to be copied into an instance.
+            // finished moments ago is about to be copied into an instance.
             match cache::evict_to(&root, limit, std::time::Duration::from_secs(600)) {
                 Ok(report) if report.removed_bytes > 0 => {
                     let _ = sender.send(crate::tui::event::AppEvent::CacheEvicted {
@@ -752,7 +762,7 @@ impl App {
     /// `discover_default` spawns one `java -version` per candidate, and
     /// `reload()` runs after every config save and every finished task. Neither
     /// the game directories nor the chosen runtime change that often, so a
-    /// fresh result for the same inputs is simply reused.
+    /// result for the same inputs is reused.
     pub(in crate::tui::app) fn java_scan_due(&self) -> bool {
         if self.java_scan_in_flight {
             return false;

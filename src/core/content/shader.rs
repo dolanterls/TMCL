@@ -1,15 +1,15 @@
 //! Shader packs.
 //!
 //! Minecraft itself cannot load a shader pack: Iris or OptiFine does. That makes
-//! this category different from mods and resource packs — the first useful thing
-//! a launcher can say is "you have shaders but nothing that reads them", and the
+//! this category different from mods and resource packs. The first useful thing a
+//! launcher can say is "you have shaders but nothing that reads them", and the
 //! selection lives in the loader's own config, not in `options.txt`.
 
 use std::path::Path;
 
 use crate::core::error::Result;
 
-/// Which loader will actually read `shaderpacks/`.
+/// Which loader reads `shaderpacks/`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShaderLoader {
     Iris,
@@ -112,8 +112,8 @@ fn selected_in(path: &Path, separator: char) -> Option<String> {
 
 /// Select `name` (empty clears the selection) in the file the loader reads.
 ///
-/// Without a detected loader Iris is assumed, because that is what the empty
-/// state tells the player to install.
+/// Without a detected loader Iris is assumed, because the empty state tells the
+/// player to install Iris.
 pub fn set_selected(root: &Path, loader: Option<ShaderLoader>, name: &str) -> Result<()> {
     let (relative, separator) = match loader {
         Some(ShaderLoader::OptiFine) => (OPTIFINE_CONFIG, ':'),

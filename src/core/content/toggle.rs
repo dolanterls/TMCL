@@ -20,8 +20,8 @@ const RESOURCE_PACKS_KEY: &str = "resourcePacks:";
 /// Enabled resource packs, in stack order (later entries draw on top).
 ///
 /// A missing file, a missing key or an unparsable array all mean "nothing is
-/// enabled": the game would show the same thing, and a launcher must not refuse
-/// to open just because a player edited the file by hand.
+/// enabled": the game shows the same thing, and a launcher must not refuse to open
+/// because a player edited the file by hand.
 pub fn read_resource_packs(root: &Path) -> Vec<String> {
     let Ok(text) = std::fs::read_to_string(root.join(OPTIONS_FILE)) else {
         return Vec::new();
@@ -98,6 +98,14 @@ pub fn set_enabled(path: &Path, enabled: bool) -> Result<PathBuf> {
         return Ok(target);
     }
     if target.exists() {
+        // The source is gone and the destination is there: this file has already
+        // been moved, and the caller holds the name it had before (a background
+        // scan refreshes the workspace list, so a second keypress arrives inside
+        // that window). That is the state being asked for, not a collision; only
+        // two live files are.
+        if !path.exists() {
+            return Ok(target);
+        }
         return Err(Error::Config(format!(
             "cannot rename {}: {} already exists",
             path.display(),
@@ -116,8 +124,8 @@ pub fn is_disabled(path: &Path) -> bool {
 
 /// Add or remove one pack from `options.txt`, keeping the rest of the stack.
 ///
-/// A pack that is switched on is appended last: in Minecraft the last entry
-/// wins, which is what "just enabled" is expected to mean.
+/// A pack that is switched on is appended last: in Minecraft the last entry wins,
+/// which is what "enabled" is expected to mean.
 pub fn set_pack_enabled(root: &Path, file: &str, enabled: bool) -> Result<()> {
     let mut packs = read_resource_packs(root);
     packs.retain(|pack| !pack_file_name(pack).eq_ignore_ascii_case(file));
@@ -280,6 +288,18 @@ mod tests {
         let (root, file) = temp_file("idempotent");
         let again = set_enabled(&file, true).expect("enable while enabled");
         assert_eq!(again, file);
+        std::fs::remove_dir_all(root).expect("clean temp dir");
+    }
+
+    /// A caller still holding the pre-rename name (a list scanned a moment
+    /// ago) must land on the file that exists now instead of colliding with
+    /// its own move.
+    #[test]
+    fn a_stale_name_resolves_to_the_file_that_moved() {
+        let (root, file) = temp_file("stale");
+        let moved = set_enabled(&file, false).expect("disable");
+        let again = set_enabled(&file, false).expect("disable again from the old name");
+        assert_eq!(again, moved);
         std::fs::remove_dir_all(root).expect("clean temp dir");
     }
 

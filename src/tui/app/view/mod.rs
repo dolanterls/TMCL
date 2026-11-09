@@ -1,28 +1,24 @@
-//! Preset views: one directory per preset, shared pieces one level up.
+//! Preset views: one directory per preset, shared pieces one level up. A preset
+//! directory holds only what that preset alone uses; anything two presets need
+//! lives in `crate::tui`. Presets never reference each other, and both rules are
+//! enforced by `crate::tui::app::tests::structure`.
 //!
-//! A preset directory holds only what that preset alone uses. Anything two
-//! presets need lives in `crate::tui` (`palette`, `widgets`, `chrome`,
-//! `theme`) rather than in one preset's folder — that rule is what keeps
-//! `creeper/widgets.rs` from happening again. Presets never reference each
-//! other; the structural tests in `crate::tui::app::tests::structure` enforce
-//! both halves.
-//!
-//! Every file in this tree is a child of `crate::tui::app`, so it can read
-//! `App`'s private fields directly instead of threading a view model through.
-//! That is why the views live under `app/` rather than as a sibling module.
+//! Every file here is a child of `crate::tui::app`, so it reads `App`'s private
+//! fields directly instead of threading a view model through.
 
 pub(crate) mod classic;
 pub(crate) mod creeper;
 /// Per-page dispatch, the shared layout geometry it needs, and the `classic`
 /// frame skeleton that sits between them.
+mod diagnosis;
 mod dispatch;
 pub(crate) mod nightlight;
 /// Detail and help painters shared by every preset, parameterised by theme.
 mod overlays;
-/// Paper: a light page with hairline rules. Prototype — overview and instances
-/// are drawn here, every other page falls back to `classic` for now.
+/// Paper: a light page with hairline rules. Overview and instances are drawn
+/// here; every other page falls back to `classic` for now.
 pub(crate) mod paper;
-/// What each preset says about its own paint — the fills `跟随终端` withdraws.
+/// What each preset says about its own paint: the fills `跟随终端` withdraws.
 pub(crate) mod sheet;
 /// Shelf: a cover-led library. Deep indigo, one lavender accent, no cards.
 pub(crate) mod shelf;
@@ -148,9 +144,8 @@ pub(in crate::tui::app) fn help_rect(area: Rect, lines: &[HelpLine]) -> Rect {
 
 /// Text viewport inside [`help_rect`].
 ///
-/// Two cells in from the left and right, three rows down — the head is one row
-/// of air, the title and a hairline — and two rows up from the bottom. The
-/// first and last line used to sit on the frame without it.
+/// Two cells of gutter on each side, three rows down for the title and the
+/// hairline under it, two rows up from the bottom.
 fn help_body(rect: Rect) -> Rect {
     Rect {
         x: rect.x.saturating_add(HELP_PAD),
@@ -182,12 +177,11 @@ pub(in crate::tui::app) fn help_scrollbar(
     );
 }
 
-/// A quiet rail with an accent thumb, one column past `body`.
+/// A scrollbar one column past `body`, with a subdued track and an accent thumb.
 ///
-/// `paper` and `shelf` both put the rail in the page margin instead of inside
-/// the text: a long record that simply stops at the bottom edge gives the
-/// reader no way to know the wheel continues it. Drawing it outside the body
-/// keeps it from eating a column of prose.
+/// `paper` and `shelf` put it in the page margin rather than inside the text: a
+/// record that stops at the bottom edge gives no sign that the wheel continues
+/// it, and an in-body bar costs one column of text.
 pub(in crate::tui::app) fn margin_scrollbar(
     frame: &mut Frame<'_>,
     body: Rect,
@@ -331,6 +325,7 @@ impl App {
         let page: Vec<(String, String)> = self
             .page_hints()
             .into_iter()
+            .chain(self.help_only_hints())
             .map(|hint| (hint.key, self.i18n.text_or_raw(&hint.action)))
             .collect();
         if !page.is_empty() {
@@ -339,6 +334,22 @@ impl App {
             for (key, action) in page {
                 lines.push(HelpLine::Row { key, action });
             }
+        }
+
+        // The diagnosis card has no tab of its own, so the reference is the
+        // only place its keys are written down before something crashes.
+        lines.push(HelpLine::Blank);
+        lines.push(HelpLine::Header(text("help.section.diagnosis")));
+        for (key, action) in [
+            ("F3", "help.diagnosis_toggle"),
+            ("Enter", "help.diagnosis_first"),
+            ("E", "help.diagnosis_export"),
+            ("L", "help.diagnosis_locate"),
+        ] {
+            lines.push(HelpLine::Row {
+                key: key.to_owned(),
+                action: text(action),
+            });
         }
 
         lines.push(HelpLine::Blank);
@@ -351,15 +362,26 @@ impl App {
         }
         lines
     }
+
+    /// Keys a page answers to that the footer does not print.
+    ///
+    /// `PageUp/PageDown` turns the download centre list and the status line
+    /// already names them. A footer cap would push the hint band onto a second
+    /// row at 120 columns, so the key is listed in the help reference instead.
+    pub(in crate::tui::app) fn help_only_hints(&self) -> Vec<crate::tui::chrome::Hint> {
+        match self.page {
+            Page::DownloadCenter => vec![self.hint("PgUp/PgDn", "hint.page")],
+            _ => Vec::new(),
+        }
+    }
 }
 
 impl App {
     /// Geometry, scroll window and wheel target for the keyboard help.
     pub(in crate::tui::app) fn help_layout(&self, area: Rect, lines: &[HelpLine]) -> HelpLayout {
         // One card for every preset: width follows the longest row, height
-        // stops at `HELP_VIEWPORT_ROWS`. `paper` used to print the reference on
-        // the page itself, which also buried the running head and the key band
-        // that get you out of it.
+        // stops at `HELP_VIEWPORT_ROWS`. Printing the reference inline, as
+        // `paper` did, hides the running head and the key band that close it.
         let rect = help_rect(area, lines);
         let body = help_body(rect);
         let total = lines.len();
@@ -380,9 +402,8 @@ impl App {
 
     /// The same window, for the code that runs between frames.
     ///
-    /// The key handler and the footer hint need the maximum before — or
-    /// instead of — a paint, and both derive it from the same functions the
-    /// painter uses, so nothing can disagree about where the page ends.
+    /// The key handler and the footer hint need the maximum without a paint, and
+    /// both derive it from the same functions the painter uses.
     fn help_window(&self) -> (u16, usize) {
         let lines = self.help_lines();
         let area = Rect::new(0, 0, self.terminal_width, self.terminal_height);
@@ -454,9 +475,8 @@ impl App {
 
     /// Width of the compatibility column: the longest status word.
     ///
-    /// Ten was not enough for `Incompatible` (twelve cells), so the column cut
-    /// it to `Incompati…`. Measuring keeps every language readable — Chinese
-    /// needs three cells, not ten.
+    /// A fixed ten cells cut `Incompatible` (twelve) to `Incompati…` and gave
+    /// three-cell Chinese labels ten. Both cases are measured instead.
     pub(in crate::tui::app) fn compatibility_column_width(&self) -> u16 {
         [
             "download.compatible",
@@ -484,15 +504,14 @@ impl App {
 
     /// What the credential line says about an account.
     ///
-    /// `access_expires_at` belongs to the *cached access token*, not to the
+    /// `access_expires_at` belongs to the cached access token, not to the
     /// account: it lasts about a day and the next launch trades the stored
-    /// refresh token for a new one. Printing `已过期` when that token ran out
-    /// told the player the account was dead while every launch still worked, so
-    /// the expired case answers the question that actually matters — can this
-    /// account sign in again without help?
+    /// refresh token for a new one. The expired case therefore reports whether
+    /// the account can sign in again without help, not whether the cached token
+    /// has run out.
     ///
-    /// Shared by every preset that lists accounts: two of them disagreeing
-    /// about when a session expires would be a bug the player cannot diagnose.
+    /// Shared by every preset that lists accounts, so two of them cannot
+    /// disagree about when a session expires.
     pub(in crate::tui::app) fn account_expiry_label(
         &self,
         account: &crate::core::account::models::Account,
@@ -513,13 +532,13 @@ impl App {
             // The token is spent, but the refresh token is on disk: renewing is
             // automatic and needs nothing from the player.
             _ if account.secret_ref.is_some() => self.i18n.text("account.session_renewable"),
-            // Nothing left to renew with. This is the only state that really
-            // needs a fresh sign-in.
+            // No refresh token on disk: this is the only state that needs a
+            // fresh sign-in.
             _ => self.i18n.text("account.session_reauth"),
         }
     }
 
-    /// `微软 · 有效 1 小时` — the one-line form used by the paper directory.
+    /// `微软 · 有效 1 小时`, the one-line form used by the paper directory.
     pub(in crate::tui::app) fn account_detail_line(
         &self,
         account: &crate::core::account::models::Account,

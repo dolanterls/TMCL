@@ -245,10 +245,10 @@ impl App {
                 ),
             ));
         }
-        // "All" is a row of its own, exactly like the resource dialog, so the
-        // two filters look and behave the same. When everything is on, only
-        // that row is checked — checking it and the four kinds at once would
-        // read as five separate selections.
+        // "All" is a row of its own, as in the resource dialog, so the two
+        // filters look and behave the same. When everything is on, only that row
+        // is checked; checking it and the four kinds at once would read as five
+        // separate selections.
         let mut selected = Vec::new();
         if self.download_center.version_filter.all_enabled() {
             selected.push(String::new());
@@ -554,8 +554,8 @@ mod i18n_coverage {
     use crate::i18n::I18n;
 
     /// Snapshot of `/v2/tag/category` (all project types TMCL serves):
-    /// resourcepack, mod, modpack and shader. The dialog must never fall back
-    /// to an English slug for a category Modrinth actually returns.
+    /// resourcepack, mod, modpack and shader. The dialog must never fall back to
+    /// an English slug for a category Modrinth returns.
     const MODRINTH_SLUGS: &[&str] = &[
         "128x",
         "16x",

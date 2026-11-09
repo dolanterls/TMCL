@@ -4,9 +4,9 @@
 //! reads the enabled list in file order, so the list *is* that order. Everything
 //! else is sorted by whatever the user picked.
 //!
-//! Both front ends ask this module, because two implementations would sooner or
-//! later disagree about where a disabled pack belongs, and then reordering would
-//! move a row past a neighbour that is not actually next in the file.
+//! Both front ends ask this module. Two implementations would sooner or later
+//! disagree about where a disabled pack belongs, and then reordering moves a row
+//! past a neighbour that is not next in the file.
 
 use crate::core::content::{ContentEntry, ContentKind};
 
@@ -32,10 +32,10 @@ impl ContentSort {
 
 /// Sort `entries` for `kind`.
 ///
-/// Resource packs and shaders ignore `sort` on purpose: enabled entries keep
-/// their saved order, then the disabled ones follow by name. Sorting them any
-/// other way would make the reorder keys move a row past a neighbour that is
-/// not actually adjacent in the file the game reads.
+/// Resource packs and shaders ignore `sort` on purpose: enabled entries keep their
+/// saved order, then the disabled ones follow by name. Sorting them any other way
+/// makes the reorder keys move a row past a neighbour that is not adjacent in the
+/// file the game reads.
 pub fn sorted(
     mut entries: Vec<&ContentEntry>,
     kind: ContentKind,

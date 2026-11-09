@@ -3,6 +3,8 @@
 //! Every assertion here checks two things at once: the plan is printed as JSON,
 //! and the world is exactly as it was before the command ran.
 
+mod support;
+
 use std::path::PathBuf;
 use std::process::{Command, Output};
 
@@ -12,9 +14,8 @@ struct Sandbox {
 
 impl Sandbox {
     fn new(tag: &str) -> Self {
-        let root = std::env::temp_dir().join(format!("tmcl-cli-dry-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&root);
-        std::fs::create_dir_all(root.join("appdata")).expect("appdata");
+        let root = support::sandbox_root(&format!("tmcl-cli-dry-{tag}"));
+        support::install_launcher(&root);
         std::fs::create_dir_all(root.join("game").join("versions").join("demo"))
             .expect("instance dir");
         // `discover` only accepts a directory that has both the jar and the
@@ -49,8 +50,7 @@ impl Sandbox {
     }
 
     fn run(&self, args: &[&str]) -> Output {
-        Command::new(env!("CARGO_BIN_EXE_tmcl"))
-            .env("APPDATA", self.root.join("appdata"))
+        Command::new(support::launcher_at(&self.root))
             .args(args)
             .output()
             .expect("run tmcl")

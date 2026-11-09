@@ -193,31 +193,43 @@ impl App {
             self.status = Status::warning(self.i18n.text("status.create_target_first"));
             return;
         }
-        let values = self
+        // `display|value`, the convention every picker uses: the row prints the
+        // part before the bar and the form submits the part after it. The name
+        // goes first — a UUID told nobody which instance they were picking —
+        // and a name two instances share carries a short id so the pair stays
+        // distinguishable.
+        let repeated = |name: &str| {
+            self.instances
+                .items
+                .iter()
+                .filter(|item| item.name == name)
+                .count()
+                > 1
+        };
+        let options = self
             .instances
             .items
             .iter()
-            .map(|item| format!("{}|{}", item.id, item.name))
+            .map(|item| {
+                let display = if repeated(&item.name) {
+                    format!("{} · {}", item.name, &item.id.simple().to_string()[..8])
+                } else {
+                    item.name.clone()
+                };
+                format!("{display}|{}", item.id)
+            })
             .collect::<Vec<_>>();
         let selected = self
             .download_target_id
             .and_then(|id| self.instances.items.iter().position(|item| item.id == id))
             .unwrap_or(0);
-        let mut modal = Modal::form(
+        let modal = Modal::form(
             self.i18n.text("form.download_target"),
             &[self.i18n.text("form.target_instance_id")],
-            &[values[selected].clone()],
+            &[options[selected].clone()],
             FormAction::SelectResourceTarget,
         )
-        .with_selection_picker(0, values);
-        if let Modal::Form { values, .. } = &mut modal {
-            values[0] = self
-                .instances
-                .items
-                .get(selected)
-                .map(|item| format!("{}|{}", item.id, item.name))
-                .unwrap_or_default();
-        }
+        .with_selection_picker(0, options);
         self.modal = Some(modal);
     }
 
@@ -413,7 +425,7 @@ impl App {
         )
         .with_directory_picker(1);
         // The icon belongs to the project, not to the file, and it is only
-        // reachable while its page is open — bind the two here.
+        // reachable while its page is open, so the two are bound here.
         let icon_url = self
             .resource_detail_project
             .as_ref()
@@ -530,7 +542,7 @@ impl App {
         Ok(())
     }
 
-    /// Resolves a just-queued mod's required dependencies in the background.
+    /// Resolves the required dependencies of a newly queued mod.
     ///
     /// The parent task is already running; dependencies arrive as an event so
     /// the queue is touched on the UI thread, where the engine lives.
@@ -834,7 +846,7 @@ impl App {
         self.modpack_job = Some(job);
         self.upsert_instance(instance);
         // The pack's artwork was written during `prepare`, before this instance
-        // had a row. Drop anything cached for the path so the first frame after
+        // had a row. Drop anything cached for the path, so the first frame after
         // the row appears reads the real cover instead of a placeholder.
         self.refresh_cover(&instance_root);
         let loader = parse_install_loader(&loader, &loader_version);
@@ -962,8 +974,8 @@ async fn prepare_modpack_install(
 
 /// The provider a CurseForge-flavoured pack needs, when there is one.
 ///
-/// A Modrinth pack carries URLs, so a missing provider only matters for packs
-/// that list ids — the resolution inside `core` says so in that case.
+/// A Modrinth pack carries URLs, so a missing provider matters only for packs
+/// that list ids; the resolution inside `core` reports it.
 fn modpack_provider(
     snapshot: &crate::core::download::DownloadSourceSnapshot,
 ) -> Option<std::sync::Arc<dyn crate::core::resource::ResourceProvider>> {

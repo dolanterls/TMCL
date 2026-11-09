@@ -75,11 +75,11 @@ pub fn deduplicate(paths: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
 
 /// The game directory an instance belongs to.
 ///
-/// Instances live at `<game_directory>/versions/<name>`, so the game directory
-/// is the grandparent. Anything that does not sit under a `versions` directory
-/// is rejected instead of guessed: every caller used to invent its own
-/// fallback (`parent().parent()` with an `unwrap`), and those fallbacks
-/// disagreed about what to do with a malformed path.
+/// Instances live at `<game_directory>/versions/<name>`, so the game directory is
+/// the grandparent. Anything that does not sit under a `versions` directory is
+/// rejected instead of guessed: a caller inventing its own fallback
+/// (`parent().parent()` with an `unwrap`) disagrees with the others about a
+/// malformed path.
 pub fn game_directory_of(instance_directory: &Path) -> Result<PathBuf> {
     let normalized = normalize_canonical(
         instance_directory

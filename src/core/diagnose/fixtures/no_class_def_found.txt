@@ -1,0 +1,1 @@
+[stdout] java.lang.NoClassDefFoundError: com/example/api/Thing

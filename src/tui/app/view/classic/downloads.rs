@@ -314,8 +314,8 @@ impl App {
             localize_resource_source(self.download_center.source, &self.i18n),
             localize_resource_sort(self.download_center.sort, &self.i18n)
         ));
-        // The game-version list is already a window of its own — `version_scroll`
-        // pre-slices it — so it keeps the plain derivation. The resource lists
+        // The game-version list is already a window of its own, pre-sliced by
+        // `version_scroll`, so it keeps the plain derivation. The resource lists
         // are drawn whole and remember where they sat.
         let selected = selected.min(item_count.saturating_sub(1));
         let mut layout = RowLayout::table(list_area, rows.len(), selected);

@@ -27,8 +27,8 @@ mod settings;
 mod shell;
 pub(in crate::tui::app) mod sidebar;
 mod tasks;
-/// Palette derivation and the piece library — `tui::modal` draws its dialog
-/// with them, which is why they are crate-visible.
+/// Palette derivation and the piece library. `tui::modal` draws its dialog with
+/// them, so both are crate-visible.
 pub(crate) mod tone;
 pub(crate) mod widgets;
 mod workspace;
@@ -59,6 +59,10 @@ pub(in crate::tui::app) struct PaletteKey {
     theme: NightlightTheme,
     preset: UiPreset,
     mode: ThemeMode,
+    /// Whether the mode is `跟随终端`. Kept apart from `mode` because a light
+    /// terminal paints the light ladder *and* still withdraws its fills, so
+    /// `Terminal + light` and `Light` must not share a cache entry.
+    terminal: bool,
     high_contrast: bool,
     /// The two remaining inputs of `nightlight_seed`. Without them, flipping
     /// the clock switch or the accent inside one minute kept the cached
@@ -112,15 +116,22 @@ impl App {
         shell::hairline(frame, &regions, &palette);
         shell::footer(self, frame, &regions, &palette);
         shell::toast(self, frame, &regions, &palette);
+    }
 
-        // Same single-scrim contract as the other presets: one dimming pass
-        // below every overlay, then the shared blocker registration.
-        if self.detail_open || self.help_open || self.modal.is_some() {
+    /// Same single-scrim contract as the other presets: one dimming pass below
+    /// every overlay, then the shared blocker registration. Runs after the page
+    /// has handed its fills back to the terminal.
+    pub(in crate::tui::app) fn nightlight_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
+        let palette = self.nightlight_palette();
+        if self.detail_open || self.diagnosis_open || self.help_open || self.modal.is_some() {
             crate::tui::widgets::scrim::dim(frame);
         }
         self.register_overlay_hits(area);
         if self.detail_open {
             modals::detail(self, frame, area, &palette);
+        }
+        if self.diagnosis_open {
+            self.draw_diagnosis_overlay_with(frame, self.diagnosis_theme());
         }
         if self.help_open {
             modals::help(self, frame, area, &palette);
@@ -154,10 +165,9 @@ impl App {
     /// One row of filter chips. The chip rectangles come from the same widths
     /// that draw them, so clicks and glyphs cannot drift.
     ///
-    /// The window always keeps the active chip on screen: with six categories
-    /// at 80 columns the last two used to be cut off, and cycling onto one of
-    /// them left the row looking unchanged. Hidden leading chips are replaced
-    /// by an ellipsis so the row still says there is more.
+    /// The window always keeps the active chip on screen: six categories at 80
+    /// columns overflow, and cycling onto an off-screen chip would leave the row
+    /// looking unchanged. Hidden leading chips become an ellipsis.
     pub(in crate::tui::app) fn draw_pill_row(
         &self,
         frame: &mut Frame<'_>,
@@ -239,9 +249,9 @@ impl App {
             rects.push((index, Rect::new(x, area.y, cells, 1)));
             x = x.saturating_add(cells);
         }
-        // Trailing "…" says the row is cut short. Without it a category that
-        // did not fit simply did not exist, which is how Worlds disappeared at
-        // 80 columns while Game Versions was selected.
+        // Trailing "…" says the row is cut short. Without it a category that did
+        // not fit left no trace: Worlds disappeared at 80 columns while Game
+        // Versions was selected.
         if drawn < labels.len() {
             spans.push(Span::styled(
                 " …",
@@ -276,11 +286,17 @@ impl App {
     /// run that straddles a minute boundary cannot look like a cache miss.
     fn nightlight_palette_at(&self, minute: Option<u32>) -> Palette {
         let ui = &self.config.state.ui;
+        let mode = if self.light_terminal() {
+            ThemeMode::Light
+        } else {
+            ui.theme_mode
+        };
         let key = PaletteKey {
             minute: minute.map(|value| value as u16),
             theme: ui.nightlight_theme,
             preset: ui.preset,
-            mode: ui.theme_mode,
+            mode,
+            terminal: ui.theme_mode == ThemeMode::Terminal,
             high_contrast: ui.high_contrast,
             live_accent: ui.live_accent,
             accent: ui.accent_color,
@@ -290,12 +306,16 @@ impl App {
                 return palette;
             }
         }
-        let palette = tone::palette(
+        let mut palette = tone::palette(
             key.theme,
             key.mode,
             self.nightlight_seed(minute),
             key.high_contrast,
         );
+        // `tone::palette` only withdraws the fills for `Terminal`; a light
+        // terminal is still following, so the flag is set from the mode the
+        // user picked rather than the ladder that was drawn.
+        palette.transparent = key.terminal;
         self.nightlight_cache.set(Some((key, palette)));
         #[cfg(test)]
         self.nightlight_computes
@@ -524,13 +544,11 @@ mod tests {
                         "{page:?} at {width}x{height} lost the rail brand: {band:?}"
                     );
                 }
-                // No page may end in a band of page colour. Two rows of context
-                // matter: the page keeps a one-row margin, so the last content
-                // row is `bottom - 2`; and the settings page pins a one-line
-                // description there, on the page colour. Every other page must
-                // paint that row edge to edge inside the margin — the old check
-                // accepted a single painted cell, which let a partly empty card
-                // pass.
+                // No page may end in a band of page colour. The page keeps a
+                // one-row margin, so the last content row is `bottom - 2`, and
+                // the settings page pins a one-line description there. Every
+                // other page must paint that row edge to edge inside the margin;
+                // a single painted cell is not enough.
                 let palette = app.nightlight_palette();
                 let regions = app.regions.get();
                 let last = regions.main.bottom().saturating_sub(2);

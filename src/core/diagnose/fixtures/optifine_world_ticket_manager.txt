@@ -1,0 +1,2 @@
+[stdout] [19:02:12] [main/INFO]: Backend library: LWJGL version 3.3.3
+[stdout] [19:06:10] [Server thread/ERROR]: java.lang.NoSuchMethodError: net.minecraft.world.server.ChunkManager$ProxyTicketManager.shouldForceTicks(J)Z

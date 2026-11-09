@@ -1,10 +1,9 @@
 //! Shared single-line text input.
 //!
-//! One editor ([`edit`]) and one renderer ([`render`]) serve every text field
-//! in the interface: the inline search bars, the dialog form fields, the
-//! single-line prompts and the picker filter. Keeping them in one place is the
-//! point — four hand-rolled inputs are how the cursor ended up blinking in one
-//! field, standing still in another, and missing entirely in a third.
+//! One editor ([`edit`]) and one renderer ([`render`]) serve every text field in
+//! the interface: the inline search bars, the dialog form fields, the single-line
+//! prompts and the picker filter. Four hand-rolled inputs would put the cursor in a
+//! different place in each.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::style::{Color, Modifier, Style};
@@ -23,11 +22,23 @@ pub struct FieldStyle {
     pub cursor_bg: Color,
 }
 
-/// Blink phase shared by every field: half a second on, half a second off.
+/// Replaces control characters with a space.
 ///
-/// `App::anim_time` freezes at zero when motion is disabled, which leaves the
-/// block solid instead of animating — the same rule the rest of the preset
-/// follows for `TMCL_NO_ANIM`.
+/// `Buffer::set_stringn` filters them, but `Paragraph` writes graphemes
+/// directly into cells, so a tab is stored as a cell symbol and printing it
+/// moves the cursor to the next tab stop. The rest of the line is then drawn
+/// outside the widget, and no later frame repaints those cells.
+pub fn printable(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| if ch.is_control() { ' ' } else { ch })
+        .collect()
+}
+
+/// Half a second on, half a second off.
+///
+/// `App::anim_time` freezes at zero when motion is disabled, so the block stays
+/// solid. Every preset follows the same rule for `TMCL_NO_ANIM`.
 pub fn blink_on(t: f64) -> bool {
     (t * 2.0).fract() < 0.55
 }
@@ -61,10 +72,10 @@ pub fn edit(value: &mut String, cursor: &mut usize, key: KeyEvent) -> bool {
 
 /// Draws one field of `width` cells.
 ///
-/// The focused field always shows its cursor: the visible window scrolls just
-/// far enough to keep the block inside, so a long path never hides the point
-/// where typing lands. An unfocused field shows the tail of a long value,
-/// marked with `‹`, because the end of a path is the informative part.
+/// The focused field always shows its cursor: the visible window scrolls far enough
+/// to keep the block inside, so a long path never hides the point where typing
+/// lands. An unfocused field shows the tail of a long value, marked with `‹`,
+/// because the end of a path is the informative part.
 pub fn render(
     value: &str,
     cursor: usize,

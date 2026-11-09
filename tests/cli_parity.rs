@@ -72,6 +72,7 @@ const INSTANCE_SCOPED: &[&[&str]] = &[
 /// and still belongs here, because the `--yes` gate is about losing data.
 const PLAIN: &[&[&str]] = &[
     &["tui"],
+    &["diagnose"],
     &["instance", "list"],
     &["instance", "create"],
     &["instance", "import"],
@@ -165,7 +166,7 @@ fn the_tree_still_has_every_command_we_expect() {
     // silent diff. Bump this number in the same commit as the new row.
     assert_eq!(
         leaves.len(),
-        67,
+        68,
         "leaf count changed; update `cli-core-map.md` and this number: {:?}",
         leaves
             .iter()

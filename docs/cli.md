@@ -35,7 +35,8 @@ TMCL 的所有能力都在命令行里，TUI 只是同一套内核的另一层�
 - [14. 自更新：`tmcl update`](#14-自更新tmcl-update)
 - [15. 补全与界面：`completions` / `tui`](#15-补全与界面completions--tui)
 - [16. 把 tmcl 加入 PATH：`tmcl path`](#16-把-tmcl-加入-pathtmcl-path)
-- [17. 常见任务配方](#17-常见任务配方)
+- [17. 崩溃诊断：`tmcl diagnose`](#17-崩溃诊断tmcl-diagnose)
+- [18. 常见任务配方](#18-常见任务配方)
 
 ---
 
@@ -348,7 +349,7 @@ tmcl instance launch 14 --max-memory-mb 8192
 tmcl instance launch 14 --export-script launch.bat
 ```
 
-导出的脚本里，会话令牌会替换成环境变量引用（`TMCL_ACCESS_TOKEN`），可以直接发给别人；离线账号没有令牌，脚本里就是字面量 `0`。游戏输出同时写进 `%APPDATA%\TMCL\logs\game\<uuid>.log`（`logs.game_debug` 关时只记 stderr，失败启动会补上 stdout 尾部）。
+导出的脚本里，会话令牌会替换成环境变量引用（`TMCL_ACCESS_TOKEN`），可以直接发给别人；离线账号没有令牌，脚本里就是字面量 `0`。游戏输出同时写进数据目录的 `logs\game\<uuid>.log`（`logs.game_debug` 关时只记 stderr，失败启动会补上 stdout 尾部）。
 
 ### `tmcl instance unregister`
 
@@ -402,7 +403,7 @@ tmcl account list [--json]
 tmcl account login-microsoft
 ```
 
-令牌用 Windows DPAPI 加密存在 `%APPDATA%\TMCL`。
+令牌用 Windows DPAPI 加密存在数据目录的 `secrets\` 下。
 
 ### `tmcl account add-offline`
 
@@ -438,7 +439,7 @@ tmcl java list [--json]
 ```
 
 ```
-Java 25  C:\Users\you\AppData\Roaming\TMCL\runtime\java-25\bin\java.exe
+Java 25  D:\mc\TMCL\runtime\java-25\bin\java.exe
 Java 21  C:\Users\you\AppData\Roaming\.minecraft\runtime\java-runtime-delta\bin\java.exe
 Java 8   C:\Users\you\AppData\Roaming\.minecraft\runtime\jre-legacy\bin\java.exe
 ```
@@ -470,7 +471,7 @@ tmcl java download 21
 tmcl java download 17 --dry-run
 ```
 
-下载到 `%APPDATA%\TMCL\runtime\java-<major>`，之后 `config java auto` 就会选到它。
+下载到数据目录的 `runtime\java-<major>`，之后 `config java auto` 就会选到它。
 
 ---
 
@@ -552,14 +553,14 @@ tmcl task cancel <TASK_ID> [--yes]
 
 ### `tmcl config path`
 
-打印数据目录（配置、任务、日志、运行时都在它下面）。
+打印数据目录（配置、账号、任务、日志、运行时都在它下面）。数据目录是启动器旁边的 `TMCL` 文件夹：exe 在 `D:\mc`，数据就在 `D:\mc\TMCL`。
 
 ```bash
 tmcl config path
 ```
 
 ```
-C:\Users\you\AppData\Roaming\TMCL
+D:\mc\TMCL
 ```
 
 ### `tmcl config list`
@@ -1121,7 +1122,36 @@ tmcl path remove
 
 > **改完 PATH 必须新开终端**：进程启动时复制父进程的环境块，已经开着的窗口看不到变化。TUI 里执行成功后也会提示这一句。
 
-## 17. 常见任务配方
+## 17. 崩溃诊断：`tmcl diagnose`
+
+读一份游戏日志，给出结论、依据和下一步。与 TUI 的诊断卡片同一套规则：59 条现象，按权重排序，主因之外最多两条"另有可能"。
+
+```bash
+tmcl diagnose
+tmcl diagnose survival
+tmcl diagnose survival --log "D://logs//20261108-190211.log"
+tmcl diagnose --json
+tmcl diagnose survival --export D://diag//survival.zip
+```
+
+| 参数 | 作用 |
+|---|---|
+| `[REF]` | 实例名、路径或序号，省略时用当前实例 |
+| `--log PATH` | 读这份日志，而不是 `logs/game` 下最新的一份；**只读这一份**，实例里的 `latest.log`、最新崩溃报告与 `hs_err` 不参与（可能属于更晚的会话） |
+| `--export PATH` | 同时写出诊断包（zip），不弹对话框 |
+| `--json` | 输出结构化的 `Diagnosis`，字段稳定，便于贴到 issue |
+
+`--json` 里 `primary.rule` 是规则名（PascalCase），`stage` 是 `NeverStarted` / `NoWindow` / `InGame` 之一，`exit` 是 `Clean` / `UserKilled` / `NativeAbort` / `Crashed` 之一。
+
+不带 `--log` 时也会读实例里的崩溃报告、`hs_err_pid*.log` 与 `logs/latest.log`，但只认**本次运行写的**文件（时间戳不早于运行开始）。`crash-reports/` 从不自动清理，三天前的报告照样是"最新"的一份；把它算进来会让阶段变成"游戏中"，启动期的规则集体失格，模组依赖缺失就被误报成缺类。
+
+诊断包里有 `report.txt`、`game.log`、`launcher.log`、`crash-report.txt`、`hs-err.log`、`instance.json`、`system.json`、`launch.txt`。缺哪个来源就不写哪个条目，`report.txt` 的"读取"一节会列出读了什么、缺了什么。
+
+`tmcl instance launch` 在非零退出时会调同一个入口，人类可读输出追加 `· 崩溃：<主因>`，`--json` 里多一个 `diagnosis` 字段（只增不改）。
+
+---
+
+## 18. 常见任务配方
 
 **看这个实例装了什么**
 

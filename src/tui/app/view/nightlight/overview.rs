@@ -67,8 +67,8 @@ pub(in crate::tui::app) fn layout(area: Rect) -> OverviewLayout {
         .split(rows[0]);
     let stats = if narrow {
         // 2×2 inside the same three-row band: one row of tiles, a gap, another
-        // row. Four tiles across 55 cells leave ~13 each, which is where the
-        // labels start touching the values (design §9.4).
+        // row. Four tiles across 55 cells leave ~13 each, the width at which
+        // labels start touching values (design §9.4).
         let bands = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
@@ -210,11 +210,10 @@ impl App {
         }
 
         // The big numbers: playtime on the left, launches on the right. A short
-        // hero cannot fit the eight-pixel glyphs, but dropping the numbers
-        // entirely left the narrow overview without two of the four things the
-        // design says this card shows — so they fall back to one text line.
-        // Hours alone turned every new instance into `0h` even after a real
-        // session; `compact_play_time` falls back to minutes under the hour.
+        // hero cannot fit the eight-pixel glyphs, and dropping them would leave
+        // the narrow overview missing two of the card's four facts, so they fall
+        // back to one text line. Hours alone turned every new instance into `0h`
+        // even after a real session; `compact_play_time` reports minutes instead.
         let playtime = instance
             .map(|instance| compact_play_time(instance.play_time_seconds))
             .unwrap_or_else(|| "—".to_owned());
@@ -402,7 +401,7 @@ impl App {
             (
                 Metric::Java,
                 if java_ready { "✓" } else { "—" }.to_owned(),
-                // The label is the noun; whether it is ready is the value.
+                // The label is the noun and the value says whether it is ready.
                 // "Java not set —" reads as two answers to one question.
                 "Java".to_owned(),
                 if java_ready { pal.ok } else { pal.err },
@@ -511,11 +510,7 @@ impl App {
 }
 
 fn loader_text(app: &App, instance: &InstanceSummary) -> String {
-    let loader = app.loader_label(&instance.loader);
-    instance
-        .loader_version
-        .as_ref()
-        .map_or(loader.clone(), |version| format!("{loader} {version}"))
+    app.instance_loader_text(instance)
 }
 
 #[cfg(test)]

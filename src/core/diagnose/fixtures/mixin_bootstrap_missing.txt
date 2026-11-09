@@ -1,0 +1,1 @@
+[stdout] java.lang.ClassNotFoundException: org.spongepowered.asm.launch.MixinTweaker

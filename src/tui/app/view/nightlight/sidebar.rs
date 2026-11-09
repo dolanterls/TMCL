@@ -1,10 +1,9 @@
 //! Sidebar pieces for the `nightlight` preset: brand, numbered navigation and
 //! the environment summary pinned to the bottom.
 //!
-//! The sidebar is not a card. It sits directly on the page colour, which is why
-//! the selected row is a full-width accent bar rather than a tinted panel. The
-//! navigation is the one place where this preset leaves the shared geometry
-//! contract, so the drawn rows and the clickable rows come from the same
+//! The sidebar sits directly on the page colour, so the selected row is a
+//! full-width accent bar. Navigation is the one place where this preset leaves
+//! the shared geometry contract: drawn rows and clickable rows both come from
 //! [`NavLayout`].
 //! Design inspiration: nightlightd (GPL-3.0-or-later).
 //! This file is an independent implementation; no source code is copied.
@@ -19,8 +18,8 @@ use tui_big_text::{BigTextBuilder, PixelSize};
 use super::tone::Palette;
 
 /// Rows the bottom summary can occupy: phase·time, running tasks, version·theme
-/// and the session uptime. Accounts and instances deliberately never appear
-/// here — they are entities, and belong in content cards.
+/// and the session uptime. Accounts and instances never appear here; they are
+/// entities and belong in content cards.
 pub const SUMMARY_ROWS: u16 = 4;
 /// Blank row between the navigation and the summary.
 const SUMMARY_GAP: u16 = 1;
@@ -98,8 +97,8 @@ pub fn nav_layout(area: Rect, count: usize) -> NavLayout {
 
 /// Clickable rectangle of every navigation row.
 ///
-/// The gap between entries belongs to no entry: a click in it does nothing,
-/// which is why the stride is used here and in `nav_index_at` alike.
+/// The gap between entries belongs to no entry, so a click in it does nothing.
+/// The stride is used here and in `nav_index_at` alike.
 pub fn nav_rects(area: Rect, count: usize) -> Vec<Rect> {
     let layout = nav_layout(area, count);
     (0..count)
@@ -138,8 +137,8 @@ pub fn nav_index_at(area: Rect, count: usize, row: u16, column: u16) -> Option<u
 
 /// Draws the brand band: the same wordmark the classic overview uses, at
 /// `Quadrant` size (16 columns by four rows), centred in the sidebar. A narrow
-/// column keeps the one-line ` ☾ TMCL ` instead — four rows of block glyphs do
-/// not fit in a six-column rail.
+/// column keeps the one-line ` ☾ TMCL ` instead, because four rows of block
+/// glyphs do not fit in a six-column space.
 pub fn draw_brand(frame: &mut Frame<'_>, area: Rect, pal: &Palette) {
     if area.width >= BIG_BRAND_COLS && area.height >= BIG_BRAND_ROWS {
         let banner = BigTextBuilder::default()
@@ -165,8 +164,8 @@ pub fn draw_brand(frame: &mut Frame<'_>, area: Rect, pal: &Palette) {
     frame.render_widget(Paragraph::new(line), area);
 }
 
-/// The brand, on the sidebar's first row: ` ☾ TMCL `. No version here — that
-/// lives in the summary, exactly where the reference puts it.
+/// The brand, on the sidebar's first row: ` ☾ TMCL `. The version lives in the
+/// summary, where the reference puts it.
 pub fn brand(pal: &Palette) -> Line<'static> {
     Line::from(vec![
         Span::styled("  ☾ ", Style::default().fg(pal.accent).bg(pal.bg)),
@@ -251,9 +250,8 @@ pub fn nav_line(
 /// when there are none), version and theme, then the session uptime.
 ///
 /// Every row starts on the same column as the brand glyph and the navigation
-/// numbers — the version line used to sit one cell left of the moon, which made
-/// the block look ragged. The uptime lives here rather than in the footer: it
-/// is session state, and the footer is the place for what just happened.
+/// numbers. The uptime lives here rather than in the footer because it is
+/// session state; the footer reports recent events.
 pub fn summary(
     phase: &str,
     clock: &str,
@@ -478,9 +476,8 @@ mod tests {
         assert_eq!(zero.len(), 3);
     }
 
-    /// The version line used to start one cell left of the moon glyph, and the
-    /// uptime lived in the footer instead of here. All three rows now share the
-    /// moon's column.
+    /// The version line, the running-tasks row and the uptime all start in the
+    /// moon glyph's column.
     #[test]
     fn every_summary_row_starts_on_the_same_column() {
         let pal = palette();

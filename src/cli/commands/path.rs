@@ -1,8 +1,8 @@
 //! `path`: report and edit the PATH entry for this executable.
 //!
 //! This is the command a user reaches for when `tmcl` answers "not recognized".
-//! It edits the *user* PATH — the machine one needs elevation, and a launcher
-//! that runs unelevated should not pop UAC just to make its own name work.
+//! It edits the user PATH: the machine one needs elevation, and a launcher that
+//! runs unelevated should not pop UAC to make its own name work.
 
 use crate::cli::args::PathCommand;
 use crate::cli::output::OutputOptions;

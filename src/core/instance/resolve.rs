@@ -1,11 +1,7 @@
 //! Resolve a user-supplied instance reference to a concrete instance.
 //!
-//! Every front end used to address an instance by its own rule: the CLI took a
-//! filesystem path, the TUI took whatever row the list had focused. That made
-//! `instance launch` require `versions\<name>` spelled out, and made the two
-//! ends disagree about what "the current instance" means.
-//!
-//! This module owns the single rule:
+//! One rule for both front ends, because a path in the CLI and a focused row in
+//! the TUI disagree about what "the current instance" means.
 //!
 //! | Form | Test | Example |
 //! |---|---|---|
@@ -16,21 +12,13 @@
 //! | path | contains a separator, or names an existing directory | `./versions/demo` |
 //! | name | everything else | `demo` |
 //!
-//! A number is the position in `instance list`. It is a position, not an
-//! identity, so it moves when the list changes; a full name never does. For a
-//! bare number an instance *named* `123` wins over the 123rd row, because
-//! renaming an instance must not make it unaddressable. `+123` skips that check
-//! and always means the position.
-//!
-//! The sigil is `+` and not `@` or `#`: PowerShell treats any `@word` argument
-//! as splatting and silently drops it — `instance launch @9` there would launch
-//! the current instance instead of the ninth — and `#` starts a comment. `+`
-//! survives cmd, bash and PowerShell unchanged.
-//!
-//! A name must match exactly, or be an unambiguous prefix of one (case and
-//! full-width differences ignored). Ambiguity is an error, never a first-match:
-//! silently picking one of two same-named instances across two game directories
-//! would eventually delete the wrong one.
+//! A number is a position in `instance list`, not an identity, so it moves when
+//! the list changes. A bare number prefers an instance named `123`; `+123` always
+//! means the position. The sigil is `+`, not `@` or `#`: PowerShell splats any
+//! `@word` argument and `#` starts a comment. A name matches exactly or as an
+//! unambiguous prefix (case and full-width differences ignored); ambiguity is an
+//! error, never a first match, because silently picking one of two same-named
+//! instances would eventually delete the wrong one.
 
 use std::path::{Path, PathBuf};
 
@@ -89,7 +77,7 @@ pub fn parse(reference: &str) -> InstanceRef {
     {
         return InstanceRef::ForcedIndex(digits.parse().unwrap_or(usize::MAX));
     }
-    // All digits: a position, unless an instance is actually called that.
+    // All digits: a position, unless an instance is called that.
     if !reference.is_empty() && reference.bytes().all(|byte| byte.is_ascii_digit()) {
         return InstanceRef::Index(reference.parse().unwrap_or(usize::MAX));
     }
@@ -149,8 +137,8 @@ pub fn resolve_with_game_dir(
             Ok(resolved)
         }
         InstanceRef::Index(index) => {
-            // An instance actually named `9` outranks the ninth row: a name is
-            // stable, a position is not. `+9` is how you insist on the row.
+            // An instance named `9` outranks the ninth row: a name is stable, a
+            // position is not. `+9` is how you insist on the row.
             if let Some(named) = candidates.iter().find(|candidate| {
                 candidate.config.name == reference
                     || directory_name(&candidate.config.path) == Some(reference)

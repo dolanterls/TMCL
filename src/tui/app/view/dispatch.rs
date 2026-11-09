@@ -7,6 +7,7 @@ use super::*;
 use crate::tui::action::{ModalAct, OverlayAct};
 use crate::tui::app::view::sheet::Sheet;
 use crate::tui::hit::Layer;
+use crate::tui::palette;
 
 impl App {
     pub(in crate::tui::app) fn layout_chrome(&self, area: Rect) -> ChromeRegions {
@@ -38,15 +39,11 @@ impl App {
 
     /// Rows the footer needs at `width`, per preset.
     ///
-    /// Every preset keeps a two-band footer: key hints on top, the status
-    /// line underneath. `classic` and `nightlight` reserve exactly two rows —
-    /// the row count must not depend on the message (a long failure text used
-    /// to shave a row off every card) nor on the hint width (which once merged
-    /// the two bands back into one whenever the page had few hints). `creeper`
-    /// wraps its hint row instead of dropping hints, so it may ask for a third.
-    ///
-    /// Keyed off the page hints (not the active mode) so opening a dialog or
-    /// entering search cannot resize the page under the user.
+    /// `classic`, `nightlight` and `shelf` return 2, so neither a long status
+    /// message nor a narrow hint row can change the page height. `creeper`
+    /// wraps its hints and may return 3; `paper` adds one for its rule. Counted
+    /// from the page hints, not the active mode, so a dialog cannot resize the
+    /// page.
     fn preset_footer_rows(&self, width: u16) -> u16 {
         match self.preset() {
             UiPreset::Creeper => {
@@ -208,34 +205,44 @@ impl App {
             UiPreset::Shelf => self.draw_shelf(frame, area),
         }
         if self.config.state.ui.theme_mode == ThemeMode::Terminal {
+            // Order matters: the fills go first, so the ink pass can test
+            // `bg == Reset` to mean "this glyph sits straight on the terminal".
             self.punch_through_terminal(frame);
+            self.lift_terminal_ink(frame);
+        }
+        // Drawn after the punch, so the page has already handed its fills back
+        // and a dialog keeps its own background. Drawing overlays inside a
+        // preset's draw would make `跟随终端` skip the punch while one is open.
+        self.draw_overlays(frame, area);
+    }
+
+    /// Detail, help and dialogs, in whichever frame the preset uses.
+    ///
+    /// One dispatch so the punch above cannot be skipped by a preset that drew
+    /// its own overlays inline.
+    fn draw_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
+        match self.preset() {
+            UiPreset::Classic => self.classic_overlays(frame, area),
+            UiPreset::Creeper => self.creeper_overlays(frame, area),
+            UiPreset::Nightlight => self.nightlight_overlays(frame, area),
+            UiPreset::Paper => self.paper_overlays(frame, area),
+            UiPreset::Shelf => self.shelf_overlays(frame, area),
         }
     }
 
-    /// `跟随终端` means "let the terminal own the page colour", and a terminal
-    /// colour is the only one that can carry transparency — acrylic, blur, an
-    /// image behind the window. An explicit RGB is opaque by definition, which
-    /// is why only `classic` used to show it: its `Theme` keeps `Color::Reset`
-    /// and paints no background at all.
+    /// Hands literal page fills back to the terminal by setting their
+    /// background to `Reset`, so the terminal background shows through.
     ///
-    /// The other four keep painting real fills — every blend and gradient needs
-    /// RGB — and withdraw them in two places. Rows and selection bands go
-    /// through [`Sheet::fill`], which returns `Reset` on a following sheet:
-    /// their colours are derived (`mix(surface, page hue, 0.18)`), so no list of
-    /// constants could ever name them. Everything painted as a literal
-    /// `pal.surface` or `pal.bg` is handed back here, at the end of the frame —
-    /// those are dozens of call sites across five presets, and rewriting each
-    /// into `fill` would be noise for no gain.
-    ///
-    /// Borders, rules, text, pills, progress bars and key caps keep their own
-    /// paints: they carry information rather than containment.
+    /// Covers only cells painted with a literal `pal.surface` or `pal.bg`. Rows
+    /// and selection bands take their colours from [`Sheet::fill`], which
+    /// returns `Reset` on a following sheet; borders, text, pills, progress
+    /// bars and key caps keep their own paints because they carry information
+    /// rather than containment.
     fn punch_through_terminal(&self, frame: &mut Frame<'_>) {
-        // An overlay dims every cell to a colour of its own and lays a solid
-        // slab; there is nothing left to hand back, and punching the slab would
-        // make the dialog see-through over a dimmed page.
-        if self.detail_open || self.help_open || self.modal.is_some() {
-            return;
-        }
+        // No overlay guard: `App::draw` runs this between the page and the
+        // overlays, so a dialog's own background is never punched. Including it
+        // would leave the dialog text on the terminal background with no fill
+        // behind it.
         let fills = self.terminal_fills();
         if fills.iter().all(Option::is_none) {
             return;
@@ -251,6 +258,61 @@ impl App {
                     cell.bg = Color::Reset;
                 }
             }
+        }
+    }
+
+    /// Whether start-up should ask the terminal for its background colour.
+    ///
+    /// Only when the answer would change a frame: the switch is on *and* the
+    /// sheet is following the terminal. Asking costs a round trip on every
+    /// launch, so nobody who runs `深色` pays for it.
+    pub(crate) fn wants_terminal_background(&self) -> bool {
+        self.config.state.ui.detect_terminal
+            && self.config.state.ui.theme_mode == ThemeMode::Terminal
+    }
+
+    pub(crate) fn set_terminal_background(&mut self, light: Option<bool>) {
+        self.terminal_background = light;
+    }
+
+    /// True when the sheet should be the light one because the terminal is.
+    ///
+    /// Only `跟随终端` can flip: `深色` and `浅色` already name the sheet the
+    /// user asked for.
+    pub(in crate::tui::app) fn light_terminal(&self) -> bool {
+        self.config.state.ui.detect_terminal
+            && self.config.state.ui.theme_mode == ThemeMode::Terminal
+            && self.terminal_background == Some(true)
+    }
+
+    /// Raises faint glyphs to a legible floor, but only the ones painted
+    /// straight on the terminal.
+    ///
+    /// A cell whose background is a pill, a key cap or a selection band is
+    /// left alone: its ink was chosen against that fill, and lifting it would
+    /// lower the contrast the fill was built to guarantee.
+    fn lift_terminal_ink(&self, frame: &mut Frame<'_>) {
+        if !self.config.state.ui.lift_dim_text {
+            return;
+        }
+        // `classic` declares no fills: it never painted a page, so its ink was
+        // chosen for the terminal's own palette and needs no help. Lifting it
+        // would quietly rewrite a preset that opted out of the whole feature.
+        if self.terminal_fills().iter().all(Option::is_none) {
+            return;
+        }
+        // 0.30 is a little below the 4.5:1 ratio against mid-grey (#808080 is
+        // 0.216): dim enough to keep the secondary tone, bright enough to stay
+        // readable on a light background.
+        const FLOOR: f64 = 0.30;
+        for cell in frame.buffer_mut().content.iter_mut() {
+            if cell.bg != Color::Reset || cell.symbol() == " " {
+                continue;
+            }
+            if palette::relative_luminance(cell.fg) >= FLOOR {
+                continue;
+            }
+            cell.fg = palette::lift_to_luminance(cell.fg, FLOOR);
         }
     }
 
@@ -293,12 +355,23 @@ impl App {
         if self.is_selected_target(hover) {
             return;
         }
+        // The action is not enough to find the rectangle: a key cap and the row
+        // it acts on can share one (`Option(n)` on both the picker's `Enter` and
+        // the option under the highlight), and matching on the action alone
+        // tinted whichever was registered last. The pointer cell says which.
+        // Without one (nothing but tests set `hover` by hand) the action alone
+        // still answers, which is what this did before.
+        let point = self
+            .hover_at
+            .map(|(column, row)| ratatui::layout::Position::new(column, row));
         let Some(rect) = self
             .hitmap
             .hitboxes()
             .iter()
             .rev()
-            .find(|hitbox| hitbox.action == hover)
+            .find(|hitbox| {
+                hitbox.action == hover && point.is_none_or(|point| hitbox.rect.contains(point))
+            })
             .map(|hitbox| hitbox.rect)
         else {
             return;
@@ -336,12 +409,12 @@ impl App {
         }
     }
 
-    /// Full-screen blockers for the blocking overlays.
+    /// Registers a full-screen blocker under each blocking overlay.
     ///
-    /// Both presets call this from their own draw path, so the layer contract
-    /// cannot drift between them. Each overlay registers the blocker first and
-    /// its own body second: reverse lookup then closes on an outside click and
-    /// does nothing inside — no coordinate arithmetic involved.
+    /// Both presets call this from their own draw path so the layer contract
+    /// stays identical. The blocker is registered before the overlay body, so a
+    /// hit test walking layers in reverse closes on a click outside and does
+    /// nothing inside, without comparing coordinates.
     pub(in crate::tui::app) fn register_overlay_hits(&self, area: Rect) {
         if self.detail_open {
             // `paper` draws a right-hand column or a full page, so the rect that
@@ -352,6 +425,12 @@ impl App {
                 crate::tui::chrome::popup_rect(area)
             };
             self.block_overlay(Layer::Detail, area, card);
+        }
+        if self.diagnosis_open {
+            // Same rectangle the painter will ask for, measured from the
+            // verdict's own row count.
+            let card = self.diagnosis_rect(area);
+            self.block_overlay(Layer::Diagnosis, area, card);
         }
         if self.help_open {
             // The help card is sized from its own rows, so the blocker has to
@@ -404,10 +483,21 @@ impl App {
                 hints.push(self.hint("q", "common.quit"));
                 hints
             }
-            // Every dialog prints its own key row, with clickable capsules. The
-            // footer repeating the same keys was pure noise — the dialog is the
-            // only thing on screen that accepts input.
+            // The dialog prints its own key row with clickable capsules and is
+            // the only thing on screen that accepts input, so the footer is
+            // left empty.
             Mode::Form(_) | Mode::Filter | Mode::Confirm(_) => Vec::new(),
+            Mode::Diagnosis => {
+                let mut hints = vec![
+                    self.hint("Esc", "hint.close"),
+                    self.hint("↑↓", "action.scroll"),
+                ];
+                if self.diagnosis_max_scroll() > 0 {
+                    hints.push(self.hint("PgUp/PgDn", "hint.page"));
+                }
+                hints.push(self.hint("F1", "action.help"));
+                hints
+            }
             Mode::Detail(target) => {
                 let mut hints = vec![
                     self.hint("Esc", "hint.close"),

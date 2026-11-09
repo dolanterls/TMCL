@@ -13,9 +13,13 @@ struct SettingSpec {
     title: &'static str,
     description: &'static str,
     kind: SettingKind,
-    /// Presets whose skin actually reads this value. Empty means every preset
-    /// does; a row scoped to another preset is left out of the list entirely.
+    /// Presets whose skin reads this value. Empty means every preset does; a row
+    /// scoped to another preset is left out of the list entirely.
     presets: &'static [UiPreset],
+    /// Rows that only mean something under `theme_mode = 跟随终端`. Showing a
+    /// switch that cannot change a frame is worse than not showing it, so the
+    /// row appears only while the mode makes it live.
+    terminal_only: bool,
 }
 
 const fn spec(
@@ -30,31 +34,24 @@ const fn spec(
         description,
         kind,
         presets: &[],
+        terminal_only: false,
     }
 }
 
-// Scope follows the paint code, not the preset's name:
+// Scope follows the paint path, not the preset's name:
 //
-// * `app/view/classic/*` and `modal/classic.rs` paint with `self.theme`, which
-//   is `Theme::from_ui(&ui)` (`tui/theme.rs`). That function reads `theme_mode`
-//   (dark / light / terminal), then overwrites `accent` from `accent_color` and
-//   brightens `dim` when `high_contrast` is on. So all three reach classic.
-// * `app/view/paper/tone.rs` builds its palette from `paper_theme` and
-//   `theme_mode` only — paper owns its accents, so neither the accent row nor
-//   the contrast row would do anything there.
-// * `app/view/nightlight/tone.rs` reads `nightlight_theme`, `theme_mode`,
-//   `high_contrast`, and seeds the accent from `accent_color` / `live_accent`.
-// * `app/view/creeper/*` and `modal/creeper.rs` paint from the `palette`
-//   constants; `self.theme` never enters a creeper frame, so nothing here
-//   changes a creeper screen.
-// * `app/view/shelf/tone.rs` is a fixed palette too, but it carries a scheme
-//   axis of its own (`shelf_theme`). Shelf reads neither `accent_color` nor
-//   `high_contrast`; it reads `theme_mode` for day / night and the scheme row
-//   for the binding.
+// * classic (`view/classic/*`): `self.theme`, built from `theme_mode` then
+//   `accent_color` and `high_contrast`. All three reach it.
+// * paper (`view/paper/tone.rs`): `paper_theme` and `theme_mode` only.
+// * nightlight (`view/nightlight/tone.rs`): `nightlight_theme`, `theme_mode`,
+//   `high_contrast`, and a seed from `accent_color` / `live_accent`.
+// * creeper (`view/creeper/*`): the `palette` constants; `self.theme` never
+//   enters its frame.
+// * shelf (`view/shelf/tone.rs`): fixed palette plus its own `shelf_theme`
+//   axis; `theme_mode` and the scheme row, never `accent_color`.
 //
-// Reading only `nightlight/` when this table was first written put the three
-// shared rows behind nightlight and took them away from classic, which paints
-// with them every frame. Check the paint path before scoping a row.
+// Check the paint path before scoping a row. Scoping by the preset's name put
+// the three shared rows behind nightlight and took them from classic.
 
 /// Nightlight is the only skin with a theme of its own and the live accent.
 const NIGHTLIGHT: &[UiPreset] = &[UiPreset::Nightlight];
@@ -90,12 +87,30 @@ const fn spec_for(
         description,
         kind,
         presets,
+        terminal_only: false,
+    }
+}
+
+/// A row that only affects a frame while the sheet follows the terminal.
+const fn spec_terminal(
+    id: SettingId,
+    title: &'static str,
+    description: &'static str,
+) -> SettingSpec {
+    SettingSpec {
+        id,
+        title,
+        description,
+        kind: SettingKind::Toggle,
+        presets: &[],
+        terminal_only: true,
     }
 }
 
 impl SettingSpec {
-    fn applies_to(self, preset: UiPreset) -> bool {
-        self.presets.is_empty() || self.presets.contains(&preset)
+    fn applies_to(self, preset: UiPreset, mode: ThemeMode) -> bool {
+        let preset_matches = self.presets.is_empty() || self.presets.contains(&preset);
+        preset_matches && (!self.terminal_only || mode == ThemeMode::Terminal)
     }
 }
 
@@ -258,7 +273,7 @@ const DOWNLOAD_SPECS: [SettingSpec; 9] = [
     ),
 ];
 
-const APPEARANCE_SPECS: [SettingSpec; 10] = [
+const APPEARANCE_SPECS: [SettingSpec; 12] = [
     spec(
         SettingId::UiPreset,
         "settings.preset",
@@ -326,9 +341,22 @@ const APPEARANCE_SPECS: [SettingSpec; 10] = [
         "settings.desc.mouse",
         SettingKind::Toggle,
     ),
+    // The two that only matter while the sheet has given its fills up. They
+    // sit after the palette rows because they tune the frame the palette
+    // produced, not the palette itself.
+    spec_terminal(
+        SettingId::LiftDimText,
+        "settings.lift_dim_text",
+        "settings.desc.lift_dim_text",
+    ),
+    spec_terminal(
+        SettingId::DetectTerminal,
+        "settings.detect_terminal",
+        "settings.desc.detect_terminal",
+    ),
 ];
 
-const LOG_SPECS: [SettingSpec; 8] = [
+const LOG_SPECS: [SettingSpec; 9] = [
     spec(
         SettingId::LauncherLogs,
         "settings.launcher_logs",
@@ -372,9 +400,15 @@ const LOG_SPECS: [SettingSpec; 8] = [
         SettingKind::Action,
     ),
     spec(
-        SettingId::ExportCrashReport,
-        "settings.export_crash_report",
-        "settings.desc.export_crash_report",
+        SettingId::DiagnoseAutoOpen,
+        "settings.diagnose_auto_open",
+        "settings.desc.diagnose_auto_open",
+        SettingKind::Toggle,
+    ),
+    spec(
+        SettingId::ExportDiagnosisBundle,
+        "settings.export_diagnosis_bundle",
+        "settings.desc.export_diagnosis_bundle",
         SettingKind::Action,
     ),
 ];
@@ -402,16 +436,17 @@ impl App {
             .collect()
     }
 
-    /// The rows of `category` that this preset can actually use.
+    /// The rows of `category` that this preset can use.
     ///
     /// The row list, the search index and the sidebar counter all come from
     /// here: filtering in one of them only makes the cursor address a row the
     /// screen does not show.
     fn visible_specs_for(&self, category: SettingsCategory) -> Vec<SettingSpec> {
         let preset = self.preset();
+        let mode = self.config.state.ui.theme_mode;
         Self::setting_specs_for(category)
             .into_iter()
-            .filter(|spec| spec.applies_to(preset))
+            .filter(|spec| spec.applies_to(preset, mode))
             .collect()
     }
 
@@ -491,6 +526,30 @@ impl App {
         None
     }
 
+    /// Put the cursor on one setting, switching category if it has to.
+    ///
+    /// A remedy says "change the Java" or "raise the memory"; landing on the
+    /// settings page with the cursor elsewhere makes the player hunt for the row
+    /// the card named.
+    pub(in crate::tui::app) fn focus_setting(&mut self, id: SettingId) {
+        let Some(category) = SettingsCategory::ALL.into_iter().find(|category| {
+            Self::setting_specs_for(*category)
+                .iter()
+                .any(|spec| spec.id == id)
+        }) else {
+            return;
+        };
+        self.settings.category = category;
+        let index = self
+            .visible_specs_for(category)
+            .iter()
+            .position(|spec| spec.id == id)
+            .unwrap_or(0);
+        self.settings.selected = index;
+        self.set_page(Page::Settings);
+        self.settings.clamp_selection(self.settings_row_count());
+    }
+
     fn setting_specs(&self) -> Vec<SettingSpec> {
         self.visible_specs_for(self.settings.category)
     }
@@ -531,10 +590,13 @@ impl App {
             SettingId::AutoDownloadThreads => self.config.downloads.auto_download_threads,
             SettingId::HighContrast => self.config.state.ui.high_contrast,
             SettingId::LiveAccent => self.config.state.ui.live_accent,
+            SettingId::LiftDimText => self.config.state.ui.lift_dim_text,
+            SettingId::DetectTerminal => self.config.state.ui.detect_terminal,
             SettingId::Mouse => self.config.state.ui.show_mouse,
             SettingId::LauncherLogs => self.config.logs.launcher_enabled,
             SettingId::GameDebug => self.config.logs.game_debug,
             SettingId::AutoRepair => self.config.launch.auto_repair,
+            SettingId::DiagnoseAutoOpen => self.config.diagnosis.auto_open,
             _ => false,
         }
     }
@@ -549,13 +611,10 @@ impl App {
             {
                 Some("settings.reason.unsupported")
             }
-            SettingId::ExportCrashReport
-                if !self
-                    .last_crash_report
-                    .as_ref()
-                    .is_some_and(|path| path.is_file()) =>
-            {
-                Some("status.no_crash_report")
+            // A bundle is most useful exactly when no crash report was written,
+            // so the only requirement is a finished run to describe.
+            SettingId::ExportDiagnosisBundle if self.last_run.is_none() => {
+                Some("status.diagnosis_no_run")
             }
             SettingId::MemoryMinimum | SettingId::MemoryMaximum
                 if self.config.launch.memory_mode == MemoryMode::Automatic =>
@@ -641,6 +700,8 @@ impl App {
             SettingId::UiPreset => self.i18n.text(self.preset().label_key()),
             SettingId::ThemeMode => self.settings_value_theme(),
             SettingId::HighContrast => self.on_off(self.config.state.ui.high_contrast),
+            SettingId::LiftDimText => self.on_off(self.config.state.ui.lift_dim_text),
+            SettingId::DetectTerminal => self.on_off(self.config.state.ui.detect_terminal),
             SettingId::AccentColor => self.settings_value_accent(),
             SettingId::NightlightTheme => self
                 .i18n
@@ -653,6 +714,7 @@ impl App {
             SettingId::LauncherLogs => self.on_off(self.config.logs.launcher_enabled),
             SettingId::GameDebug => self.on_off(self.config.logs.game_debug),
             SettingId::AutoRepair => self.on_off(self.config.launch.auto_repair),
+            SettingId::DiagnoseAutoOpen => self.on_off(self.config.diagnosis.auto_open),
             SettingId::LogRetention => self.i18n.format(
                 "settings.retention_value",
                 &[("days", &self.config.logs.retention_days.to_string())],
@@ -662,12 +724,8 @@ impl App {
             SettingId::ExportLauncherLogs | SettingId::ExportGameLogs => {
                 self.i18n.text("action.save")
             }
-            SettingId::ExportCrashReport => {
-                if self
-                    .last_crash_report
-                    .as_ref()
-                    .is_some_and(|path| path.is_file())
-                {
+            SettingId::ExportDiagnosisBundle => {
+                if self.last_run.is_some() {
                     self.i18n.text("action.save")
                 } else {
                     self.i18n.text("common.none")
@@ -767,7 +825,7 @@ mod tests {
         assert_eq!(GENERAL_SPECS.len(), 6);
         assert_eq!(GAME_SPECS.len(), 10);
         assert_eq!(DOWNLOAD_SPECS.len(), 9);
-        assert_eq!(APPEARANCE_SPECS.len(), 10);
-        assert_eq!(LOG_SPECS.len(), 8);
+        assert_eq!(APPEARANCE_SPECS.len(), 12);
+        assert_eq!(LOG_SPECS.len(), 9);
     }
 }

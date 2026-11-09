@@ -1,12 +1,9 @@
 //! `paper` preset: the launcher as a printed page.
 //!
-//! No cards, no filled rows. The page is a sheet, sections are separated by
-//! hairline rules, and the selection is a margin bar plus an underline — the
-//! three conventions that keep it away from `classic`'s framed tables,
-//! `creeper`'s rounded cards and `nightlight`'s borderless panels.
-//!
-//! Every page is drawn here; the instance workspace lives in
-//! `view/workspace.rs` because it is shared with classic and creeper.
+//! No cards and no filled rows: sections are separated by hairline rules and the
+//! selection is a margin bar plus an underline, distinct from `classic`'s framed
+//! tables and `creeper`'s rounded cards. Pages are drawn here; the instance
+//! workspace lives in `view/workspace.rs` for classic and creeper.
 
 use super::*;
 use crate::tui::action::Action;
@@ -59,7 +56,6 @@ impl App {
         }
         self.paper_footer(frame, &regions, &pal);
         repaint_sheet(frame, area, &pal);
-        self.paper_overlays(frame, area);
     }
 
     /// Running head: the brand and where this page sits in the sequence.
@@ -187,14 +183,17 @@ impl App {
     /// Overlays are still classic's: a dimmed page under a dark dialog reads as
     /// a sheet in shadow, and keeps every action reachable while the two pages
     /// are being judged.
-    fn paper_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
+    pub(in crate::tui::app) fn paper_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
         let pal = self.paper_palette();
-        if self.detail_open || self.help_open || self.modal.is_some() {
+        if self.detail_open || self.diagnosis_open || self.help_open || self.modal.is_some() {
             crate::tui::widgets::scrim::dim(frame);
         }
         self.register_overlay_hits(area);
         if self.detail_open {
             self.draw_paper_detail(frame, &pal);
+        }
+        if self.diagnosis_open {
+            self.draw_diagnosis_overlay_with(frame, self.diagnosis_theme());
         }
         if self.help_open {
             self.draw_paper_help(frame, &pal);
@@ -265,13 +264,12 @@ pub(in crate::tui::app) fn repaint_sheet(frame: &mut Frame<'_>, area: Rect, pal:
 }
 
 impl App {
-    /// The right-hand rail for a region that scrolls, drawn on `bg`.
+    /// The right-hand scrollbar for a region that scrolls, drawn on `bg`.
     ///
-    /// Track in `faint`, thumb in `accent`, no arrow caps. One rail for the
-    /// whole preset: the download column and the help card must not grow two
-    /// ideas of "there is more below". `bg` is the surface being scrolled — the
-    /// page or a slip — so the rail never prints a stripe of the wrong paper
-    /// through the text.
+    /// Track in `faint`, thumb in `accent`, no arrow caps. One implementation
+    /// for the whole preset so the download column and the help card signal
+    /// "more below" the same way. `bg` is the surface being scrolled, the page
+    /// or a slip, so the track never shows a different paper through the text.
     pub(in crate::tui::app) fn paper_scrollbar(
         &self,
         frame: &mut Frame<'_>,
@@ -383,9 +381,8 @@ mod tests {
         );
         // Every cell of the frame is painted, so nothing falls back to the
         // terminal's own background. A hole is invisible on the dark presets and
-        // glaring on this one, which is why it is asserted rather than eyeballed.
-        // The trailing cell of a wide glyph is skipped by the renderer and never
-        // reaches the screen buffer, so it is not a hole.
+        // conspicuous on this one, so it is asserted rather than eyeballed. The
+        // trailing cell of a wide glyph never reaches the buffer and is skipped.
         for y in 0..40u16 {
             for x in 0..120u16 {
                 let continuation = x > 0 && Line::from(buffer[(x - 1, y)].symbol()).width() > 1;
@@ -444,7 +441,7 @@ mod tests {
         );
 
         // Figures print one over the other: number row, then labels, with
-        // hairlines in the gutters. They used to share a single inline line.
+        // hairlines in the gutters.
         let labels = rows
             .iter()
             .position(|row| row.contains("Running tasks") || row.contains("运行中任务"))
@@ -753,9 +750,8 @@ mod tests {
         let (rows, _) = screen(&mut app, 160, 40);
         let text = rows.join("\n");
         assert!(text.contains("sodium-1.0.jar"), "{text}");
-        // Level two is the file table alone. The card belongs to the index —
-        // the table already carries channel, dependency count and
-        // compatibility — so the list keeps its full width.
+        // Level two is the file table alone. The table already carries channel,
+        // dependency count and compatibility, so the list keeps its full width.
         assert!(
             app.download_detail_areas(download_body(&app, 160, 40))
                 .is_none(),
@@ -888,10 +884,9 @@ mod tests {
         );
     }
 
-    /// The column describes the row under the cursor. It must not wait for
-    /// `Enter`: opening a project costs a network round trip, and until it
-    /// returns the right-hand third of the page is blank — which reads as a
-    /// broken page, not as "nothing selected yet".
+    /// The column describes the row under the cursor without waiting for
+    /// `Enter`. Opening a project costs a network round trip, and until it
+    /// returns the right-hand third is blank, which reads as a broken page.
     #[test]
     fn the_download_column_follows_the_list_before_a_project_is_opened() {
         use crate::core::resource::model::ResourceKind;
@@ -955,6 +950,58 @@ mod tests {
         assert!(
             running < queued && queued < finished,
             "the groups are out of order: {running} / {queued} / {finished}\n{text}"
+        );
+    }
+
+    /// Speed and ETA sit to the left of the bar. On the right they pushed the
+    /// bar leftwards, so a running entry's bar no longer aligned with the
+    /// finished ones above and below it.
+    #[test]
+    fn a_transfer_label_sits_left_of_the_bar_and_leaves_it_on_its_column() {
+        use crate::core::task::TaskState;
+        use std::time::{Duration, Instant};
+
+        let mut app = paper_app(1);
+        app.page = Page::Tasks;
+        let moving = snapshot("downloading", TaskState::Running, 84, Some(100));
+        let quiet = snapshot("waiting", TaskState::Running, 40, Some(100));
+        let done = snapshot("finished", TaskState::Succeeded, 100, Some(100));
+        let id = moving.id;
+        app.task_snapshots = vec![moving, quiet, done];
+        app.task_selected = 0;
+
+        // Two samples a second apart: the tracker reports a delta, not a total.
+        let then = Instant::now() - Duration::from_secs(1);
+        app.speed_tracker.observe(id, 1_000_000, then);
+        app.speed_tracker.observe(id, 4_200_000, Instant::now());
+
+        let (rows, _) = screen(&mut app, 120, 40);
+        // Byte offsets would do here, but the label carries a two-byte `·`;
+        // compare display columns like every other width assertion.
+        let column = |row: &str| {
+            let byte = row.find('━').or_else(|| row.find('╌'))?;
+            Some(crate::tui::palette::width(&row[..byte]))
+        };
+        let bars = rows
+            .iter()
+            .filter_map(|row| column(row))
+            .collect::<Vec<_>>();
+        assert!(bars.len() >= 3, "expected three progress rows: {bars:?}");
+        assert!(
+            bars.iter().all(|at| *at == bars[0]),
+            "the bar moved between rows: {bars:?}\n{}",
+            rows.join("\n")
+        );
+
+        let moving = rows
+            .iter()
+            .find(|row| row.contains("MB/s"))
+            .expect("the speed label is drawn");
+        let speed = moving.find("MB/s").expect("speed");
+        let bar = moving.find('━').expect("bar");
+        assert!(
+            speed < bar,
+            "the speed label is to the right of the bar: {moving:?}"
         );
     }
 
@@ -1244,7 +1291,7 @@ mod tests {
         assert!(
             rows.join("\n")
                 .contains(&app.i18n.text("download.no_results")),
-            "the empty list printed nothing:/n{}",
+            "the empty list printed nothing:\n{}",
             rows.join("\n")
         );
     }
@@ -1456,7 +1503,7 @@ mod tests {
         let text = rows.join("\n");
         assert!(
             text.contains(&app.i18n.text("common.details")),
-            "the slip has no title://n{text}"
+            "the slip has no title:\n{text}"
         );
         assert!(text.contains("instance-0"), "{text}");
         assert!(text.contains("Version"), "{text}");
@@ -1502,7 +1549,7 @@ mod tests {
         );
         assert!(
             rows.iter().any(|row| row.contains("instance-0")),
-            "the record lost the name://n{}",
+            "the record lost the name:\n{}",
             rows.join("\n")
         );
     }
@@ -1732,14 +1779,14 @@ mod tests {
         let text = rows.join("\n");
         assert!(
             text.contains(&app.i18n.text("account.login_empty")),
-            "the empty page says nothing:/n{text}"
+            "the empty page says nothing:\n{text}"
         );
         // A blank page with no keys is a dead end: both ways to add an account
         // are printed under it.
         for key in ["action.offline_account", "action.microsoft_login"] {
             assert!(
                 text.contains(&app.i18n.text(key)),
-                "{key} is missing from the empty page:/n{text}"
+                "{key} is missing from the empty page:\n{text}"
             );
         }
     }
@@ -1788,9 +1835,9 @@ mod tests {
         assert!(seen >= 3, "too few version rows drawn: {seen}");
     }
 
-    /// The file row has to carry what the detail card used to: channel,
-    /// dependency count and compatibility. The head row above it names the
-    /// columns — `兼容性` reads as a word, but a bare count does not.
+    /// The file row carries channel, dependency count and compatibility in
+    /// place of the detail card. The head row above it names the columns;
+    /// `兼容性` reads as a word, a bare count does not.
     #[test]
     fn every_file_row_carries_the_table_columns() {
         use crate::core::resource::model::{DependencyKind, ResourceDependency, ResourceKind};
@@ -1874,8 +1921,8 @@ mod tests {
         use crate::core::resource::model::ResourceKind;
         let mut app = paper_app(1);
         app.page = Page::DownloadCenter;
-        // The last category: at 56 columns the row used to stop at Resource
-        // Packs, so the chosen name was nowhere on screen.
+        // The last category: at 56 columns the row must still show the chosen
+        // name rather than stopping at Resource Packs.
         app.download_center.category = DownloadCategory::Resource(ResourceKind::World);
         let (rows, _) = screen(&mut app, 56, 14);
         let main = app.layout_chrome(Rect::new(0, 0, 56, 14)).main;
@@ -1918,7 +1965,7 @@ mod tests {
         let text = rows.join("\n");
         assert!(
             text.contains(&app.i18n.text("settings.launcher_log_directory")),
-            "the label was squeezed by its value:/n{text}"
+            "the label was squeezed by its value:\n{text}"
         );
     }
 
@@ -1932,7 +1979,7 @@ mod tests {
         let text = rows.join("\n");
         assert!(
             text.contains("0 / 0"),
-            "an empty list claims page one:/n{text}"
+            "an empty list claims page one:\n{text}"
         );
         assert!(!text.contains("1 / 0"), "{text}");
     }
@@ -2056,12 +2103,12 @@ mod tests {
         assert!(x > 50, "the legend left the right column: {row:?}");
 
         // The second line names the page's other key. `L` belongs to the
-        // Instances page and used to be printed here by mistake.
+        // Instances page and must not appear here.
         let new = app.i18n.text("action.new");
         assert!(
             rows.iter()
                 .any(|row| row.contains('n') && row.contains(&new)),
-            "the create key is missing from the legend:/n{}",
+            "the create key is missing from the legend:\n{}",
             rows.join("\n")
         );
     }

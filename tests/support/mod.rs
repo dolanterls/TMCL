@@ -9,8 +9,53 @@
 
 use std::io::{Read, Write};
 use std::net::TcpListener;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+
+/// A per-test folder that holds both a launcher and its data.
+///
+/// The launcher keeps its profile next to its own executable, so a test that
+/// wants a profile of its own has to run a launcher of its own. The folder sits
+/// under `CARGO_TARGET_TMPDIR` — the same volume as the binary — which lets
+/// that copy be a hard link instead of 28 MB per test.
+pub fn sandbox_root(tag: &str) -> PathBuf {
+    // Cargo writes `CARGO_TARGET_TMPDIR` with forward slashes, and the launcher
+    // prints the paths it stored with backslashes. A sandbox built from the
+    // mixed form makes every path assertion compare `D:/x` with `D://x`.
+    let base = env!("CARGO_TARGET_TMPDIR");
+    let base = if cfg!(windows) {
+        PathBuf::from(base.replace('/', "\\"))
+    } else {
+        PathBuf::from(base)
+    };
+    let root = base.join(format!(
+        "{tag}-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&root).expect("sandbox root");
+    root
+}
+
+/// Where the launcher belonging to `root` sits.
+pub fn launcher_at(root: &Path) -> PathBuf {
+    root.join(format!("tmcl{}", std::env::consts::EXE_SUFFIX))
+}
+
+/// Put a launcher inside `root`, so its data lands there too.
+pub fn install_launcher(root: &Path) -> PathBuf {
+    let target = launcher_at(root);
+    if !target.exists() {
+        let source = Path::new(env!("CARGO_BIN_EXE_tmcl"));
+        if std::fs::hard_link(source, &target).is_err() {
+            std::fs::copy(source, &target).expect("copy the launcher");
+        }
+    }
+    target
+}
 
 /// A local HTTP server that answers a fixed set of routes.
 ///
@@ -102,14 +147,8 @@ pub const CLIENT: &str = r#"{"id":"1.21.1","mainClass":"net.minecraft.client.mai
 
 impl Sandbox {
     pub fn new(tag: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "tmcl-cli-{tag}-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("clock")
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(root.join("appdata")).expect("appdata");
+        let root = sandbox_root(&format!("tmcl-cli-{tag}"));
+        install_launcher(&root);
         let instance = root.join("game").join("versions").join("demo");
         std::fs::create_dir_all(&instance).expect("instance dir");
         std::fs::write(instance.join("demo.jar"), b"jar").expect("jar");
@@ -122,13 +161,14 @@ impl Sandbox {
         Self { root }
     }
 
-    pub fn appdata(&self) -> std::path::PathBuf {
-        self.root.join("appdata")
+    /// The launcher this sandbox runs; its data lives in `root` beside it.
+    pub fn launcher(&self) -> std::path::PathBuf {
+        launcher_at(&self.root)
     }
 
     /// Directory `DataPaths::discover` uses for persisted tasks.
     pub fn tasks_dir(&self) -> std::path::PathBuf {
-        self.appdata().join("TMCL").join("tasks")
+        self.root.join("TMCL").join("tasks")
     }
 
     pub fn game(&self) -> std::path::PathBuf {
@@ -140,8 +180,7 @@ impl Sandbox {
     }
 
     pub fn run(&self, args: &[&str]) -> std::process::Output {
-        std::process::Command::new(env!("CARGO_BIN_EXE_tmcl"))
-            .env("APPDATA", self.appdata())
+        std::process::Command::new(self.launcher())
             .args(args)
             .output()
             .expect("run tmcl")

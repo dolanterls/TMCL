@@ -11,7 +11,7 @@ use super::*;
 ///
 /// `format_play_time` is right for a table cell (`12h03m`); the hero needs the
 /// same information in `12h` / `5m`, and a brand-new instance must not read as
-/// `0h` just because it is under the hour mark.
+/// `0h` when it is under the hour mark.
 pub(in crate::tui::app) fn compact_play_time(seconds: u64) -> String {
     let hours = seconds / 3_600;
     if hours > 0 {
@@ -35,9 +35,9 @@ impl App {
     /// Overlay "installing" on every instance whose files are still arriving.
     ///
     /// The summary is built from the disk, and a modpack writes the version jar
-    /// and json before it fetches a single mod — so a pack at 50% read exactly
-    /// like a finished instance. Only the task engine knows the difference, so
-    /// the list asks it on every refresh and on every task update.
+    /// and json before it fetches a single mod, so a pack at 50% reads like a
+    /// finished instance. Only the task engine knows the difference, so the list
+    /// asks it on every refresh and on every task update.
     pub(in crate::tui::app) fn sync_install_statuses(&mut self) {
         let busy: Vec<Uuid> = self
             .task_snapshots
@@ -64,7 +64,7 @@ impl App {
             } else if item.status == INSTALLING {
                 // The task is gone; the disk decides again.
                 item.status = if instance_files_ready(&item.path, &item.name) {
-                    "ready".into()
+                    READY.into()
                 } else {
                     "not installed".into()
                 };
@@ -75,10 +75,9 @@ impl App {
     /// Paint the live launch onto the instance list.
     ///
     /// The summary's `status` is what the disk says, and a running game writes
-    /// nothing to disk — so without this an instance read `就绪` while its
-    /// window was on screen. Called on every launch transition and after every
-    /// reload, which makes it the single writer of the launch statuses: there
-    /// is no second place to clear them.
+    /// nothing to disk, so without this an instance reads `就绪` while its window
+    /// is on screen. Called on every launch transition and after every reload,
+    /// which makes it the single writer of the launch statuses.
     pub(in crate::tui::app) fn sync_launch_status(&mut self) {
         let live = self.active_launch.as_ref().map(|launch| {
             let status = match launch.phase {
@@ -383,6 +382,7 @@ pub(in crate::tui::app) const INSTALLING: &str = "installing";
 /// Status strings for an instance the launcher is currently driving. They are
 /// not on disk: `sync_launch_status` writes them from the live process and
 /// restores the disk value when it ends.
+pub(in crate::tui::app) const READY: &str = "ready";
 pub(in crate::tui::app) const LAUNCHING: &str = "launching";
 pub(in crate::tui::app) const RUNNING: &str = "running";
 

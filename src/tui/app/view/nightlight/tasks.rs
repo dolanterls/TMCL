@@ -219,8 +219,8 @@ impl App {
             );
         }
         if area.height >= 3 {
-            // Failure text when there is one, otherwise the operation name —
-            // still useful while the task is running or queued.
+            // Failure text when there is one, otherwise the operation name,
+            // which is still useful while the task is running or queued.
             let detail = task
                 .transfer_label()
                 .or_else(|| task.failure.clone())

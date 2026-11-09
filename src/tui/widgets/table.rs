@@ -64,8 +64,8 @@ pub fn render_owned(
 /// Draws the table into `layout`'s window.
 ///
 /// The caller built that layout against the same `area` and registered its rows,
-/// so the table cannot pick a window the mouse does not answer to — which is
-/// what lets a list keep its position while the selection moves inside it.
+/// so the table cannot pick a window the mouse does not answer to, and the list
+/// keeps its position while the selection moves inside it.
 #[allow(clippy::too_many_arguments)]
 pub fn render_layout(
     layout: RowLayout,

@@ -1,0 +1,1 @@
+[stdout] java.lang.RuntimeException: Shaders Mod detected. Please remove it, OptiFine has built-in support for shaders.

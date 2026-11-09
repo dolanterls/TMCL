@@ -125,11 +125,11 @@ impl App {
                 crate::core::task::TaskState::Failed => self.i18n.text("task.failed"),
                 crate::core::task::TaskState::Cancelled => self.i18n.text("task.cancelled"),
             };
-            // The state pill is a column, not a suffix: it hangs off the card's
-            // right edge, so four tasks can be compared by their state without
-            // the eye following four different name lengths. `steps` rides with
-            // it — `3/3` is part of the same reading, and leaving it behind the
-            // name put the count and the pill on two different columns.
+            // The state pill is a column, not a suffix: it sits on the card's
+            // right edge, so four tasks can be compared by state without the eye
+            // following four different name lengths. `steps` goes with it,
+            // because `3/3` belongs to the same reading and behind the name the
+            // count and the pill would land on two different columns.
             let mut trailing = Vec::with_capacity(2);
             if task.steps > 1 {
                 trailing.push(Span::styled(

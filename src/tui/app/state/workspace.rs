@@ -201,9 +201,9 @@ impl App {
     /// Jump to the download centre with this instance as the install target.
     ///
     /// The workspace already knows which category the player came from, so the
-    /// matching resource tab is selected and the search is re-run with this
-    /// instance's version and loader — the same context the download centre
-    /// uses when the target is picked by hand.
+    /// matching resource tab is selected and the search re-runs with this
+    /// instance's version and loader, as it does when the target is picked by
+    /// hand.
     pub(in crate::tui::app) fn open_workspace_downloads(&mut self) {
         let Some(workspace) = self.workspace.as_ref() else {
             return;
@@ -733,7 +733,7 @@ impl App {
         let path = workspace.root.join("tmcl.json");
         let mut config = crate::core::config::storage::read_json::<InstanceConfig>(&path)
             .unwrap_or_else(|_| workspace.draft.clone());
-        // What is actually on disk, so a rejected write can be undone.
+        // What is on disk, so a rejected write can be undone.
         let previous = config.overrides.clone();
         config.overrides = workspace.draft.overrides.clone();
         if let Err(error) = crate::core::config::storage::write_json_atomic(&path, &config) {
@@ -759,7 +759,7 @@ impl App {
     /// `Space`: switch the entry on or off.
     ///
     /// Mods use the file name, resource packs a line in `options.txt`, shaders
-    /// the loader's own config — the same key, three different stores.
+    /// the loader's own config: the same key in three different stores.
     pub(in crate::tui::app) fn toggle_workspace_content(&mut self) {
         let Some(entry) = self.current_workspace_entry() else {
             return;
@@ -786,13 +786,15 @@ impl App {
         let file = entry.display_file_name();
         let turning_on = !entry.enabled;
 
+        // `Some(path)` when the store is the file system and the name moved.
         let result = match kind {
             crate::core::content::ContentKind::Mod
             | crate::core::content::ContentKind::Datapack => {
-                crate::core::content::toggle::set_enabled(&entry.path, turning_on).map(|_| ())
+                crate::core::content::toggle::set_enabled(&entry.path, turning_on).map(Some)
             }
             crate::core::content::ContentKind::ResourcePack => {
                 crate::core::content::toggle::set_pack_enabled(&root, &file, turning_on)
+                    .map(|()| None)
             }
             crate::core::content::ContentKind::Shader => {
                 crate::core::content::shader::set_selected(
@@ -800,12 +802,21 @@ impl App {
                     loader,
                     if turning_on { &file } else { "" },
                 )
+                .map(|()| None)
             }
             crate::core::content::ContentKind::World => return,
         };
 
         match result {
-            Ok(()) => {
+            Ok(moved) => {
+                // The rescan below is a background pass, and until its answer
+                // lands the list still describes the file as it was. A second
+                // `Space` inside that window would read the old name and the old
+                // state, repeat the first intent verbatim and collide with the
+                // file it renamed (`cannot rename … already exists`). Pointing
+                // the cached entry at the new name makes a rapid press mean what
+                // it says.
+                self.retarget_content_entry(kind, &entry.path, moved.as_deref(), turning_on);
                 self.status = Status::info(self.i18n.format(
                     "workspace.status.toggled",
                     &[
@@ -826,9 +837,36 @@ impl App {
         }
     }
 
+    /// Point the cached list at the file the toggle produced.
+    ///
+    /// Only the file-system kinds move (`new_path`); packs and shaders record
+    /// their state in a config file, so their name stays and only `enabled`
+    /// changes. The entry is matched by the path it had, which is what the
+    /// caller acted on.
+    fn retarget_content_entry(
+        &mut self,
+        kind: crate::core::content::ContentKind,
+        old_path: &std::path::Path,
+        new_path: Option<&std::path::Path>,
+        enabled: bool,
+    ) {
+        let Some(workspace) = self.workspace.as_mut() else {
+            return;
+        };
+        let mut entries = workspace.content.entries(kind).to_vec();
+        let Some(slot) = entries.iter_mut().find(|entry| entry.path == old_path) else {
+            return;
+        };
+        slot.enabled = enabled;
+        if let Some(path) = new_path {
+            slot.path = path.to_path_buf();
+        }
+        workspace.content.set(kind, entries);
+    }
+
     /// `J` / `K`: move the selected resource pack up or down the stack.
     ///
-    /// Only enabled packs have a position — an entry that is off is not in the
+    /// Only enabled packs have a position: an entry that is off is not in the
     /// array at all, so there is nothing to swap.
     pub(in crate::tui::app) fn reorder_workspace_content(&mut self, direction: isize) {
         let Some(workspace) = self.workspace.as_ref() else {
@@ -1641,6 +1679,37 @@ mod tests {
             !first.exists(),
             "the toggled file must be renamed on disk: {}",
             first.display()
+        );
+        std::fs::remove_dir_all(root).expect("clean instance");
+    }
+
+    /// The rescan is a background scan; until its answer lands the list still
+    /// describes the file as it was. Without the retarget, a second `Space`
+    /// inside that window reads the old name and the old state, repeats the
+    /// first intent and collides with the file it renamed (`cannot rename …
+    /// already exists`). Two presses must land back where they started.
+    #[tokio::test]
+    async fn a_second_space_before_the_rescan_lands_toggles_back() {
+        let (mut app, root) = app_with_mods();
+        let first = app
+            .workspace_content_entries()
+            .into_iter()
+            .next()
+            .expect("an entry");
+        let name = first.path.clone();
+
+        app.toggle_workspace_content();
+        assert!(
+            !name.exists(),
+            "the first press must rename the file: {}",
+            name.display()
+        );
+
+        app.toggle_workspace_content();
+        assert!(
+            name.exists(),
+            "the second press must rename it back instead of colliding with its own move: {}",
+            app.status.as_str()
         );
         std::fs::remove_dir_all(root).expect("clean instance");
     }
@@ -3024,8 +3093,8 @@ mod tests {
         }
     }
 
-    /// A backup must really run on the blocking pool and report through the
-    /// event channel: the earlier tests only called `finish_world_job` directly.
+    /// A backup must run on the blocking pool and report through the event
+    /// channel; the earlier tests called `finish_world_job` directly.
     #[tokio::test]
     async fn backup_runs_in_the_background_and_sends_the_event() {
         let (sender, mut events) = tokio::sync::mpsc::unbounded_channel();

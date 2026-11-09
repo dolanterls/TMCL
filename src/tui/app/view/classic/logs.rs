@@ -4,12 +4,16 @@ use super::*;
 
 impl App {
     pub(in crate::tui::app) fn logs_hints(&self) -> Vec<crate::tui::chrome::Hint> {
-        vec![
+        let mut hints = vec![
             self.hint("/", "action.search"),
             self.hint("f", "action.follow"),
             self.hint("g", "action.bottom"),
             self.hint("c", "action.clear_view"),
-        ]
+        ];
+        if self.diagnosis.is_some() {
+            hints.push(self.hint("F3", "action.diagnose"));
+        }
+        hints
     }
 
     pub(super) fn draw_logs_page(&self, frame: &mut Frame<'_>, area: Rect) {
@@ -79,14 +83,21 @@ impl App {
                     .alignment(Alignment::Left),
                 )
                 .title_bottom({
-                    let mut bottom = vec![Span::styled(
+                    let mut bottom = Vec::new();
+                    if let Some(badge) = self.diagnosis_badge() {
+                        bottom.push(Span::styled(
+                            format!("{badge}  "),
+                            Style::default().fg(self.theme.error),
+                        ));
+                    }
+                    bottom.push(Span::styled(
                         follow,
                         Style::default().fg(if self.logs.follow() {
                             self.theme.success
                         } else {
                             self.theme.key
                         }),
-                    )];
+                    ));
                     bottom.extend(search_spans.clone());
                     Line::from(bottom).alignment(Alignment::Left)
                 });
@@ -100,10 +111,15 @@ impl App {
             width: inner.width.saturating_sub(1),
             ..inner
         };
-        let lines = self
+        // One page of lines, already styled: the buffer measures wrapping once
+        // per line, so the page does not walk 4000 lines to draw 36.
+        let query = self.log_filter.as_deref().unwrap_or("");
+        let window = self
             .logs
-            .matching_lines(self.log_filter.as_deref().unwrap_or(""))
-            .into_iter()
+            .window(query, text_area.width, text_area.height, false);
+        let lines = window
+            .lines
+            .iter()
             .map(|line| {
                 let style = if line.starts_with("[stderr]") {
                     Style::default().fg(self.theme.key)
@@ -112,27 +128,19 @@ impl App {
                 } else {
                     self.theme.base()
                 };
-                highlight_line(
-                    line,
-                    self.log_filter.as_deref().unwrap_or(""),
-                    style,
-                    self.theme,
-                )
+                highlight_line(line.clone(), query, style, self.theme)
             })
             .collect::<Vec<_>>();
-        let paragraph = Paragraph::new(lines).wrap(Wrap { trim: false });
-        let total_rows = paragraph.line_count(text_area.width);
-        let max_offset = total_rows.saturating_sub(text_area.height as usize);
-        let bottom_offset = self.logs.scroll_offset().min(max_offset);
-        let scroll_from_top = max_offset.saturating_sub(bottom_offset);
         frame.render_widget(
-            paragraph.scroll((u16::try_from(scroll_from_top).unwrap_or(u16::MAX), 0)),
+            Paragraph::new(lines)
+                .wrap(Wrap { trim: false })
+                .scroll((u16::try_from(window.skip_rows).unwrap_or(u16::MAX), 0)),
             text_area,
         );
 
-        if total_rows > 0 {
-            let mut scrollbar_state = ScrollbarState::new(total_rows)
-                .position(scroll_from_top)
+        if window.total_rows > 0 {
+            let mut scrollbar_state = ScrollbarState::new(window.total_rows)
+                .position(window.from_row)
                 .viewport_content_length(text_area.height as usize);
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)
@@ -144,57 +152,61 @@ impl App {
         }
     }
 
+    /// Rows between the top of the buffer and the last page, for the scroll
+    /// keys. Measured from the same widths the painters use, so the last row
+    /// is reachable in every preset.
     pub(in crate::tui::app) fn log_max_scroll_offset(&self) -> usize {
         let main = self
             .layout_chrome(Rect::new(0, 0, self.terminal_width, self.terminal_height))
             .main;
-        // The nightlight page draws its own card: two rows of page margin, two
-        // rows of card padding and a two-row header sit between `main` and the
-        // first log line. Reusing the bordered-panel geometry clipped the last
-        // rows; ask the painter for the rectangle it actually fills.
-        // `paper` prints one log entry per row (the level letter plus a body
-        // truncated to the body width), so its scroll maximum is a line count.
-        // Ask the painter for its rectangle rather than re-deriving the head.
-        if matches!(self.preset(), UiPreset::Paper | UiPreset::Shelf) {
-            // Both print one entry per row, truncated rather than wrapped, so
-            // the maximum is a line count — and both own their head geometry.
-            let body = if self.preset() == UiPreset::Paper {
-                self.paper_log_area(main)
-            } else {
-                self.shelf_log_area(main)
-            };
-            return self
-                .logs
-                .matching_lines(self.log_filter.as_deref().unwrap_or(""))
-                .len()
-                .saturating_sub(usize::from(body.height));
-        }
-        let (width, height) = if self.preset() == UiPreset::Nightlight {
-            let body = App::nightlight_log_body(main);
-            (body.width, body.height)
-        } else {
-            let inner = crate::tui::chrome::panel(
-                &self.i18n.text(Page::Logs.title_key()),
-                false,
-                self.theme,
-            )
-            .inner(main);
-            (inner.width.saturating_sub(1), inner.height)
+        // Every preset owns its head geometry: `nightlight` draws its own card
+        // (page margin, title padding, header), `creeper` drops a header row and
+        // a gutter, the sheets carry their own head. Ask each painter for the
+        // numbers it fills; the bordered-panel geometry clips the last rows.
+        let (width, height, clip) = match self.preset() {
+            UiPreset::Paper => {
+                let body = self.paper_log_area(main);
+                (body.width, body.height, false)
+            }
+            UiPreset::Shelf => {
+                let body = self.shelf_log_area(main);
+                (body.width.saturating_sub(1), body.height, false)
+            }
+            UiPreset::Nightlight => {
+                let body = App::nightlight_log_body(main);
+                (body.width, body.height, false)
+            }
+            UiPreset::Creeper => {
+                // The stream card drops a header row and a gutter on each side
+                // before the first line.
+                let inner = main.inner(ratatui::layout::Margin {
+                    horizontal: 1,
+                    vertical: 1,
+                });
+                (
+                    inner.width.saturating_sub(2),
+                    inner.height.saturating_sub(1),
+                    false,
+                )
+            }
+            UiPreset::Classic => {
+                let inner = crate::tui::chrome::panel(
+                    &self.i18n.text(Page::Logs.title_key()),
+                    false,
+                    self.theme,
+                )
+                .inner(main);
+                (inner.width.saturating_sub(1), inner.height, false)
+            }
         };
-        let lines = self
-            .logs
-            .matching_lines(self.log_filter.as_deref().unwrap_or(""))
-            .into_iter()
-            .map(Line::from)
-            .collect::<Vec<_>>();
-        Paragraph::new(lines)
-            .wrap(Wrap { trim: false })
-            .line_count(width)
+        self.logs
+            .total_rows(self.log_filter.as_deref().unwrap_or(""), width, clip)
             .saturating_sub(usize::from(height))
     }
 
     pub(in crate::tui::app) fn toggle_log_follow(&mut self) {
-        self.logs.toggle_follow();
+        let max = self.log_max_scroll_offset();
+        self.logs.toggle_follow(max);
         self.status = Status::info(if self.logs.follow() {
             self.i18n.text("status.log_follow_enabled")
         } else {
@@ -203,7 +215,8 @@ impl App {
     }
 
     pub(in crate::tui::app) fn follow_log_bottom(&mut self) {
-        self.logs.set_follow(true);
+        let max = self.log_max_scroll_offset();
+        self.logs.set_follow(true, max);
         self.status = Status::info(self.i18n.text("status.log_bottom"));
     }
 
@@ -221,31 +234,16 @@ impl App {
                 "tmcl-launcher.log".to_owned(),
             ),
             LogExportKind::Game => (self.paths.game_logs_dir.clone(), "tmcl-game.log".to_owned()),
-            LogExportKind::CrashReport(ref path) => (
-                path.parent()
-                    .unwrap_or(&self.paths.game_logs_dir)
-                    .to_path_buf(),
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or("crash-report.txt")
-                    .to_owned(),
-            ),
+            // The bundle names itself and writes several files; it has its own
+            // entry point so this one keeps meaning "copy one buffer out".
+            LogExportKind::Bundle => {
+                self.begin_diagnosis_export();
+                return;
+            }
         };
         self.pending_log_export = Some(kind);
         self.save_file_browse_request = Some((directory, name));
         self.status = Status::info(self.i18n.text("status.save_log_target"));
-    }
-
-    pub(in crate::tui::app) fn begin_crash_report_export(&mut self) {
-        let Some(path) = self.last_crash_report.clone() else {
-            self.status = Status::warning(self.i18n.text("status.no_crash_report"));
-            return;
-        };
-        if !path.is_file() {
-            self.status = Status::warning(self.i18n.text("status.no_crash_report"));
-            return;
-        }
-        self.begin_log_export(LogExportKind::CrashReport(path));
     }
 }
 

@@ -1,0 +1,2 @@
+[stdout] Found duplicate mods:/n[stdout] 	create-0.5.1.jar
+[stdout] 	create-0.5.0.jar

@@ -1,9 +1,8 @@
 //! Palette, colour maths and text helpers shared by all three presets.
 //!
-//! The named colours are the `creeper` ladder, but the maths (`mix`, `dim`,
-//! `pulse`) and the text helpers (`width`, `truncate`, `fit`, `wrap`) are what
-//! every preset measures with — that is why this lives at `tui/` rather than
-//! inside one preset's folder.
+//! The named colours are the `creeper` ladder, but the maths (`mix`, `dim`, `pulse`)
+//! and the text helpers (`width`, `truncate`, `fit`, `wrap`) are what every preset
+//! measures with, so this lives at `tui/` rather than inside one preset's folder.
 //!
 //! Everything is expressed in RGB. Terminals without truecolour let crossterm
 //! approximate the values instead of falling back to a 16-colour guess here.
@@ -47,6 +46,58 @@ pub fn mix(a: Color, b: Color, t: f64) -> Color {
         }
         _ => b,
     }
+}
+
+/// WCAG relative luminance: 0 is black, 1 is white.
+///
+/// `follow_terminal` needs this to decide which way a backing tone should go,
+/// and how far a faint glyph has to be lifted before it can be read on an
+/// unknown background.
+pub fn relative_luminance(color: Color) -> f64 {
+    let Color::Rgb(red, green, blue) = color else {
+        return 0.5;
+    };
+    0.2126 * srgb_to_linear(red) + 0.7152 * srgb_to_linear(green) + 0.0722 * srgb_to_linear(blue)
+}
+
+fn srgb_to_linear(value: u8) -> f64 {
+    let value = f64::from(value) / 255.0;
+    if value <= 0.04045 {
+        value / 12.92
+    } else {
+        ((value + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn linear_to_srgb(value: f64) -> u8 {
+    let value = value.clamp(0.0, 1.0);
+    let encoded = if value <= 0.003_130_8 {
+        value * 12.92
+    } else {
+        1.055 * value.powf(1.0 / 2.4) - 0.055
+    };
+    (encoded * 255.0).round().clamp(0.0, 255.0) as u8
+}
+
+/// Moves `color` towards white until its luminance reaches `floor`.
+///
+/// The hue survives because all three channels move by the same fraction; a
+/// renderer that swapped in a brighter constant would turn every faint label
+/// the same shade of grey.
+pub fn lift_to_luminance(color: Color, floor: f64) -> Color {
+    let Color::Rgb(red, green, blue) = color else {
+        return color;
+    };
+    let current = relative_luminance(color);
+    if current >= floor || current >= 1.0 {
+        return color;
+    }
+    let amount = ((floor - current) / (1.0 - current)).clamp(0.0, 1.0);
+    // Interpolate in linear light: blending the encoded channels instead lands short
+    // of `floor` every time, because sRGB is far from linear in the shadows, which
+    // is where the faint labels live.
+    let lift = |value: u8| linear_to_srgb(srgb_to_linear(value) * (1.0 - amount) + amount);
+    Color::Rgb(lift(red), lift(green), lift(blue))
 }
 
 pub fn dim(color: Color, amount: f64) -> Color {
@@ -153,21 +204,7 @@ pub fn format_elapsed(seconds: u64) -> String {
 
 /// Collapse control characters so partial log lines stay on one row.
 pub fn one_line(value: &str, max: usize) -> String {
-    truncate(clean(value).trim(), max)
-}
-
-/// Replace newlines, tabs and other control characters with spaces.
-fn clean(value: &str) -> String {
-    value
-        .chars()
-        .map(|ch| {
-            if ch == '\n' || ch == '\r' || ch == '\t' || ch.is_control() {
-                ' '
-            } else {
-                ch
-            }
-        })
-        .collect()
+    truncate(crate::tui::text::printable(value).trim(), max)
 }
 
 /// Soft-wrap `value` into lines of at most `max` cells.
@@ -176,7 +213,7 @@ fn clean(value: &str) -> String {
 /// text keeps its words; CJK text, which has no spaces, may break anywhere.
 pub fn wrap(value: &str, max: usize) -> Vec<String> {
     let max = max.max(1);
-    let cleaned = clean(value);
+    let cleaned = crate::tui::text::printable(value);
     let mut lines = Vec::new();
     let mut line: Vec<(char, usize)> = Vec::new();
     let mut used = 0usize;

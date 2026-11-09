@@ -73,9 +73,9 @@ impl App {
             usize::from(selected_top),
             usize::from(body.height),
         );
-        // The window is counted in lines, but an entry is two lines tall: an
-        // offset that lands inside one used to open the page on a nameless
-        // progress bar. Round it back to the entry's first line.
+        // The window is counted in lines, but an entry is two lines tall. Round
+        // an offset that lands inside one back to the entry's first line, or the
+        // page opens on a nameless progress bar.
         let offset = u16::try_from(Self::task_line_start(&lines, offset)).unwrap_or(u16::MAX);
 
         // Rows are drawn in a signed coordinate so a partially scrolled entry
@@ -193,8 +193,8 @@ impl App {
         active: bool,
     ) {
         // The caller only hands over entries that start inside the body, so the
-        // name row is always drawn; a bottom-clipped entry simply loses its
-        // progress row, which is the half that can be inferred.
+        // name row is always drawn; a bottom-clipped entry loses its progress
+        // row, which is the half that can be inferred.
         if area.height > 0 {
             if active {
                 kit::selection(frame, area, pal);
@@ -235,6 +235,9 @@ impl App {
         }
         let ratio = task_ratio(row.state, row.completed, row.total);
         let bar_width = if area.width >= 60 { 12 } else { 6 };
+        // `percent_label` always returns four cells (` 84%`, `100%`, `   —`),
+        // which is what keeps the bar on the same column from row to row.
+        const PERCENT_WIDTH: u16 = 4;
         let (filled, empty) = match ratio {
             Some(ratio) => {
                 let filled = (ratio * f64::from(bar_width)).round() as u16;
@@ -245,17 +248,37 @@ impl App {
             }
             None => (0, bar_width),
         };
-        let mut spans = vec![
-            Span::styled("━".repeat(usize::from(filled)), ink(pal, pal.soft)),
-            Span::styled("╌".repeat(usize::from(empty)), ink(pal, pal.rule)),
-            Span::styled(format!("  {}", percent_label(ratio)), ink(pal, pal.faint)),
-        ];
+        // Speed and ETA go to the left of the bar. On the right they pushed the
+        // whole group leftwards, so a running task's bar no longer lined up with
+        // the finished ones above and below it.
+        let mut spans = Vec::with_capacity(4);
         if let Some(transfer) = row.transfer_label() {
-            spans.push(Span::styled(format!("  {transfer}"), ink(pal, pal.faint)));
+            let room = area
+                .width
+                .saturating_sub(MARGIN + bar_width + PERCENT_WIDTH + 4);
+            if room >= 6 {
+                spans.push(Span::styled(
+                    format!("{}  ", palette::truncate(&transfer, usize::from(room))),
+                    ink(pal, pal.faint),
+                ));
+            }
         }
-        // The bar closes the entry on the right, under its status word: left
-        // aligned it read as a second column of the list rather than as the
-        // progress of the line above.
+        spans.push(Span::styled(
+            "━".repeat(usize::from(filled)),
+            ink(pal, pal.soft),
+        ));
+        spans.push(Span::styled(
+            "╌".repeat(usize::from(empty)),
+            ink(pal, pal.rule),
+        ));
+        spans.push(Span::styled(
+            format!("  {}", percent_label(ratio)),
+            ink(pal, pal.faint),
+        ));
+        // The group is still flush right, under the status word: left aligned
+        // it read as a second column of the list rather than as the progress
+        // of the line above. What moved is only where the transfer label sits
+        // inside that group.
         frame.render_widget(
             Paragraph::new(Line::from(spans)).alignment(Alignment::Right),
             Rect::new(

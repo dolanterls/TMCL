@@ -1,12 +1,8 @@
 //! `paper` overview: a title block, the current setup, and three figures.
 //!
-//! The layout follows the printed reference: a wordmark set in block type, the
-//! facts under it, a rule, the current instance beside its key legend, and three
-//! figures — number above label, separated by hairlines — closing the block.
-//!
 //! A terminal cannot change font size, so the wordmark is set as block glyphs
-//! four rows tall — the same `tui-big-text` face the nightlight preset uses;
-//! everything else earns its rank from weight, spacing and the rules around it.
+//! four rows tall, the same `tui-big-text` face nightlight uses; everything else
+//! takes its rank from weight, spacing and the rules around it.
 
 use super::*;
 use crate::tui::palette;
@@ -80,13 +76,11 @@ impl App {
         self.paper_current_instance(frame, left, with_path, pal);
         self.paper_launch_block(frame, right, pal);
 
-        // Figures close the block. They used to share one inline line; the
-        // reference sets each number over its own label with a rule between, and
-        // that is what gives a number weight when the font cannot grow.
+        // Figures close the block: number over label with a rule between, which
+        // is what gives a number weight when the font cannot grow.
         //
-        // On a tall page they sit on the bottom edge, the way the reference card
-        // does; on a short one they follow the text so they cannot collide with
-        // it.
+        // On a tall page they sit on the bottom edge; on a short one they follow
+        // the text so the two cannot collide.
         y = y.saturating_add(if with_path { 4 } else { 3 });
         let stats = if area.height >= 22 {
             area.y.saturating_add(area.height).saturating_sub(4)
@@ -138,11 +132,11 @@ impl App {
         }
     }
 
-    /// `19 个实例 · Java 21.0.5 · 2026-11-02 13:37` — the masthead line: how much
-    /// is here, which runtime it uses, and when the page was set.
+    /// `19 个实例 · Java 21.0.5 · 2026-11-02 13:37`: the masthead line, saying
+    /// how much is here, which runtime it uses, and when the page was set.
     ///
-    /// A missing runtime is left out rather than printed as "none": on a page
-    /// this sparse, a hole reads worse than a short line.
+    /// A missing runtime is left out rather than printed as "none", because a
+    /// hole in a line this short reads worse than the omission.
     fn paper_facts(&self) -> String {
         let mut parts = vec![self.i18n.format(
             "settings.directory_instances",
@@ -157,9 +151,8 @@ impl App {
         {
             parts.push(format!("Java {}", palette::truncate(&java.version, 16)));
         }
-        // The masthead date, the way a newspaper sets it. The game directory
-        // used to sit here; a path belongs in the instance block, not in the
-        // line that says what this page is.
+        // The masthead date, the way a newspaper sets it. A path belongs in the
+        // instance block, not in the line that says what this page is.
         if let Some(now) = crate::platform::windows::local_now() {
             parts.push(now.stamp());
         }
@@ -188,10 +181,7 @@ impl App {
 
         let (name, detail, path) = match self.current_instance() {
             Some(item) => {
-                let loader = item.loader_version.as_ref().map_or_else(
-                    || item.loader.clone(),
-                    |version| format!("{} {version}", item.loader),
-                );
+                let loader = self.instance_loader_text(item);
                 (
                     item.name.clone(),
                     format!("{} · {loader}", item.version),
@@ -227,8 +217,8 @@ impl App {
         }
     }
 
-    /// `L` and `enter`, printed as a keyboard legend — the key is the heading,
-    /// so the block needs no title of its own.
+    /// `L` and `enter`, printed as a keyboard legend. The key is the heading, so
+    /// the block needs no title of its own.
     fn paper_launch_block(&self, frame: &mut Frame<'_>, area: Rect, pal: &PaperPalette) {
         if area.width < 10 || area.height < 3 {
             return;
@@ -252,11 +242,9 @@ impl App {
         // One row down, so the legend lines up with the instance name and its
         // detail line instead of with the label above them.
         //
-        // These are the keys the page actually binds: Enter launches the
-        // current instance and `n` creates one. The block used to advertise
-        // `L` and "enter opens the details", which belong to the Instances
-        // page — pressing Enter here launched a game while the legend said it
-        // would open something.
+        // These are the keys the page binds: Enter launches the current instance
+        // and `n` creates one. `L` and "enter opens the details" belong to the
+        // Instances page.
         frame.render_widget(
             Paragraph::new(legend("Enter", self.i18n.text("action.launch"))),
             Rect::new(area.x, area.y.saturating_add(1), area.width, 1),

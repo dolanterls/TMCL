@@ -112,7 +112,7 @@ impl App {
         }
     }
 
-    /// `⌕  <query or hint>  N 个结果` — the single content row of the panel.
+    /// `⌕  <query or hint>  N 个结果`, the single content row of the panel.
     fn download_search_input(&self, frame: &mut Frame<'_>, area: Rect, focused: bool, t: f64) {
         let pal = self.creeper_palette();
         let bg = pal.surface;

@@ -1,0 +1,1 @@
+[stdout] java.lang.IllegalAccessError: tried to access class net.minecraft.world.level.Level from class com.example.mod.Mixin

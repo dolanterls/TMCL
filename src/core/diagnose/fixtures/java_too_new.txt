@@ -1,0 +1,1 @@
+[stdout] java.lang.IllegalArgumentException: Unsupported class file major version 65

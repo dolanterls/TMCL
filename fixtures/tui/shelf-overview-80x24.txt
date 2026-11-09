@@ -3,7 +3,7 @@
  ──────────────────────────────────────────────────────────────────────────────
  Version  1.21.4
  Loader  NeoForge 21.1.247
- Status  Ready
+ Status  Current
  Launches / Time  12  ·  2h00m
  Current account  Steve
  Java  Java not set

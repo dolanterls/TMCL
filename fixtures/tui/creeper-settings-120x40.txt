@@ -6,7 +6,7 @@
  │      ███▀▀███      │ │  Java runtimes       │ │  Check for updates now     ▶ Check now                             │
  │      ██▄▄▄▄██      │ │  Downloads         9 │ │  Add tmcl to PATH          ▶ Add                                   │
  │ TMCL  launcher     │ │  Appearance        4 │ │  Server address            -                                       │
- │                    │ │  Logs              8 │ │  Process priority          ‹ Default ›                             │
+ │                    │ │  Logs              9 │ │  Process priority          ‹ Default ›                             │
  │  ◈ Overview        │ │  Game directories    │ │                                                                    │
  │                    │ │                      │ │                                                                    │
  │  ▤ Instances       │ │                      │ │                                                                    │

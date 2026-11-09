@@ -55,7 +55,7 @@ impl App {
                 .spacing(1)
                 .split(inner);
             // The rail has no card of its own, so it starts on the row where the
-            // list beside it starts — below that card's title.
+            // list beside it starts, below that card's title.
             (
                 Rect {
                     y: columns[0]
@@ -651,7 +651,7 @@ impl App {
     }
 
     /// The shared note strip: the meaning of the selection, then the keys that
-    /// actually do something on this screen.
+    /// act on this screen.
     fn workspace_strip(
         &self,
         frame: &mut Frame<'_>,

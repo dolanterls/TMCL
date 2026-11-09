@@ -1,0 +1,1 @@
+[stdout] java.lang.module.FindException: Invalid module name: '' is not a Java identifier

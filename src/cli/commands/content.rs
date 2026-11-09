@@ -163,9 +163,9 @@ pub(super) fn format_rows(rows: &[ContentRow]) -> String {
 
 /// `content enable` and `content disable` share everything but the flag.
 ///
-/// The three stores are different — a file name, a line in `options.txt`, the
-/// shader loader's own config — so which one to touch is decided once, here,
-/// from the kind the user named.
+/// The three stores differ (a file name, a line in `options.txt`, the shader
+/// loader's own config), so which one to touch is decided once, here, from the kind
+/// the user named.
 fn set_state(args: ContentToggleArgs, enabled: bool, output: OutputOptions) -> Result<()> {
     let paths = DataPaths::discover()?;
     let config = common::load_config(&paths)?;

@@ -236,32 +236,24 @@ impl Modal {
                         )));
                     }
                     lines.push(Line::from(""));
-                    let help = match (version_picker.as_ref(), selection_states.get(&field)) {
-                        (Some(picker), Some(SelectionState::Error(_))) if picker.editing_search => {
-                            i18n.text("modal.search_help")
-                        }
-                        (Some(_), Some(SelectionState::Error(_))) => {
-                            i18n.text("modal.retry_filters_help")
-                        }
-                        (_, Some(SelectionState::Error(_))) => i18n.text("modal.retry_help"),
-                        (_, Some(SelectionState::Loading | SelectionState::Unavailable(_))) => {
-                            i18n.text("modal.back_help")
-                        }
-                        (Some(picker), _) if picker.editing_search => {
-                            i18n.text("modal.search_help")
-                        }
-                        (Some(_), _) => i18n.text("modal.filter_help"),
-                        (None, _) if options.is_empty() => i18n.text("modal.load_retry_help"),
-                        (None, _) => i18n.text("modal.choose_help"),
-                    };
-                    lines.push(Line::from(Span::styled(
-                        format!(" {help} "),
-                        Style::default().fg(pal.text_faint).bg(pal.surface),
-                    )));
+                    let picker_help = version_picker
+                        .as_ref()
+                        .filter(|picker| picker.field == field)
+                        .map(|picker| &**picker);
+                    let (keys, acts) = picker_key_row(&picker_key_hints(
+                        picker_help,
+                        selection_states.get(&field),
+                        *selection_selected,
+                        options.is_empty(),
+                    ));
+                    let key_line = lines.len();
+                    let (key_row_line, caps) = key_row(pal, i18n, &keys);
+                    lines.push(key_row_line);
                     frame.render_widget(
                         Paragraph::new(lines).style(Style::default().bg(pal.surface)),
                         inner,
                     );
+                    super::register_caps(hits, inner, key_line, &caps, &acts);
                     for (line, index) in &option_rows {
                         hits.add(
                             Rect::new(
@@ -454,27 +446,36 @@ impl Modal {
                 if inner.is_empty() {
                     return;
                 }
-                let mut lines = vec![
-                    Line::from(""),
-                    Line::from(vec![
-                        Span::styled(
-                            " ! ",
-                            Style::default()
-                                .fg(pal.bg)
-                                .bg(pal.red)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                        Span::styled(" ", Style::default().bg(pal.surface)),
-                        Span::styled(
-                            palette::truncate(prompt, usize::from(inner.width).saturating_sub(6)),
-                            Style::default()
-                                .fg(palette::mix(pal.red, pal.text, 0.25))
-                                .bg(pal.surface)
-                                .add_modifier(Modifier::BOLD),
-                        ),
-                    ]),
-                    Line::from(""),
-                ];
+                // The badge sits on the first line and the rest hang under it.
+                // The prompt wraps instead of being cut: a truncated
+                // destructive dialog hides exactly what it is about.
+                let text_width = usize::from(inner.width.saturating_sub(4)).max(8);
+                let mut lines = vec![Line::from("")];
+                for (index, segment) in palette::wrap(prompt, text_width).into_iter().enumerate() {
+                    let mut spans = vec![Span::styled(
+                        if index == 0 { " ! " } else { "    " },
+                        Style::default()
+                            .fg(if index == 0 { pal.bg } else { pal.surface })
+                            .bg(if index == 0 { pal.red } else { pal.surface })
+                            .add_modifier(if index == 0 {
+                                Modifier::BOLD
+                            } else {
+                                Modifier::empty()
+                            }),
+                    )];
+                    if index == 0 {
+                        spans.push(Span::styled(" ", Style::default().bg(pal.surface)));
+                    }
+                    spans.push(Span::styled(
+                        segment,
+                        Style::default()
+                            .fg(palette::mix(pal.red, pal.text, 0.25))
+                            .bg(pal.surface)
+                            .add_modifier(Modifier::BOLD),
+                    ));
+                    lines.push(Line::from(spans));
+                }
+                lines.push(Line::from(""));
                 let (key_row_line, caps) = key_row(
                     pal,
                     i18n,

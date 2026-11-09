@@ -1,9 +1,8 @@
 //! `paper` download centre: a catalogue page with a detail column.
 //!
-//! The chapter row is the category switch, the search row says what is being
-//! filtered, and the list is one of three shapes — versions, projects, files.
-//! No table headers: the columns are recognisable by their contents, which is
-//! the whole point of a printed catalogue.
+//! The chapter row switches category, the search row says what is being
+//! filtered, and the list takes one of three shapes: versions, projects, files.
+//! No table headers; the columns are recognisable by their contents.
 
 use super::*;
 use crate::tui::hit::RowKind;
@@ -79,10 +78,9 @@ impl App {
         const GAP: u16 = 3;
         let page = self.paper_download_page_label();
         let page_width = palette::width(&page) as u16;
-        // One blank column between the last label and the page number, and the
-        // number sits flush with the right margin. Drawing the number at
-        // `label_right` (as this used to) spent that column on the number and
-        // left the page one short of the edge.
+        // One blank column between the last label and the page number, which
+        // sits flush with the right margin. Drawing the number at `label_right`
+        // spends that column on the number and leaves the page one short.
         let label_right = area.right().saturating_sub(page_width).saturating_sub(1);
         let entries = DownloadCategory::ALL
             .iter()
@@ -365,12 +363,10 @@ impl App {
 
     /// The second level: one project's files.
     ///
-    /// The columns are the other presets' file table — channel, dependency
-    /// count, compatibility — because this page now says that on its own: the
-    /// detail column belongs to the project index, not to the file list. The
-    /// header row is the one table head in the preset, and it earns its place
-    /// here: `兼容性` reads as a word, but the dependency count beside it is a
-    /// number nobody could name.
+    /// The columns match the other presets' file table (channel, dependency
+    /// count, compatibility). The detail column belongs to the project index,
+    /// not to the file list. This is the preset's only table head, and it is
+    /// here because `兼容性` reads as a word while the count beside it does not.
     fn paper_download_files(&self, frame: &mut Frame<'_>, list: Rect, pal: &PaperPalette) {
         let selected = self
             .download_center
@@ -539,13 +535,10 @@ impl App {
     /// The detail column: the same record the detail sheet prints, on the page
     /// instead of on a slip.
     ///
-    /// The content is `detail_lines()` — the single source `classic` and
-    /// `nightlight` also print in this column — so author, project id,
-    /// download count, versions, loaders, tags, the summary and the install
-    /// line all appear here, and opening a project swaps the record for the
-    /// selected file exactly as it does in the other presets. Describing the
-    /// project with a reduced card of its own was how this column ended up
-    /// saying less than the slip behind the same page.
+    /// The content is `detail_lines()`, the single source `classic` and
+    /// `nightlight` also print. Opening a project swaps the record for the
+    /// selected file, as it does in the other presets. A reduced card of its own
+    /// would say less than the slip behind the same page.
     fn paper_download_detail(&self, frame: &mut Frame<'_>, area: Rect, pal: &PaperPalette) {
         if area.width < 8 || area.height < 4 {
             return;
@@ -564,10 +557,10 @@ impl App {
             paragraph.scroll((u16::try_from(scroll).unwrap_or(u16::MAX), 0)),
             body,
         );
-        // A record longer than the column says so, the way the other presets'
-        // panels do: a rail in the page margin with an accent thumb. Without it
-        // a long description simply stops at the bottom edge and nothing tells
-        // the reader that the wheel continues it.
+        // A record longer than the column says so, as the other presets' panels
+        // do: a scrollbar in the page margin with an accent thumb. Without it a
+        // long description stops at the bottom edge with no sign that the wheel
+        // continues it.
         self.paper_scrollbar(frame, body, total, scroll, pal, pal.bg);
         self.hitmap
             .scroll(area, crate::tui::action::ScrollTarget::Pane);

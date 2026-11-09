@@ -126,11 +126,10 @@ pub fn render_footer(
         return;
     }
 
-    // Two bands whenever there is room: key hints on top, the status line on
-    // the bottom row. This is the same shape `creeper` and `nightlight` draw,
-    // so the status bar does not jump when the preset changes — and the status
-    // stops sharing a line with the hints, where it could only ever get a
-    // third of the width and ended up next to a wall of key caps.
+    // Two bands whenever there is room: key hints on top, the status line on the
+    // bottom row. This is the same shape `creeper` and `nightlight` draw, so the
+    // status bar does not jump when the preset changes, and the status stops sharing
+    // a line with the hints, where it gets a third of the width at most.
     if area.height >= 2 {
         let hints_area = Rect::new(area.x, area.y, area.width, area.height - 1);
         let status_area = Rect::new(area.x, area.y + area.height - 1, area.width, 1);
@@ -236,18 +235,38 @@ fn hint_line(hints: &[&Hint], i18n: &crate::i18n::I18n, theme: Theme) -> Line<'s
 }
 
 pub fn panel(title: &str, focused: bool, theme: Theme) -> Block<'static> {
-    Block::bordered()
-        .border_style(if focused {
-            Style::default().fg(theme.accent)
-        } else {
-            Style::default().fg(theme.dim)
-        })
+    framed_block(focused, theme)
         .title_alignment(Alignment::Center)
-        .title(Line::from(vec![
-            Span::styled("|", theme.dim()),
-            Span::styled(title.to_string(), theme.accent_style()),
-            Span::styled("|", theme.dim()),
-        ]))
+        .title(panel_title(title, theme))
+}
+
+/// The same frame, with the title against the left edge.
+///
+/// [`panel`] centres its title, so a caller that also right-aligns something on
+/// the same row gets the two drawn over each other: on the 72-column diagnosis
+/// card `未进游戏 · 1.20.1 · Forge 47.4.10` lost its head and arrived as
+/// `戏 · 1.20.1 · Forge 47.4.10`. Left-aligning the title keeps the middle of
+/// the border free for the facts.
+pub fn panel_left(title: &str, focused: bool, theme: Theme) -> Block<'static> {
+    framed_block(focused, theme)
+        .title_alignment(Alignment::Left)
+        .title(panel_title(title, theme))
+}
+
+fn framed_block(focused: bool, theme: Theme) -> Block<'static> {
+    Block::bordered().border_style(if focused {
+        Style::default().fg(theme.accent)
+    } else {
+        Style::default().fg(theme.dim)
+    })
+}
+
+fn panel_title(title: &str, theme: Theme) -> Line<'static> {
+    Line::from(vec![
+        Span::styled("|", theme.dim()),
+        Span::styled(title.to_string(), theme.accent_style()),
+        Span::styled("|", theme.dim()),
+    ])
 }
 
 /// Clears and frames a centered popup, returning its inner area.

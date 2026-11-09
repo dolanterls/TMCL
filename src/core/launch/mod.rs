@@ -1,9 +1,7 @@
 pub mod auth;
 pub mod classpath;
 pub mod command;
-pub mod crash;
 pub mod failure;
-pub mod log;
 pub mod memory;
 pub mod natives;
 pub mod plan;

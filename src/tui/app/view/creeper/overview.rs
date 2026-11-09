@@ -165,8 +165,8 @@ impl App {
                     || self.i18n.text("overview.no_runtime"),
                     |java| format!("Java {}", java.major),
                 );
-            // The instance directory used to trail this row, but a deep path
-            // never fits and only produced an ellipsis. Java is the one fact
+            // The instance directory does not belong on this row: a deep path
+            // never fits and only produces an ellipsis. Java is the one fact
             // worth keeping here.
             lines.push(Line::from(vec![
                 Span::styled("▸ ", Style::default().fg(pal.cyan).bg(pal.surface)),
@@ -176,10 +176,7 @@ impl App {
         if left.height as usize > lines.len()
             && let Some(instance) = current
         {
-            let loader = instance.loader_version.as_ref().map_or_else(
-                || self.loader_label(&instance.loader),
-                |version| format!("{} {version}", self.loader_label(&instance.loader)),
-            );
+            let loader = self.instance_loader_text(instance);
             lines.push(Line::from(vec![
                 Span::styled("▸ ", Style::default().fg(pal.cyan).bg(pal.surface)),
                 Span::styled(

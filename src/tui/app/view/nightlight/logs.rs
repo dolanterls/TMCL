@@ -24,12 +24,12 @@ pub(in crate::tui::app) fn layout(area: Rect) -> Rect {
 }
 
 impl App {
-    /// Rectangle the log lines actually occupy.
+    /// Rectangle the log lines occupy.
     ///
     /// The wheel clamp in `App::log_max_scroll_offset` needs the same numbers
     /// the painter uses, or the last rows stay unreachable: the shared clamp is
-    /// derived from `chrome::panel(main)`, which is four rows taller than this
-    /// card's body (page margin 2, title padding 2, header 2).
+    /// derived from `chrome::panel(main)`, four rows taller than this card's
+    /// body (page margin 2, title padding 2, header 2).
     pub(in crate::tui::app) fn nightlight_log_body(area: Rect) -> Rect {
         let inner = card_inner(layout(area));
         Rect::new(
@@ -73,7 +73,12 @@ impl App {
         } else {
             (self.i18n.text("logs.paused"), pal.muted)
         };
-        let mut header = vec![widgets::pill(&follow.0, follow.1, pal)];
+        let mut header = Vec::new();
+        if let Some(badge) = self.diagnosis_badge() {
+            header.push(widgets::pill(&badge, pal.err, pal));
+            header.push(Span::styled(" ", Style::default().bg(pal.surface)));
+        }
+        header.push(widgets::pill(&follow.0, follow.1, pal));
         if let Some(filter) = self.log_filter.as_deref() {
             let text = format!("  {}: {filter}", self.i18n.text("common.search"));
             header.push(Span::styled(
@@ -91,13 +96,10 @@ impl App {
             return;
         }
         let query = self.log_filter.as_deref().unwrap_or("");
-        let lines: Vec<Line<'static>> = self
-            .logs
-            .matching_lines(query)
-            .into_iter()
-            .map(|line| highlight(&line, query, pal))
-            .collect();
-        if lines.is_empty() {
+        // One page only: the buffer measures each line's rows once, so this
+        // does not re-wrap the whole log every frame.
+        let window = self.logs.window(query, body.width, body.height, false);
+        if window.total_rows == 0 {
             frame.render_widget(
                 Paragraph::new(self.i18n.text("logs.empty"))
                     .style(Style::default().fg(pal.muted).bg(pal.surface)),
@@ -105,20 +107,21 @@ impl App {
             );
             return;
         }
-        let paragraph = Paragraph::new(lines)
-            .wrap(Wrap { trim: false })
-            .style(Style::default().bg(pal.surface));
-        let total_rows = paragraph.line_count(body.width);
-        let max_offset = total_rows.saturating_sub(usize::from(body.height));
-        let bottom = self.logs.scroll_offset().min(max_offset);
-        let from_top = max_offset.saturating_sub(bottom);
+        let lines = window
+            .lines
+            .iter()
+            .map(|line| highlight(line, query, pal))
+            .collect::<Vec<_>>();
         frame.render_widget(
-            paragraph.scroll((u16::try_from(from_top).unwrap_or(u16::MAX), 0)),
+            Paragraph::new(lines)
+                .wrap(Wrap { trim: false })
+                .style(Style::default().bg(pal.surface))
+                .scroll((u16::try_from(window.skip_rows).unwrap_or(u16::MAX), 0)),
             body,
         );
-        if total_rows > usize::from(body.height) {
-            let mut state = ScrollbarState::new(total_rows)
-                .position(from_top)
+        if window.total_rows > usize::from(body.height) {
+            let mut state = ScrollbarState::new(window.total_rows)
+                .position(window.from_row)
                 .viewport_content_length(usize::from(body.height));
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)

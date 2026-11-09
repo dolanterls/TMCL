@@ -29,6 +29,14 @@ pub enum Error {
     Java(String),
     #[error("account error: {0}")]
     Account(String),
+    /// A stored credential can never be traded again: the refresh token was
+    /// revoked, expired, or issued to a different client id.
+    ///
+    /// Distinct from [`Error::Account`] because the caller has something to do
+    /// about it — retire the secret, and stop promising an automatic renewal —
+    /// where a generic account error says nothing about what is on disk.
+    #[error("account error: {0}")]
+    AccountExpired(String),
     #[error("loader error: {0}")]
     Loader(String),
     #[error("launch error: {0}")]
@@ -66,7 +74,7 @@ impl Error {
             Self::Download(_) => ErrorCategory::Download,
             Self::Version(_) => ErrorCategory::Version,
             Self::Java(_) => ErrorCategory::Java,
-            Self::Account(_) => ErrorCategory::Account,
+            Self::Account(_) | Self::AccountExpired(_) => ErrorCategory::Account,
             Self::Loader(_) => ErrorCategory::Loader,
             Self::Launch(_) => ErrorCategory::Launch,
             Self::Terminal(_) => ErrorCategory::Terminal,

@@ -7,6 +7,7 @@ mod account;
 mod completions;
 mod config;
 mod content;
+mod diagnose;
 mod instance;
 mod java;
 mod path;
@@ -27,6 +28,7 @@ pub use content::{
     ContentToggleArgs, ModCheckArgs, ModCommand, ModUpdateArgs, TrashCommand, TrashListArgs,
     TrashPurgeArgs, TrashRestoreArgs,
 };
+pub use diagnose::DiagnoseArgs;
 pub use instance::{
     InstanceCommand, InstanceCreateArgs, InstanceDeleteArgs, InstanceExportArgs,
     InstanceImportArgs, InstanceLaunchArgs, InstanceListArgs, InstanceRenameArgs,
@@ -89,6 +91,8 @@ pub struct Cli {
 pub enum Command {
     /// Open the terminal UI
     Tui,
+    /// Explain why the last run of an instance ended badly
+    Diagnose(DiagnoseArgs),
     /// Manage instances
     Instance {
         #[command(subcommand)]
@@ -172,6 +176,33 @@ mod tests {
     use clap::Parser;
 
     use super::{Cli, Command, InstanceCommand};
+
+    #[test]
+    fn parses_the_diagnose_command_and_its_three_inputs() {
+        let bare = Cli::try_parse_from(["tmcl", "diagnose"]).expect("parse bare");
+        match bare.command {
+            Some(Command::Diagnose(args)) => {
+                assert!(args.reference.is_none());
+                assert!(args.log.is_none());
+                assert!(args.export.is_none());
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+
+        let full = Cli::try_parse_from([
+            "tmcl", "diagnose", "survival", "--log", "game.log", "--export", "out.zip", "--json",
+        ])
+        .expect("parse full");
+        assert!(full.json);
+        match full.command {
+            Some(Command::Diagnose(args)) => {
+                assert_eq!(args.reference.as_deref(), Some("survival"));
+                assert_eq!(args.log.unwrap().to_string_lossy(), "game.log");
+                assert_eq!(args.export.unwrap().to_string_lossy(), "out.zip");
+            }
+            other => panic!("unexpected command: {other:?}"),
+        }
+    }
 
     #[test]
     fn parses_nested_commands_and_global_options_after_subcommand() {

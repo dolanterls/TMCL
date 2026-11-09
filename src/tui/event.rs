@@ -63,6 +63,12 @@ pub enum AppEvent {
     Mouse(MouseEvent),
     Resize(u16, u16),
     Tick,
+    /// A finished run's verdict, built on a blocking thread. `seq` names the
+    /// launch it belongs to; a mismatch means the player started another one.
+    DiagnosisReady {
+        seq: u64,
+        diagnosis: Box<crate::core::diagnose::Diagnosis>,
+    },
     Status(String),
     UpdateCheck(std::result::Result<crate::core::version::update::UpdateInfo, String>),
     /// Result of a background Java discovery scan.
@@ -159,7 +165,7 @@ pub enum AppEvent {
     },
     TasksUpdated(Vec<TaskSnapshot>),
     ModpackPrepared(std::result::Result<PreparedModpack, String>),
-    /// Required dependencies resolved for a mod that was just queued.
+    /// Required dependencies resolved for a newly queued mod.
     DependenciesResolved {
         parent: String,
         target_id: uuid::Uuid,
@@ -174,6 +180,8 @@ pub enum AppEvent {
         exit_code: Option<i32>,
         log_path: std::path::PathBuf,
         crash_report: Option<std::path::PathBuf>,
+        /// The masked launch command, for the diagnosis bundle.
+        launch_command: String,
     },
     /// The launch never reached the game process (bad Java, auth failure, …).
     LaunchAborted {

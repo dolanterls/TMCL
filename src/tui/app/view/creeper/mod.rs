@@ -29,7 +29,11 @@ pub(in crate::tui::app) use overview::overview_layout;
 impl App {
     /// The sheet this preset paints with, chosen by `主题`.
     pub(in crate::tui::app) fn creeper_palette(&self) -> &'static tone::Palette {
-        tone::palette(self.config.state.ui.theme_mode)
+        if self.light_terminal() {
+            &tone::TERMINAL_LIGHT
+        } else {
+            tone::palette(self.config.state.ui.theme_mode)
+        }
     }
 
     pub(in crate::tui::app) fn draw_creeper(&self, frame: &mut Frame<'_>) {
@@ -52,10 +56,14 @@ impl App {
         self.draw_creeper_page(frame, &regions, t);
         shell::footer(self, frame, &regions, t);
         shell::toast(self, frame, t);
+    }
 
-        // Dim the page once, below every overlay, so stacked dialogs still
-        // read as one layer above a single scrim.
-        if self.detail_open || self.help_open || self.modal.is_some() {
+    /// The overlay phase, drawn after the page has handed its fills back to the
+    /// terminal. One scrim below every overlay so stacked dialogs read as one
+    /// layer.
+    pub(in crate::tui::app) fn creeper_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
+        let t = self.anim_time();
+        if self.detail_open || self.diagnosis_open || self.help_open || self.modal.is_some() {
             crate::tui::widgets::scrim::dim(frame);
         }
         // Same blocker contract as the classic preset; shared helper so the two
@@ -63,6 +71,9 @@ impl App {
         self.register_overlay_hits(area);
         if self.detail_open {
             modals::detail(self, frame, t);
+        }
+        if self.diagnosis_open {
+            self.draw_diagnosis_overlay_with(frame, self.diagnosis_theme());
         }
         if self.help_open {
             modals::help(self, frame, t);

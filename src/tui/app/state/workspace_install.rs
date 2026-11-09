@@ -93,8 +93,8 @@ impl App {
 
     /// Pick a game version from the list the download centre already loaded.
     ///
-    /// Fetching the manifest here would duplicate that page's job, and an empty
-    /// list simply means the player has not opened it yet.
+    /// Fetching the manifest here would duplicate that page's job; an empty list
+    /// means the player has not opened it yet.
     fn open_minecraft_version_picker(&mut self) {
         let versions = self
             .versions
@@ -283,7 +283,7 @@ impl App {
         self.start_loader_install(pending);
     }
 
-    /// Whether the pick would actually change the instance's loader or version.
+    /// Whether the pick would change the instance's loader or version.
     fn install_changes(&self, pending: &PendingLoaderInstall) -> bool {
         let Some(workspace) = self.workspace.as_ref() else {
             return false;

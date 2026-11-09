@@ -35,6 +35,8 @@ pub enum Mode {
     /// A checklist dialog; its keys are handled by `Modal`, not by commands.
     Filter,
     Help,
+    /// The crash-diagnosis card.
+    Diagnosis,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,6 +46,14 @@ pub enum Command {
     Back,
     Quit,
     Help,
+    /// Open (or close) the crash-diagnosis card.
+    Diagnose,
+    /// Run the remedy whose key cap is this letter.
+    Remedy(char),
+    /// Write the diagnosis bundle somewhere the player picks.
+    ExportDiagnosis,
+    /// Filter the log by the primary finding's evidence and jump there.
+    LocateInLog,
     PrevRow,
     NextRow,
     PrevPage,
@@ -150,6 +160,28 @@ pub fn from_key_with_task(
             KeyCode::End => Command::Bottom,
             _ => Command::Nothing,
         },
+        Mode::Diagnosis => match key.code {
+            KeyCode::Esc => Command::Back,
+            // The card's own key row advertises F1 as help, so it has to be help.
+            KeyCode::F(1) => Command::Help,
+            KeyCode::F(3) => Command::Diagnose,
+            KeyCode::Up | KeyCode::Char('k') => Command::PrevRow,
+            KeyCode::Down | KeyCode::Char('j') => Command::NextRow,
+            KeyCode::PageUp => Command::PrevPage,
+            KeyCode::PageDown => Command::NextPage,
+            KeyCode::Home => Command::Top,
+            KeyCode::End => Command::Bottom,
+            KeyCode::Char('?') | KeyCode::Char('？') => Command::Help,
+            KeyCode::Enter => Command::Remedy('\0'),
+            // Remedy caps are uppercase; `e`/`l` are card chrome and are read
+            // case-insensitively so a caps-lock accident does not eat them.
+            KeyCode::Char('E') | KeyCode::Char('e') => Command::ExportDiagnosis,
+            KeyCode::Char('L') | KeyCode::Char('l') => Command::LocateInLog,
+            KeyCode::Char(letter) if letter.is_ascii_uppercase() => Command::Remedy(letter),
+            // `q` is the global quit. Closing the card with it would also end
+            // the launcher, so this mode does not answer to it at all.
+            _ => Command::Nothing,
+        },
         Mode::Form(_) | Mode::Confirm(_) | Mode::Filter => Command::Nothing,
         Mode::Workspace => match key.code {
             // `?` is a global key, not a page key: it has to work with the
@@ -229,7 +261,7 @@ pub fn from_key_with_task(
             KeyCode::Home => Command::CursorHome,
             KeyCode::End => Command::CursorEnd,
             // The settings search is a result list, so vertical keys move the
-            // highlight instead of being swallowed.
+            // highlight instead of being ignored.
             KeyCode::Up | KeyCode::Char('k') if matches!(target, SearchTarget::Settings) => {
                 Command::PrevRow
             }
@@ -254,6 +286,9 @@ fn global(page: Page, task_action: TaskKeyState, key: KeyEvent) -> Command {
         // `Char('/')` + SHIFT rather than `Char('?')`.
         KeyCode::Char('?') | KeyCode::Char('？') | KeyCode::F(1) => Command::Help,
         KeyCode::Char('/') if key.modifiers.contains(KeyModifiers::SHIFT) => Command::Help,
+        // The diagnosis card has no tab; `F3` is its only opener. `F1` is help
+        // (and Back in some modes), `F2` belongs to the form file pickers.
+        KeyCode::F(3) => Command::Diagnose,
         KeyCode::Up | KeyCode::Char('k') => Command::PrevRow,
         KeyCode::Down | KeyCode::Char('j') => Command::NextRow,
         KeyCode::PageUp => Command::PrevPage,

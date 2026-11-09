@@ -1,0 +1,1 @@
+[stdout] org.spongepowered.asm.mixin.injection.throwables.InvalidInjectionException: Mixin apply failed create.mixins.json:BlockMixin

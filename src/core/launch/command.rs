@@ -160,7 +160,7 @@ pub fn build(
     }
     let client_jar = client_jar_path(instance_dir, client);
     // PCL2 writes `${primary_jar_name}` into Forge's `-DignoreList`; for an
-    // instance the primary jar is the client jar that is actually installed.
+    // instance the primary jar is the client jar on disk.
     values.insert(
         "primary_jar_name".into(),
         client_jar
@@ -275,11 +275,11 @@ fn quote(value: &str) -> String {
 ///
 /// They come from a version JSON template (`--quickPlayPath ${quickPlayPath}`)
 /// that expects the launcher to have a value; TMCL does not, so the pair would
-/// reach the game as `--quickPlayPath ""`. The vanilla entry point parses its
-/// arguments with jopt-simple, which reads an empty value as "no value given"
-/// and exits before the window opens (`Option quickPlayPath requires an
-/// argument`). Forge's and Fabric's entry points swallow the same command line,
-/// which is why a modded instance could start while a vanilla one could not.
+/// reach the game as `--quickPlayPath ""`. The vanilla entry point parses with
+/// jopt-simple, which reads an empty value as "no value given" and exits before
+/// the window opens (`Option quickPlayPath requires an argument`). Forge's and
+/// Fabric's entry points accept the same command line, so a modded instance
+/// started while a vanilla one could not.
 const EMPTY_WHEN_UNSET: [&str; 7] = [
     "--clientId",
     "--xuid",
@@ -315,12 +315,12 @@ fn without_empty_values(args: Vec<String>) -> Vec<String> {
     kept
 }
 
-/// Client jar that is actually installed for this instance.
+/// Client jar installed for this instance.
 ///
-/// Instances written by other launchers do not all keep `<instance>.jar`:
-/// the vanilla/HMCL layout reuses `versions/<parent>/<parent>.jar`, while PCL2
-/// copies the jar next to the version JSON. Prefer whatever exists on disk so a
-/// valid install is never rejected over a file name.
+/// Instances written by other launchers do not all keep `<instance>.jar`: the
+/// vanilla/HMCL layout reuses `versions/<parent>/<parent>.jar`, while PCL2 copies
+/// the jar next to the version JSON. Prefer whatever exists on disk, so a valid
+/// install is never rejected over a file name.
 pub(crate) fn client_jar_path(instance_dir: &Path, client: &ClientJson) -> PathBuf {
     let mut candidates = Vec::new();
     if let Some(name) = instance_dir.file_name() {

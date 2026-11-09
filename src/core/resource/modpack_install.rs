@@ -247,9 +247,9 @@ const MAX_ICON_BYTES: u64 = 8 * 1024 * 1024;
 
 /// Downloads the pack's artwork into `<instance>/icon.png`.
 ///
-/// Best effort by contract: a non-PNG URL, a 404, a body that does not decode —
-/// each is logged and dropped, because a cover is decoration and must never
-/// fail an install that otherwise worked.
+/// Best effort by contract: a non-PNG URL, a 404, a body that does not decode. Each
+/// is logged and dropped, because a cover is decoration and must never fail an
+/// install that otherwise worked.
 async fn seed_icon(instance: &Path, url: &str) {
     if let Err(error) = fetch_icon(instance, url).await {
         crate::core::diagnostics::diagnostic!("modpack", "icon {url}: {error}");
@@ -370,8 +370,8 @@ mod tests {
 
     /// Serves one response on `127.0.0.1` and hands back the URL to ask for.
     ///
-    /// The path ends in `.png` because that is what the installer looks at
-    /// before it opens a connection; the server itself ignores it.
+    /// The path ends in `.png` because the installer checks it before opening a
+    /// connection; the server itself ignores it.
     fn serve(status: u16, body: Vec<u8>) -> (String, std::thread::JoinHandle<()>) {
         use std::io::{Read, Write};
         use std::net::TcpListener;

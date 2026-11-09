@@ -8,8 +8,8 @@
 //! Two details are deliberate:
 //!
 //! - The user `Path` is edited, never the machine one. Writing `HKLM` needs an
-//!   elevated process, and a launcher that runs unelevated should not ask for
-//!   UAC just to make its own command work.
+//!   elevated process, and a launcher that runs unelevated should not ask for UAC
+//!   to make its own command work.
 //! - Entries are compared after removing invisible characters. A `Path` copied
 //!   from a chat window can carry a bidi mark (`U+202A`) that is invisible in
 //!   the editor and turns the entry into a directory that does not exist; it
@@ -34,8 +34,8 @@ pub enum Presence {
     /// An entry spells the directory exactly.
     Present,
     /// An entry is the same directory once invisible characters and a stray
-    /// separator are removed — Windows resolves the literal string, so it does
-    /// not work.
+    /// separator are removed. Windows resolves the literal string, so it does not
+    /// work.
     Broken(String),
     Missing,
 }
@@ -202,7 +202,7 @@ fn add_entry(list: &[String], directory: &Path) -> (Vec<String>, bool) {
     }
 }
 
-/// The entry list after a `remove`, and whether anything was actually removed.
+/// The entry list after a `remove`, and whether anything was removed.
 fn remove_entry(list: &[String], directory: &Path) -> (Vec<String>, bool) {
     let wanted = normalise(&directory.to_string_lossy());
     let kept = list

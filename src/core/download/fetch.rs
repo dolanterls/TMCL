@@ -450,9 +450,9 @@ where
             .open(temporary)
             .await?
     };
-    // Hash what we write instead of re-reading the finished file. A 200 MB
-    // jar used to be read once to download it and again to verify it, and a
-    // third time to place it in the content-addressed cache.
+    // Hash what we write instead of re-reading the finished file. A 200 MB jar read
+    // once to download, again to verify and a third time to place in the
+    // content-addressed cache costs three passes over the same bytes.
     let content_sha1 = request
         .expected_sha1
         .as_deref()

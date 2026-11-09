@@ -12,10 +12,10 @@ pub fn expand(template: &str, values: &BTreeMap<String, String>) -> Result<Strin
             .find('}')
             .ok_or_else(|| Error::Launch(format!("unterminated variable in {template}")))?;
         let key = &after[..end];
-        // Version JSONs written by other launchers (PCL2, HMCL, ...) carry their
-        // own placeholders. Dropping an unknown one keeps the launch running
-        // instead of failing on metadata this launcher never wrote; the token is
-        // removed rather than left literal so it cannot leak into a path.
+        // Version JSONs written by other launchers (PCL2, HMCL, ...) carry their own
+        // placeholders. Dropping an unknown one keeps the launch running instead of
+        // failing on metadata this launcher never wrote; the token is removed rather
+        // than left literal, so it cannot end up in a path.
         if let Some(value) = values.get(key) {
             output.push_str(value);
         }

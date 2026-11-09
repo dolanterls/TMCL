@@ -1,9 +1,8 @@
 //! The instance page: a text list on the left, the selected cover and its
 //! facts on the right.
 //!
-//! No cover wall: a grid needs `←/→`, and the instance page has no such
-//! bindings. One column plus a hero is the shape the preset can actually
-//! support with the shared key map.
+//! No cover wall: a grid needs `←/→`, and the instance page has no such binding.
+//! One column plus a hero is what the shared key map supports.
 
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -157,7 +156,16 @@ impl App {
         }
 
         let room = usize::from(text_width).saturating_sub(1);
-        let status = localize_instance_status(&item.status, &self.i18n);
+        // The launcher marks the instance `Enter` will start. Without the word
+        // the row still reads `Ready` after the key is pressed and nothing on
+        // the page says it took: classic, creeper, nightlight and paper all
+        // swap the status for `当前`, and shelf was the one that did not.
+        let is_current = self.shelf_marks_current(item);
+        let status = if is_current {
+            self.i18n.text("common.current")
+        } else {
+            localize_instance_status(&item.status, &self.i18n)
+        };
         let mut lines = vec![Line::from(Span::styled(
             format!(" {}", crate::tui::palette::truncate(&item.name, room)),
             Style::default()
@@ -179,13 +187,19 @@ impl App {
             )));
         }
         if rect.height >= 3 {
+            // BOLD is the only emphasis a selected row can take: its band is
+            // already `ACCENT`, so an accent-coloured status would vanish.
+            let mut style = Style::default().fg(secondary).bg(background);
+            if is_current {
+                style = style.add_modifier(Modifier::BOLD);
+            }
             lines.push(Line::from(Span::styled(
                 format!(
                     " {} · {}",
                     status,
                     compact_play_time(item.play_time_seconds)
                 ),
-                Style::default().fg(secondary).bg(background),
+                style,
             )));
         }
         frame.render_widget(
@@ -273,43 +287,58 @@ impl App {
             Some(version) => format!("{} {version}", self.loader_label(&item.loader)),
             None => self.loader_label(&item.loader),
         };
+        // Same rule as the list beside it: the instance the launcher will
+        // start says `当前` instead of its stored status, in the accent so the
+        // one word that changes after `Enter` is the one that stands out.
+        let (status, status_color) = if self.shelf_marks_current(item) {
+            (self.i18n.text("common.current"), pal.accent)
+        } else {
+            (localize_instance_status(&item.status, &self.i18n), pal.text)
+        };
         let left = [
             (
                 self.i18n.text("workspace.overview.version"),
                 item.version.clone(),
+                pal.text,
             ),
-            (self.i18n.text("workspace.overview.loader"), loader),
             (
-                self.i18n.text("task.status"),
-                localize_instance_status(&item.status, &self.i18n),
+                self.i18n.text("workspace.overview.loader"),
+                loader,
+                pal.text,
             ),
+            (self.i18n.text("task.status"), status, status_color),
         ];
         let right = [
             (
                 self.i18n.text("workspace.overview.launch_count"),
                 item.launch_count.to_string(),
+                pal.text,
             ),
             (
                 self.i18n.text("workspace.overview.play_time"),
                 compact_play_time(item.play_time_seconds),
+                pal.text,
             ),
             (
                 self.i18n.text("workspace.overview.path"),
                 display_path(&item.path),
+                pal.text,
             ),
         ];
         let hint_y = inner.bottom().saturating_sub(1);
-        // Two columns need room for a label, the gap and a loader version.
-        // Below that the right column cut `NeoForge 21.1.247` down to
-        // `NeoForge 21.1.2…` at the reference size — the fact the panel exists
-        // for was the one it lost. Narrow columns stack the six facts instead.
+        // Two columns need room for a label, the gap and a loader version. Below
+        // that the right column cut `NeoForge 21.1.247` down to `NeoForge 21.1.2…`
+        // at the reference size, losing the version the panel exists for. Narrow
+        // columns stack the six facts instead.
         let mut facts_bottom = y;
         if inner.width >= 56 {
             let column = inner.width.saturating_sub(1) / 2;
             let right_x = inner.x.saturating_add(column).saturating_add(1);
             let right_width = inner.width.saturating_sub(column).saturating_sub(1);
-            for (row, ((left_label, left_value), (right_label, right_value))) in
-                left.iter().zip(right.iter()).enumerate()
+            for (
+                row,
+                ((left_label, left_value, left_color), (right_label, right_value, right_color)),
+            ) in left.iter().zip(right.iter()).enumerate()
             {
                 let row_y = y.saturating_add(row as u16);
                 if row_y >= hint_y {
@@ -320,6 +349,7 @@ impl App {
                     Rect::new(inner.x, row_y, column, 1),
                     left_label,
                     left_value,
+                    *left_color,
                     pal,
                 );
                 self.paint_meta(
@@ -327,15 +357,16 @@ impl App {
                     Rect::new(right_x, row_y, right_width, 1),
                     right_label,
                     right_value,
+                    *right_color,
                     pal,
                 );
                 facts_bottom = row_y.saturating_add(1);
             }
         } else {
-            let stack = [
-                &left[0], &left[1], &left[2], &right[0], &right[1], &right[2],
-            ];
-            for (row, (label, value)) in stack.iter().enumerate() {
+            // Six facts in the order the wide layout prints them: left column
+            // first, then the right one.
+            let stack = left.iter().chain(right.iter());
+            for (row, (label, value, color)) in stack.enumerate() {
                 let row_y = y.saturating_add(row as u16);
                 if row_y >= hint_y {
                     break;
@@ -345,6 +376,7 @@ impl App {
                     Rect::new(inner.x, row_y, inner.width, 1),
                     label,
                     value,
+                    *color,
                     pal,
                 );
                 facts_bottom = row_y.saturating_add(1);
@@ -393,9 +425,8 @@ impl App {
         if worlds.is_empty() {
             return;
         }
-        // Pinned just above the hint instead of hanging under the facts: the
-        // panel is a footer for the column, and a gap above a hint reads as a
-        // missing row.
+        // Sits directly above the hint rather than under the facts: the panel is
+        // a footer for the column, and a gap above a hint reads as a missing row.
         let rows = u16::try_from(worlds.len().min(3)).unwrap_or(0);
         let height = rows + 1;
         let area = Rect::new(
@@ -458,6 +489,7 @@ impl App {
         area: Rect,
         label: &str,
         value: &str,
+        value_color: ratatui::style::Color,
         pal: &Palette,
     ) {
         let label_width = crate::tui::palette::width(label);
@@ -469,7 +501,7 @@ impl App {
                 Span::styled(label.to_owned(), Style::default().fg(pal.faint).bg(pal.bg)),
                 Span::styled(
                     format!("  {}", crate::tui::palette::truncate(value, room)),
-                    Style::default().fg(pal.text).bg(pal.bg),
+                    Style::default().fg(value_color).bg(pal.bg),
                 ),
             ]))
             .style(Style::default().bg(pal.bg)),

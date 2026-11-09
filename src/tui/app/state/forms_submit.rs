@@ -18,7 +18,9 @@ impl App {
                 let name = required_value(&values, 1, "instance name")?;
                 let version = required_value(&values, 2, "Minecraft version")?;
                 let (loader, install_loader) = parse_install_loader(
-                    values.get(3).map(String::as_str).unwrap_or("vanilla"),
+                    values
+                        .get(3)
+                        .map_or("vanilla", |value| selection_value(value)),
                     values.get(4).map(String::as_str).unwrap_or(""),
                 )?;
                 let game_directory_id = game_directory_id(&root);
@@ -233,11 +235,10 @@ impl App {
             }
             FormAction::SelectResourceTarget => {
                 let value = required_value(&values, 0, "target instance")?;
-                let id = value
-                    .split('|')
-                    .next()
-                    .and_then(|id| Uuid::parse_str(id).ok())
-                    .ok_or_else(|| Error::Config("invalid target instance".into()))?;
+                // The row prints `name · short-id`, the value after the bar is
+                // the id itself.
+                let id = Uuid::parse_str(selection_value(value))
+                    .map_err(|_| Error::Config("invalid target instance".into()))?;
                 if !self.instances.items.iter().any(|item| item.id == id) {
                     return Err(Error::Config("target instance no longer exists".into()));
                 }
@@ -311,8 +312,8 @@ impl App {
             }
             FormAction::ImportLocalModpack => {
                 let archive = PathBuf::from(required_value(&values, 0, "modpack archive")?);
-                // Checked here rather than in the background job so the dialog
-                // stays open with the path the player just typed.
+                // Checked here rather than in the background job, so the dialog
+                // stays open with the path the player typed.
                 if !archive.is_file() {
                     return Err(Error::Download(self.i18n.format(
                         "status.modpack_file_missing",

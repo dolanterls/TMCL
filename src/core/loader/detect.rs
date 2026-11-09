@@ -1,9 +1,9 @@
 //! Loader detection from launch metadata.
 //!
-//! Version names and folder names lie: modpacks rename folders, PCL2 rewrites
-//! `id`, and imported instances carry the loader name in three different
-//! places. `mainClass` plus the library coordinates are what the game actually
-//! runs, so they are the only inputs here.
+//! Version names and folder names are unreliable: modpacks rename folders, PCL2
+//! rewrites `id`, and imported instances carry the loader name in three different
+//! places. `mainClass` plus the library coordinates are what the game runs, so they
+//! are the only inputs here.
 
 use crate::core::loader::LoaderKind;
 use crate::core::loader::client_json::ClientJson;

@@ -90,10 +90,7 @@ impl App {
                         self.theme,
                     )
                 };
-                let loader = item.loader_version.as_ref().map_or_else(
-                    || item.loader.clone(),
-                    |version| format!("{} {}", item.loader, version),
-                );
+                let loader = self.instance_loader_text(item);
                 vec![
                     item.name.clone(),
                     item.version.clone(),

@@ -37,7 +37,8 @@ pub async fn run() -> Result<()> {
     // mentioning, and the next status message replaces it anyway.
     app.announce_missing_path_entry();
     let mut task_updates = app.subscribe_task_snapshots();
-    let mut terminal = terminal::Session::enter()?;
+    let mut terminal = terminal::Session::enter(app.wants_terminal_background())?;
+    app.set_terminal_background(terminal.take_background());
     let mut reader = Some(event::spawn_reader(input_sender.clone()));
     let mut tick_ms = app.refresh_millis();
     let mut redraw = tokio::time::interval(std::time::Duration::from_millis(tick_ms));

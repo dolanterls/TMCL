@@ -1,0 +1,1 @@
+[stderr] Pixel format not accelerated

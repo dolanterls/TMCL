@@ -24,8 +24,8 @@ impl App {
             MouseEventKind::Down(MouseButton::Left) => {
                 let hit = self.hitmap.at(mouse.column, mouse.row, top);
                 // A click anywhere but the field itself ends the edit. Without
-                // this the inline search could only be left with `Esc`, which
-                // is a cancel — the mouse had no way to say "done".
+                // this the inline search could only be left with `Esc`, which is
+                // a cancel; the mouse had no way to say "done".
                 if self.search.is_some()
                     && !matches!(
                         hit.map(|hit| hit.action),
@@ -65,5 +65,9 @@ impl App {
         if next != self.hover {
             self.hover = next;
         }
+        // Kept even when the action did not change: the same action can be
+        // printed in two places, and `paint_hover` has to tint the one under the
+        // pointer.
+        self.hover_at = next.map(|_| (column, row));
     }
 }

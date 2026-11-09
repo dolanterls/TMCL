@@ -32,7 +32,12 @@ impl App {
             .direction(Direction::Vertical)
             .constraints([Constraint::Length(1), Constraint::Min(0)])
             .split(inner);
-        let mut status = vec![
+        let mut status = Vec::new();
+        if let Some(badge) = self.diagnosis_badge() {
+            status.push(widgets::status_pill(StatusKind::Failed, badge, pal.surface));
+            status.push(Span::styled(" ", Style::default().bg(pal.surface)));
+        }
+        status.extend([
             Span::styled(" ", Style::default().bg(pal.surface)),
             widgets::soft_pill(
                 format!("{}: {current}", self.i18n.text("logs.instance")),
@@ -40,7 +45,7 @@ impl App {
                 pal.surface,
             ),
             Span::styled(" ", Style::default().bg(pal.surface)),
-        ];
+        ]);
         if self.logs.follow() {
             status.push(widgets::status_pill(
                 StatusKind::Running,
@@ -108,27 +113,27 @@ impl App {
             return;
         }
         let query = self.log_filter.as_deref().unwrap_or("");
-        let lines = self
+        // Only the visible page: measuring the whole buffer every frame made
+        // this page crawl once the game was logging.
+        let window = self
             .logs
-            .matching_lines(query)
-            .into_iter()
-            .map(|line| highlight(pal, &line, query))
+            .window(query, text_area.width, text_area.height, false);
+        let lines = window
+            .lines
+            .iter()
+            .map(|line| highlight(pal, line, query))
             .collect::<Vec<_>>();
-        let paragraph = Paragraph::new(lines)
-            .wrap(Wrap { trim: false })
-            .style(Style::default().bg(pal.surface));
-        let total_rows = paragraph.line_count(text_area.width);
-        let max_offset = total_rows.saturating_sub(usize::from(text_area.height));
-        let bottom_offset = self.logs.scroll_offset().min(max_offset);
-        let scroll_from_top = max_offset.saturating_sub(bottom_offset);
         frame.render_widget(
-            paragraph.scroll((u16::try_from(scroll_from_top).unwrap_or(u16::MAX), 0)),
+            Paragraph::new(lines)
+                .wrap(Wrap { trim: false })
+                .style(Style::default().bg(pal.surface))
+                .scroll((u16::try_from(window.skip_rows).unwrap_or(u16::MAX), 0)),
             text_area,
         );
 
-        if total_rows > usize::from(text_area.height) {
-            let mut state = ScrollbarState::new(total_rows)
-                .position(scroll_from_top)
+        if window.total_rows > usize::from(text_area.height) {
+            let mut state = ScrollbarState::new(window.total_rows)
+                .position(window.from_row)
                 .viewport_content_length(usize::from(text_area.height));
             frame.render_stateful_widget(
                 Scrollbar::new(ScrollbarOrientation::VerticalRight)
@@ -140,7 +145,7 @@ impl App {
             );
         }
 
-        if total_rows == 0 {
+        if window.total_rows == 0 {
             frame.render_widget(
                 Paragraph::new(Line::from(Span::styled(
                     self.i18n.text("logs.empty"),

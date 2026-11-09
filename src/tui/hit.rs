@@ -1,10 +1,10 @@
 ﻿//! Frame-local hit regions for the mouse.
 //!
-//! The renderer registers one [`Hitbox`] for every interactive rectangle it
-//! actually draws; the event loop looks the pointer up in that map after the
-//! frame and turns the result into an [`Action`]. Drawing writes, events read —
-//! the same contract `regions: Cell<ChromeRegions>` already follows, so the
-//! clickable area cannot drift away from what is on screen.
+//! The renderer registers one [`Hitbox`] for every interactive rectangle it draws;
+//! the event loop looks the pointer up in that map after the frame and turns the
+//! result into an [`Action`]. Drawing writes and events read, the same contract
+//! `regions: Cell<ChromeRegions>` follows, so the clickable area cannot drift away
+//! from what is on screen.
 //!
 //! Mechanism only: draw-time registration, last-registered-wins, declarative
 //! hit values. The same immediate-mode pattern is used by Hot-RS-Launcher
@@ -31,6 +31,8 @@ pub enum Layer {
     Detail,
     /// The help overlay.
     Help,
+    /// The crash-diagnosis card.
+    Diagnosis,
     /// A dialog.
     Modal,
 }
@@ -40,7 +42,8 @@ impl Layer {
     fn below(self) -> Option<Self> {
         match self {
             Self::Modal => Some(Self::Help),
-            Self::Help => Some(Self::Detail),
+            Self::Help => Some(Self::Diagnosis),
+            Self::Diagnosis => Some(Self::Detail),
             Self::Detail => Some(Self::Base),
             Self::Base => None,
         }

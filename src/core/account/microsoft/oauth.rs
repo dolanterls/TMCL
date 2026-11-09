@@ -121,7 +121,7 @@ impl MicrosoftOAuth {
                 }),
             )
             .await
-            .map_err(auth_error)?;
+            .map_err(xbox_login_error)?;
         let entitlements: EntitlementsResponse = self
             .http
             .get_json_with_bearer(ENTITLEMENTS_URL, &minecraft.access_token)
@@ -218,10 +218,10 @@ async fn parse_device_poll_response(response: reqwest::Response) -> Result<PollR
     }
 }
 
-/// A rejected refresh token is not a transport problem. `invalid_grant` means
-/// the grant was revoked, expired, or issued to a different client — which is
-/// exactly what every account saved before the client id changed now holds.
-/// Saying "sign in again" is the only useful answer; retrying cannot succeed.
+/// A rejected refresh token is not a transport problem. `invalid_grant` means the
+/// grant was revoked, expired, or issued to a different client, which is what
+/// every account saved before the client id changed now holds. "Sign in again" is
+/// the only useful answer; retrying cannot succeed.
 async fn parse_refresh_response(response: reqwest::Response) -> Result<OAuthToken> {
     let status = response.status();
     if status.is_success() {
@@ -236,12 +236,35 @@ async fn parse_refresh_response(response: reqwest::Response) -> Result<OAuthToke
 
 fn refresh_error(status: reqwest::StatusCode, body: &str) -> Error {
     match serde_json::from_str::<OAuthError>(body) {
-        Ok(error) if error.error == "invalid_grant" => {
-            Error::Account("Microsoft refresh token was rejected; sign in again".into())
-        }
+        Ok(error) if error.error == "invalid_grant" => Error::AccountExpired(format!(
+            "Microsoft refresh token was rejected; sign in again{}",
+            error.reason()
+        )),
         Ok(error) => Error::Network(format!("POST {TOKEN_URL}: {} (HTTP {status})", error.error)),
         Err(_) => Error::Network(format!("POST {TOKEN_URL}: HTTP {status}")),
     }
+}
+
+/// Names the step that refused the sign-in instead of pasting a URL.
+///
+/// The raw text (`POST https://api.minecraftservices.com/authentication/
+/// login_with_xbox: HTTP status client error (403 Forbidden)`) reads like a broken
+/// account. It says something narrower: Minecraft Services refused
+/// `login_with_xbox` with a 403.
+///
+/// The message names no cause. A 403 here usually means the app registration has
+/// not been authorised yet, but that is a state of this build, not a property of
+/// the call, and a message that asserts it becomes a lie once the registration is
+/// approved.
+fn xbox_login_error(error: Error) -> Error {
+    if let Error::Network(message) = &error
+        && message.contains("403")
+    {
+        return Error::Account(
+            "Minecraft Services refused this sign-in for the app (HTTP 403)".into(),
+        );
+    }
+    auth_error(error)
 }
 
 fn auth_error(error: Error) -> Error {
@@ -256,6 +279,33 @@ fn auth_error(error: Error) -> Error {
 #[derive(Debug, Deserialize)]
 struct OAuthError {
     error: String,
+    /// AAD's human-readable half: `AADSTS70000: The token was issued for a
+    /// different client id …`. The code is what makes a rejection diagnosable
+    /// after the fact; without it the only evidence is "sign in again".
+    #[serde(default)]
+    error_description: Option<String>,
+}
+
+impl OAuthError {
+    /// ` (AADSTS70000: the token was issued for a different client id)`.
+    ///
+    /// Trimmed at AAD's `Trace ID:` tail, which is noise in a status line.
+    fn reason(&self) -> String {
+        let Some(description) = self
+            .error_description
+            .as_deref()
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+        else {
+            return String::new();
+        };
+        let detail = description
+            .split(" Trace ID:")
+            .next()
+            .unwrap_or(description)
+            .trim();
+        format!(" ({detail})")
+    }
 }
 
 #[cfg(test)]
@@ -417,8 +467,77 @@ mod tests {
         );
 
         assert!(
-            matches!(error, Error::Account(ref message) if message.contains("sign in again")),
-            "invalid_grant must not surface as a retryable network error: {error}"
+            matches!(error, Error::AccountExpired(ref message) if message.contains("sign in again")),
+            "invalid_grant must be its own kind, not a retryable network error: {error}"
+        );
+        assert!(!error.is_retryable(), "retrying the same token cannot work");
+    }
+
+    /// The reason travels with the rejection.
+    ///
+    /// AAD knows why: expired, revoked, or issued for another client id, which is
+    /// what the client-id switch produces. The status line is the only place a
+    /// player would see it, and dropping it leaves "sign in again" as the whole
+    /// diagnosis.
+    #[test]
+    fn a_rejected_refresh_token_keeps_the_aad_reason() {
+        let error = super::refresh_error(
+            reqwest::StatusCode::BAD_REQUEST,
+            r#"{"error":"invalid_grant","error_description":"AADSTS70000: The token was issued for a different client id Trace ID: abc Correlation ID: def"}"#,
+        );
+
+        let Error::AccountExpired(message) = error else {
+            panic!("invalid_grant must be `AccountExpired`");
+        };
+        assert!(
+            message.contains("AADSTS70000") && message.contains("different client id"),
+            "{message}"
+        );
+        // AAD's tracing tail is noise in a status line.
+        assert!(!message.contains("Trace ID"), "{message}");
+    }
+
+    /// A 403 names the step, and refuses to guess at the reason.
+    ///
+    /// `login_with_xbox` is the call. The raw URL reads like a broken account; the
+    /// cause, usually an unapproved app registration, is a state of the build, not
+    /// of the call, so the message must not assert it. The same sentence has to
+    /// stay true after the registration is approved.
+    #[test]
+    fn a_403_on_login_with_xbox_names_the_step_without_a_verdict() {
+        let error = super::xbox_login_error(Error::Network(
+            "POST https://api.minecraftservices.com/authentication/login_with_xbox: \
+             HTTP status client error (403 Forbidden)"
+                .into(),
+        ));
+
+        let Error::Account(message) = error else {
+            panic!("a refused sign-in must be an account error");
+        };
+        assert!(message.contains("403"), "{message}");
+        assert!(
+            !message.contains("login_with_xbox"),
+            "the URL is not the diagnosis: {message}"
+        );
+        // No claim about *why*: an approval, a region block and a revoked app
+        // all answer 403, and the message outlives all of them.
+        assert!(
+            !message.contains("AppID") && !message.contains("review"),
+            "the message must not pin a temporary cause: {message}"
+        );
+    }
+
+    /// Every other failure on that call keeps the generic wording, so the
+    /// network case is not silently relabelled as a review problem.
+    #[test]
+    fn other_login_with_xbox_failures_keep_the_generic_wording() {
+        let error = super::xbox_login_error(Error::Network("connection reset by peer".into()));
+
+        assert!(
+            error
+                .to_string()
+                .contains("Microsoft authentication request failed"),
+            "{error}"
         );
     }
 

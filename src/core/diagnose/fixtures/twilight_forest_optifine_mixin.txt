@@ -1,0 +1,2 @@
+[stdout] java.lang.IllegalArgumentException: 4096 outside of image bounds 2048
+[stdout] 	at net.minecraft.client.renderer.texture.TextureAtlasSprite.upload(TextureAtlasSprite.java:214)

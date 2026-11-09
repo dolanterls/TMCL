@@ -1,5 +1,5 @@
-//! Instance covers: one local PNG, decoded to RGBA8 and resampled to the
-//! handful of pixels a terminal can actually show.
+//! Instance covers: one local PNG, decoded to RGBA8 and resampled to the handful
+//! of pixels a terminal can show.
 //!
 //! A 120-column terminal gives the cover column about 34 cells, and a cell
 //! holds two square pixels through `▀`, so the picture is 34×34 in the best

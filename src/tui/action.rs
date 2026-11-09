@@ -74,7 +74,8 @@ pub enum Metric {
     Java,
 }
 
-/// Overlay hits: the full-screen blocker closes, the popup body swallows.
+/// Overlay hits: a click on the full-screen blocker closes, one inside the popup
+/// does nothing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OverlayAct {
     Close,
@@ -84,7 +85,7 @@ pub enum OverlayAct {
 /// Dialog hits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ModalAct {
-    /// Swallow clicks that land on the dialog background or outside it.
+    /// Ignore clicks that land on the dialog background or outside it.
     Noop,
     /// Focus a field row.
     Focus(usize),
@@ -232,9 +233,8 @@ impl Action {
     }
 }
 
-/// Wheel targets. The wheel never produces a [`Action`]: it scrolls whatever
-/// region is under the pointer, which is why modals and panes need no
-/// special-casing in the router.
+/// Wheel targets. The wheel never produces an [`Action`]: it scrolls whatever region
+/// is under the pointer, so modals and panes need no special-casing in the router.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ScrollTarget {
     /// Selection inside a list; one row per notch.
@@ -247,11 +247,13 @@ pub enum ScrollTarget {
     DetailBody,
     /// The help overlay body.
     HelpBody,
+    /// The crash-diagnosis card body.
+    DiagnosisBody,
     /// The instance-workspace row list.
     WorkspaceRows,
-    /// Swallow the notch: a blocking overlay is open and has no scroll area
-    /// under the pointer. Without this the lookup would fall through to the
-    /// page behind the overlay.
+    /// Discard the notch: a blocking overlay is open and has no scroll area under
+    /// the pointer. Without this the lookup falls through to the page behind the
+    /// overlay.
     Blocked,
     /// A dialog's option list (registered in P4).
     ModalOptions,

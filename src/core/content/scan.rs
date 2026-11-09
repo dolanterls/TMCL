@@ -10,8 +10,8 @@ use crate::core::content::{ContentEntry, ContentKind, ContentMeta, meta};
 
 /// List the entries of `root` that belong to `kind`, sorted by display name.
 ///
-/// A missing directory is not an error: a fresh instance simply has no mods
-/// yet, and the UI shows its empty state instead of an error.
+/// A missing directory is not an error: a fresh instance has no mods yet, and the
+/// UI shows its empty state instead of an error.
 pub fn scan(root: &Path, kind: ContentKind) -> Vec<ContentEntry> {
     let Ok(entries) = std::fs::read_dir(root) else {
         return Vec::new();

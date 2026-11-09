@@ -1,15 +1,19 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use tmcl::core::config::migrations::load_and_migrate;
 use tmcl::core::config::models::CURRENT_SCHEMA_VERSION;
 
+/// A folder no other test in this binary can pick.
+///
+/// A timestamp alone is not enough: the Windows clock ticks in milliseconds, so
+/// two tests that start together got the same path and one deleted the other's
+/// fixture mid-run. The counter is per process and the pid separates binaries.
 fn temp_path() -> std::path::PathBuf {
+    static NEXT: AtomicU32 = AtomicU32::new(0);
     std::env::temp_dir().join(format!(
-        "tmcl-migration-test-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("system clock")
-            .as_nanos()
+        "tmcl-migration-test-{}-{}",
+        std::process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
     ))
 }
 
@@ -32,6 +36,9 @@ fn loads_legacy_fixture_without_rewriting_or_backup() {
     assert_eq!(config.game_directories.len(), 1);
     assert!(config.java.auto_download);
     assert_eq!(config.logs.retention_days, 14);
+    // `diagnosis` is newer than the fixture; the container-level
+    // `#[serde(default)]` has to fill it in, and the default is "on".
+    assert!(config.diagnosis.auto_open);
     assert_eq!(
         std::fs::read(&path).expect("read original config"),
         include_bytes!("../fixtures/config/v0.json")
@@ -63,4 +70,17 @@ fn malformed_json_is_not_overwritten() {
     );
 
     std::fs::remove_dir_all(path.parent().expect("test dir")).expect("clean test dir");
+}
+
+/// A player who turns the card off must stay off: the field is written back
+/// like any other, and reading it again must not resurrect the default.
+#[test]
+fn the_diagnosis_switch_survives_a_round_trip() {
+    use tmcl::core::config::models::Config;
+
+    let mut config = Config::default();
+    config.diagnosis.auto_open = false;
+    let json = serde_json::to_string(&config).expect("serialize");
+    let back: Config = serde_json::from_str(&json).expect("deserialize");
+    assert!(!back.diagnosis.auto_open);
 }

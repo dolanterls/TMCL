@@ -6,7 +6,7 @@
                              Java runtimes      0      Check for updates now                               Check now ▶
   1 Overview                 Downloads          9      Add tmcl to PATH                                          Add ▶
                              Appearance         8      Server address                                                -
-  2 Instances                Logs               8      Process priority                                    ‹ Default ›
+  2 Instances                Logs               9      Process priority                                    ‹ Default ›
                              Game directories   0
   3 Download
 

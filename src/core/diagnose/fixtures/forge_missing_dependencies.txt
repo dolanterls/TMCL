@@ -1,0 +1,2 @@
+[stdout] Missing or unsupported mandatory dependencies:/n[stdout] 	Mod ID: 'cloth-config', Requested by: 'sodium-extra', Expected range: '[11,)', Actual version: '[MISSING]'
+[stdout] 	Mod ID: 'fabric-api', Requested by: 'sodium', Expected range: '[0.90,)', Actual version: '[MISSING]'

@@ -1,9 +1,8 @@
 //! Status toast bookkeeping, shared by every preset.
 //!
-//! Only the queue lives here: which statuses are worth a floating card, how
-//! many are kept, and when they expire. How a toast is drawn — sliding in
-//! (`creeper`) or appearing as a still card (`nightlight`) — stays with the
-//! preset that draws it.
+//! Only the queue lives here: which statuses are worth a card, how many are
+//! kept, and when they expire. Drawing stays with the preset that draws it,
+//! whether it slides in (`creeper`) or appears at once (`nightlight`).
 
 use std::time::{Duration, Instant};
 
@@ -11,7 +10,7 @@ use crate::tui::widgets::status::StatusKind;
 
 use crate::tui::app::App;
 
-/// How long a status message stays visible as a floating toast.
+/// How long a status message stays on screen as a toast.
 pub(in crate::tui::app) const TOAST_TTL: Duration = Duration::from_secs(5);
 
 /// One toast that should be on screen right now.

@@ -1,0 +1,2 @@
+[stdout] Critical injection failure: LVT in net/minecraft/client/renderer/GameRenderer::m_109093_ has incompatible changes
+[stdout] 	at jade.mixins.json:GameRendererMixin.apply(GameRendererMixin.java:44)

@@ -1,10 +1,9 @@
 //! Reading `level.dat`.
 //!
-//! The file is gzip-compressed NBT — a binary tree written by the game, not by
-//! us. A launcher only needs six values out of it, so this is a streaming
-//! reader: it walks the tree, keeps the handful of keys it cares about and skips
-//! the rest. Every read is bounded, because the input is whatever the player
-//! put there.
+//! The file is gzip-compressed NBT, a binary tree written by the game rather than
+//! by this launcher. Only six values are needed, so this is a streaming reader: it
+//! walks the tree, keeps the keys it cares about and skips the rest. Every read is
+//! bounded, because the input is whatever the player put there.
 
 use std::io::Read;
 use std::path::Path;

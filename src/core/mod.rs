@@ -2,6 +2,7 @@ pub mod account;
 pub mod config;
 pub mod content;
 pub mod cover;
+pub mod diagnose;
 pub mod diagnostics;
 pub mod download;
 pub mod error;

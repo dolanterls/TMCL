@@ -1,9 +1,9 @@
 //! Per-instance overrides for launch settings.
 //!
-//! Isolation in TMCL is structural — `--gameDir` is always the instance
-//! directory, so mods and saves never mix. What still came from the global
-//! config was *how to launch*: memory, window, Java, arguments, auto-connect.
-//! This module adds the missing layer.
+//! Isolation in TMCL is structural: `--gameDir` is always the instance directory,
+//! so mods and saves never mix. How to launch still comes from the global config
+//! (memory, window, Java, arguments, auto-connect), and this module adds the
+//! missing per-instance layer.
 //!
 //! Every field is an `Option`. `None` means "follow the global value", which is
 //! why an instance created by an older build (no `overrides` key at all) keeps
@@ -77,7 +77,7 @@ pub enum JavaChoice {
     Fixed(PathBuf),
 }
 
-/// The values a launch actually uses, after merging globals with overrides.
+/// The values a launch uses, after merging globals with overrides.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EffectiveLaunch {
     pub memory_mode: MemoryMode,

@@ -336,7 +336,15 @@ fn log_mouse_wheel_moves_the_viewport_in_the_wheel_direction() {
         row: main.y + 1,
         modifiers: KeyModifiers::NONE,
     }));
-    assert_eq!(app.logs.scroll_offset(), 3);
+    // Read off the frame: the notch moved the viewport up three rows, so the
+    // newest line left the page and an earlier one took its place.
+    let scrolled = render_app(&app, 80, 24);
+    assert!(!scrolled.contains("line 19"), "{scrolled}");
+    assert!(
+        scrolled.contains("line 4"),
+        "three rows up from the tail: {scrolled}"
+    );
+    assert!(!app.logs.follow(), "leaving the tail pauses the follow");
 
     app.handle(AppEvent::Mouse(MouseEvent {
         kind: MouseEventKind::ScrollDown,
@@ -344,7 +352,39 @@ fn log_mouse_wheel_moves_the_viewport_in_the_wheel_direction() {
         row: main.y + 1,
         modifiers: KeyModifiers::NONE,
     }));
-    assert_eq!(app.logs.scroll_offset(), 0);
+    let back = render_app(&app, 80, 24);
+    assert!(back.contains("line 19"), "{back}");
+}
+
+/// A notch that cannot move must not claim the reader paused.
+///
+/// Every log page printed `已暂停` after a wheel-up over a buffer shorter than
+/// the page: the flag flipped while the viewport stayed on the newest line, and
+/// the next notch down "resumed". Following is derived from where the viewport
+/// is, so a notch that moves nothing changes nothing.
+#[test]
+fn a_wheel_notch_over_a_short_log_keeps_the_tail_live() {
+    let mut app = App::new();
+    app.page = Page::Logs;
+    app.terminal_width = 120;
+    app.terminal_height = 40;
+    app.logs.append("[stdout] the only line");
+    let main = app.layout_chrome(Rect::new(0, 0, 120, 40)).main;
+    let _ = render_app(&app, 120, 40);
+
+    for _ in 0..3 {
+        app.handle(AppEvent::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            column: main.x + 1,
+            row: main.y + 2,
+            modifiers: KeyModifiers::NONE,
+        }));
+    }
+
+    assert!(app.logs.follow(), "nothing scrolled, so nothing paused");
+    let text = render_app(&app, 120, 40);
+    assert!(text.contains(&app.i18n.text("logs.live")), "{text}");
+    assert!(text.contains("the only line"), "{text}");
 }
 
 #[test]
@@ -364,11 +404,11 @@ fn mouse_wheel_outside_the_active_main_view_does_not_scroll_logs() {
         row: regions.tabs.y,
         modifiers: KeyModifiers::NONE,
     }));
-    assert_eq!(app.logs.scroll_offset(), 0);
+    assert!(app.logs.follow(), "only the log body takes the wheel");
 }
 
-/// The dialog prints its own keys now; the footer used to repeat them, which
-/// put the same three hints on screen twice.
+/// The dialog prints its own keys, and the footer prints none, so the same three
+/// hints never appear twice.
 #[test]
 fn a_form_dialog_owns_its_key_hints() {
     let mut app = App::new();
@@ -383,7 +423,7 @@ fn a_form_dialog_owns_its_key_hints() {
     assert!(rendered.contains("Submit"), "{rendered}");
     assert!(rendered.contains("Cancel"), "{rendered}");
 
-    // Several fields: the dialog carries the `Tab` cap the footer used to show.
+    // Several fields: the dialog carries the `Tab` cap.
     app.modal = Some(crate::tui::modal::Modal::form(
         "Create",
         &["Name".to_string(), "Directory".to_string()],
@@ -669,7 +709,8 @@ fn settings_show_advanced_options_without_toggle() {
             SettingId::LauncherLogDirectory,
             SettingId::ExportLauncherLogs,
             SettingId::ExportGameLogs,
-            SettingId::ExportCrashReport,
+            SettingId::DiagnoseAutoOpen,
+            SettingId::ExportDiagnosisBundle,
         ]
     );
 }
@@ -1786,8 +1827,8 @@ fn clicking_outside_the_detail_popup_closes_it() {
     let _ = render_app(&app, 120, 40);
     let rect = crate::tui::chrome::popup_rect(Rect::new(0, 0, 120, 40));
 
-    // Inside the card the click is swallowed, so the user can select text in
-    // the pane without dismissing it.
+    // Inside the card the click does nothing, so the user can select text in the
+    // pane without dismissing it.
     app.handle(AppEvent::Mouse(MouseEvent {
         kind: MouseEventKind::Down(crossterm::event::MouseButton::Left),
         column: rect.x + 2,
@@ -2078,7 +2119,7 @@ fn loader_metadata_failure_stays_retryable_in_the_open_picker() {
 
     let rendered = render_app(&app, 100, 30);
     assert!(rendered.contains("all metadata sources failed"));
-    assert!(rendered.contains("r: retry"));
+    assert!(rendered.contains("Retry"), "{rendered}");
     let modal = app.modal.as_mut().expect("create form");
     assert!(matches!(
         modal.handle_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE)),
@@ -2193,7 +2234,7 @@ fn minecraft_version_failure_is_shown_in_the_open_picker() {
 
     let rendered = render_app(&app, 100, 30);
     assert!(rendered.contains("network unavailable"));
-    assert!(rendered.contains("r: retry"));
+    assert!(rendered.contains("Retry"), "{rendered}");
 }
 
 #[test]
@@ -2774,7 +2815,7 @@ fn creeper_dialogs_dim_the_page_behind_them() {
         crate::tui::modal::ConfirmAction::ClearDownloadCache,
     ));
     let dimmed = render(&app);
-    // Footer strip is still visible behind the dialog, just darker.
+    // Footer strip is still visible behind the dialog, darker.
     assert_eq!(dimmed[(2, 39)].bg, Color::Rgb(9, 11, 16));
     assert_ne!(dimmed[(2, 38)].fg, plain[(2, 38)].fg);
     // The dialog card itself is drawn after the scrim at full contrast.
@@ -2995,8 +3036,8 @@ fn creeper_inline_search_edits_at_the_cursor() {
     assert_eq!(app.search.expect("still editing").cursor, 0);
 }
 
-/// Adding a PATH entry changes something outside the launcher, so it asks
-/// first — and the dialog is where the exact directory is spelled out.
+/// Adding a PATH entry changes something outside the launcher, so it asks first,
+/// and the dialog is where the exact directory is spelled out.
 #[test]
 fn add_to_path_opens_a_confirmation_instead_of_writing_at_once() {
     let mut app = creeper_download_app(

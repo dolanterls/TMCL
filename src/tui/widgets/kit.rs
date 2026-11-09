@@ -16,12 +16,10 @@ use crate::tui::widgets::status::StatusKind;
 
 /// The colours the shared primitives paint with.
 ///
-/// `creeper` was the first preset built on these, and it used to read the
-/// module constants directly. It now carries its own two sheets (`tone::DARK`
-/// / `tone::LIGHT`), so the primitives ask for the sheet in force instead of
-/// hard-coding the dark one: [`use_skin`] is called once per frame by
-/// `App::draw`, and every other preset leaves [`Skin::DEFAULT`] in place —
-/// which is exactly the old behaviour.
+/// `creeper` carries two sheets (`tone::DARK` / `tone::LIGHT`), so the
+/// primitives ask for the sheet in force instead of hard-coding the dark one.
+/// [`use_skin`] is called once per frame by `App::draw`; every other preset
+/// leaves [`Skin::DEFAULT`] in place, which is the dark sheet.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Skin {
     pub bg: Color,
@@ -67,9 +65,9 @@ thread_local! {
 }
 
 /// Picks the sheet the primitives paint with for the rest of this thread's
-/// frame. Cheap (a `Copy` struct in a `Cell`) and reset by every `App::draw`,
-/// so tests that draw several presets on one thread cannot leak into each
-/// other.
+/// frame. Cheap (a `Copy` struct in a `Cell`) and reset by every `App::draw`, so
+/// a test that draws several presets cannot carry one preset's sheet into the
+/// next.
 pub fn use_skin(skin: Skin) {
     SKIN.with(|current| current.set(skin));
 }
@@ -210,9 +208,8 @@ pub fn pill_width(label: &str) -> usize {
 /// A row of pills separated by one blank column.
 ///
 /// Drawing and hit testing both go through [`pill_width`], so a click always
-/// lands on the chip that is painted under the cursor — the previous split
-/// between a custom row and `TabBar`'s geometry drifted a little further with
-/// every label.
+/// lands on the chip painted under the cursor. A custom row measured separately
+/// from `TabBar`'s geometry drifts a little further with every label.
 pub fn pill_row(
     labels: &[String],
     selected: Option<usize>,

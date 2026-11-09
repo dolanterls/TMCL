@@ -1,10 +1,9 @@
 //! Preparing a launch.
 //!
-//! Both front ends used to assemble this themselves: pick Java, resolve memory,
-//! refresh the session token, unpack natives, build the command line. The two
-//! copies drifted — the CLI downloaded a Java runtime when the config allowed it
-//! and skipped the missing-file check, the TUI did the opposite — so this module
-//! owns the whole sequence and both ends call it.
+//! Both front ends go through here: pick Java, resolve memory, refresh the session
+//! token, unpack natives, build the command line. Keeping the sequence in one place
+//! is what stops the CLI and the TUI from drifting, which they did while each
+//! assembled its own copy.
 //!
 //! What stays outside: authlib injection (it depends on the process lifetime)
 //! and starting the JVM (that is the front end's decision about waiting).
@@ -264,8 +263,86 @@ fn assemble(
         return Err(Error::Launch(missing_files_message(&missing)));
     }
 
-    let log_path = request.logs_dir.join(format!("{}.log", Uuid::new_v4()));
+    let log_path = launch_log_path(request.logs_dir, request.instance_name, now_secs());
     Ok((spec, log_path))
+}
+
+/// The file this launch writes its captured output to.
+///
+/// The instance name plus a UTC stamp identifies a run by eye. A bare UUID does
+/// not: neither the diagnosis bundle nor "open the log" can say which run a file
+/// belonged to. The stamp is UTC because a local-time conversion would need a
+/// time-zone database for one line of a file name.
+fn launch_log_path(logs_dir: &Path, instance_name: &str, now_secs: u64) -> PathBuf {
+    let base = format!("{}-{}", safe_file_stem(instance_name), utc_stamp(now_secs));
+    let candidate = logs_dir.join(format!("{base}.log"));
+    if !candidate.exists() {
+        return candidate;
+    }
+    for suffix in 2..=9 {
+        let path = logs_dir.join(format!("{base}-{suffix}.log"));
+        if !path.exists() {
+            return path;
+        }
+    }
+    logs_dir.join(format!("{}.log", Uuid::new_v4()))
+}
+
+/// Characters Windows refuses in a file name, plus whitespace, become `_`.
+///
+/// `pub(crate)` because `tmcl diagnose` has to derive the same prefix when it
+/// looks for an instance's log: the name on disk and the name the search
+/// computes must come from one function, or a rename breaks the lookup.
+pub(crate) fn safe_file_stem(name: &str) -> String {
+    let mut out = String::new();
+    for character in name.chars().take(40) {
+        if character.is_control() || character.is_whitespace() || "\\/:*?\"<>|".contains(character)
+        {
+            out.push('_');
+        } else {
+            out.push(character);
+        }
+    }
+    if out.trim_matches('_').is_empty() {
+        "instance".to_owned()
+    } else {
+        out
+    }
+}
+
+fn now_secs() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|elapsed| elapsed.as_secs())
+        .unwrap_or(0)
+}
+
+/// `yyyymmdd-HHMMSS` in UTC.
+pub(crate) fn utc_stamp(seconds: u64) -> String {
+    let days = (seconds / 86_400) as i64;
+    let rest = seconds % 86_400;
+    let (year, month, day) = civil_from_days(days);
+    format!(
+        "{year:04}{month:02}{day:02}-{:02}{:02}{:02}",
+        rest / 3600,
+        (rest / 60) % 60,
+        rest % 60
+    )
+}
+
+/// Howard Hinnant's `civil_from_days`, the standard way to turn a day count
+/// into a date without pulling in a calendar crate.
+fn civil_from_days(days: i64) -> (i64, u32, u32) {
+    let z = days + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u64;
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let year = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = (doy - (153 * mp + 2) / 5 + 1) as u32;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
+    (year + i64::from(month <= 2), month, day)
 }
 
 fn required_java_major(client: &ClientJson, minecraft_version: &str) -> Result<u32> {
@@ -388,7 +465,21 @@ async fn refresh_microsoft_token(paths: &DataPaths, account: &mut Account) -> Re
     let oauth = MicrosoftOAuth::new(HttpClient::new()?);
     // Reuse the token from the previous launch while it is still valid; the
     // full chain is six requests and Xbox Live rate-limits `login_with_xbox`.
-    match launch_token(&oauth, &store, account, unix_seconds()).await? {
+    let token = match launch_token(&oauth, &store, account, unix_seconds()).await {
+        Ok(token) => token,
+        // A rejected refresh token can never be traded again: revoked, expired,
+        // or issued to another client id. Keeping it on disk would leave the
+        // account page promising `自动续期` and every launch spending a round trip
+        // to be told the same thing, so the secret is retired here. The error still
+        // reaches the player, and the row reads `需重新登录`.
+        Err(error @ Error::AccountExpired(_)) => {
+            retire_credential(&store, account);
+            let _ = persist_account(paths, account);
+            return Err(error);
+        }
+        Err(error) => return Err(error),
+    };
+    match token {
         LaunchToken::Cached(token) => Ok(token),
         LaunchToken::Refreshed(session) => {
             account.username = session.username.clone();
@@ -396,15 +487,33 @@ async fn refresh_microsoft_token(paths: &DataPaths, account: &mut Account) -> Re
             if let Some(refresh_token) = session.refresh_token.as_deref() {
                 account.secret_ref = Some(store.save(account.id, refresh_token.as_bytes())?);
             }
-            let account_store = AccountStore::new(&paths.accounts_file);
-            let mut accounts = account_store.load()?;
-            if let Some(saved) = accounts.iter_mut().find(|saved| saved.id == account.id) {
-                *saved = account.clone();
-                account_store.save(&accounts)?;
-            }
+            persist_account(paths, account)?;
             Ok(session.access_token.clone())
         }
     }
+}
+
+/// Drop a credential that cannot be traded again.
+///
+/// Both halves matter: the secret file goes, and `secret_ref` stops pointing at
+/// it. Clearing only the file leaves a dangling reference and the account keeps
+/// claiming it can renew itself.
+fn retire_credential(store: &SecretStore, account: &mut Account) {
+    if let Some(reference) = account.secret_ref.take() {
+        store.clear(&reference);
+    }
+    account.access_expires_at = None;
+}
+
+/// Write this account back into `accounts.json`, keeping the other rows.
+fn persist_account(paths: &DataPaths, account: &Account) -> Result<()> {
+    let account_store = AccountStore::new(&paths.accounts_file);
+    let mut accounts = account_store.load()?;
+    if let Some(saved) = accounts.iter_mut().find(|saved| saved.id == account.id) {
+        *saved = account.clone();
+        account_store.save(&accounts)?;
+    }
+    Ok(())
 }
 
 async fn download_java(paths: &DataPaths, config: &Config, major: u32) -> Result<JavaInstallation> {
@@ -436,7 +545,9 @@ pub fn instance_parts(instance: &InstanceConfig) -> (&Path, &str, &str) {
 mod tests {
     use std::path::{Path, PathBuf};
 
-    use super::{CommandRequest, LaunchRequest, LaunchStage, build_command, prepare};
+    use super::{
+        CommandRequest, LaunchRequest, LaunchStage, build_command, prepare, retire_credential,
+    };
     use crate::core::account::models::Account;
     use crate::core::account::offline::create_account;
     use crate::core::config::models::Config;
@@ -444,6 +555,42 @@ mod tests {
     use crate::core::instance::models::InstanceConfig;
     use crate::core::instance::overrides::LaunchOverrides;
     use crate::core::instance::resolve::{RefSource, ResolvedInstance};
+
+    /// A credential AAD will not trade again is removed, not retried forever.
+    ///
+    /// `invalid_grant` is permanent: the token was revoked, expired, or issued
+    /// for another client id. Leaving it on disk made the account page promise
+    /// `自动续期` for a renewal that could never happen, and spent a network
+    /// round trip on every launch to be told so.
+    #[test]
+    fn a_dead_refresh_token_is_retired_from_the_store() {
+        use crate::core::account::secrets::SecretStore;
+
+        let root = std::env::temp_dir().join(format!("tmcl-retire-{}", uuid::Uuid::new_v4()));
+        let store = SecretStore::new(root.join("secrets"));
+        let id = uuid::Uuid::new_v4();
+        let reference = store.save(id, b"dead-token").expect("store token");
+        let mut account = Account {
+            id,
+            kind: crate::core::account::models::AccountKind::Microsoft,
+            username: "Alex".into(),
+            uuid: uuid::Uuid::new_v4(),
+            skin: None,
+            secret_ref: Some(reference.clone()),
+            access_expires_at: Some(1),
+        };
+
+        retire_credential(&store, &mut account);
+
+        assert!(account.secret_ref.is_none(), "the reference must go too");
+        assert!(account.access_expires_at.is_none(), "no cached token left");
+        assert!(
+            store.load(&reference).is_err(),
+            "the secret file must be gone, not just unlinked"
+        );
+        std::fs::remove_dir_all(root).ok();
+    }
+
     use crate::core::java::JavaInstallation;
     use crate::core::loader::client_json;
 
@@ -857,5 +1004,42 @@ mod tests {
         assert_eq!(path, Path::new("C:/demo"));
         assert_eq!(name, "demo");
         assert_eq!(version, "1.21.1");
+    }
+
+    #[test]
+    fn the_log_name_carries_the_instance_and_a_utc_stamp() {
+        // 2026-11-08T11:02:11Z, which is 19:02 in UTC+8.
+        let stamp = super::utc_stamp(1_794_135_731);
+        assert_eq!(stamp, "20261108-110211");
+        assert_eq!(super::utc_stamp(0), "19700101-000000");
+        let path = super::launch_log_path(Path::new("logs"), "生存 存档", 1_794_135_731);
+        assert_eq!(
+            path.file_name().and_then(|name| name.to_str()),
+            Some("生存_存档-20261108-110211.log")
+        );
+    }
+
+    #[test]
+    fn a_second_launch_in_the_same_second_gets_a_suffix() {
+        let root = std::env::temp_dir().join(format!("tmcl-log-name-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).expect("dir");
+        let first = super::launch_log_path(&root, "demo", 1_794_135_731);
+        std::fs::write(&first, b"x").expect("first log");
+        let second = super::launch_log_path(&root, "demo", 1_794_135_731);
+        assert_ne!(first, second);
+        assert!(
+            second
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with("-2.log"))
+        );
+        std::fs::remove_dir_all(root).expect("clean");
+    }
+
+    #[test]
+    fn a_name_that_is_all_separators_falls_back_to_instance() {
+        assert_eq!(super::safe_file_stem("  //  "), "instance");
+        assert_eq!(super::safe_file_stem("   "), "instance");
+        assert_eq!(super::safe_file_stem("a/b:c"), "a_b_c");
     }
 }

@@ -223,7 +223,14 @@ impl Modal {
                             "  "
                         };
                         option_rows.push((lines.len(), index));
-                        lines.push(Line::from(format!("{marker}{}", selection_display(option))));
+                        // Truncated rather than wrapped: a long option that
+                        // wrapped would push every row below it down, and the
+                        // key row at the foot would be printed on one row and
+                        // hit-tested on another.
+                        lines.push(Line::from(palette::truncate(
+                            &format!("{marker}{}", selection_display(option)),
+                            usize::from(inner.width),
+                        )));
                     }
                     if end < options.len() {
                         lines.push(Line::from(i18n.text("modal.more_down")));
@@ -231,35 +238,24 @@ impl Modal {
                     lines.push(Line::from(""));
                     let picker_help = version_picker
                         .as_ref()
-                        .filter(|picker| picker.field == field);
-                    lines.push(Line::from(
-                        match (picker_help, selection_states.get(&field)) {
-                            (Some(picker), Some(SelectionState::Error(_)))
-                                if picker.editing_search =>
-                            {
-                                i18n.text("modal.search_help")
-                            }
-                            (Some(_), Some(SelectionState::Error(_))) => {
-                                i18n.text("modal.retry_filters_help")
-                            }
-                            (_, Some(SelectionState::Error(_))) => i18n.text("modal.retry_help"),
-                            (_, Some(SelectionState::Loading | SelectionState::Unavailable(_))) => {
-                                i18n.text("modal.back_help")
-                            }
-                            (Some(picker), _) if picker.editing_search => {
-                                i18n.text("modal.search_help")
-                            }
-                            (Some(_), _) => i18n.text("modal.filter_help"),
-                            (None, _) if options.is_empty() => i18n.text("modal.load_retry_help"),
-                            (None, _) => i18n.text("modal.choose_help"),
-                        },
+                        .filter(|picker| picker.field == field)
+                        .map(|picker| &**picker);
+                    let (keys, acts) = picker_key_row(&picker_key_hints(
+                        picker_help,
+                        selection_states.get(&field),
+                        *selection_selected,
+                        options.is_empty(),
                     ));
+                    let key_line = lines.len();
+                    let (row, caps) = key_row(i18n, theme, &keys);
+                    lines.push(row);
                     frame.render_widget(
                         Paragraph::new(lines)
                             .wrap(Wrap { trim: false })
                             .style(theme.base()),
                         inner,
                     );
+                    super::register_caps(hits, inner, key_line, &caps, &acts);
                     for (line, index) in &option_rows {
                         hits.add(
                             Rect::new(
@@ -384,9 +380,8 @@ impl Modal {
                 lines.push(Line::from(""));
                 let mut keys: Vec<(&str, &str)> = Vec::new();
                 let mut acts: Vec<Option<ModalAct>> = Vec::new();
-                // `Tab` used to live in the footer only; now that the dialog
-                // owns the key row it has to carry it, and clicking the cap
-                // moves focus like the key does.
+                // The dialog owns its key row, so it has to carry `Tab`, and
+                // clicking the cap moves focus like the key does.
                 if values.len() > 1 {
                     let next = (*focused + 1) % values.len();
                     keys.push(("Tab", "hint.next_field"));
@@ -421,8 +416,15 @@ impl Modal {
                 if inner.is_empty() {
                     return;
                 }
+                // Wrapped, not truncated: a cut prompt hides the path or the
+                // name it is asking about. The card height follows the wrap
+                // (`Modal::area`), so the tail is never clipped either.
                 let width = usize::from(inner.width).max(1);
-                let mut lines = vec![Line::from(palette::truncate(prompt, width)), Line::from("")];
+                let mut lines = palette::wrap(prompt, width)
+                    .into_iter()
+                    .map(Line::from)
+                    .collect::<Vec<_>>();
+                lines.push(Line::from(""));
                 let (row, caps) = key_row(
                     i18n,
                     theme,
@@ -460,7 +462,7 @@ impl Modal {
                 }
 
                 // The input row carries the field fill, so the dialog reads as a
-                // form with a real text box rather than floating text.
+                // form with a text box rather than as bare text.
                 let field = Rect {
                     x: inner.x,
                     y: inner.y,

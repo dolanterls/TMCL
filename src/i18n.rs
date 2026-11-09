@@ -132,6 +132,80 @@ mod tests {
         );
     }
 
+    /// Every diagnosis rule must be explainable in both languages. A rule whose
+    /// key is missing renders as `[diagnose.reason.x]` in the overlay, which is
+    /// exactly the failure mode the overlay cannot show anywhere else.
+    /// Every `{name}` in a template.
+    fn placeholders(template: &str) -> Vec<String> {
+        let mut found = Vec::new();
+        let mut rest = template;
+        while let Some(open) = rest.find('{') {
+            let Some(close) = rest[open..].find('}') else {
+                break;
+            };
+            found.push(rest[open + 1..open + close].to_owned());
+            rest = &rest[open + close + 1..];
+        }
+        found
+    }
+
+    /// A template may only ask for a slot its matcher can fill.
+    ///
+    /// Without this, a rule that captures `id` can point at a sentence asking for
+    /// `{mod}`, and `format` leaves the placeholder verbatim, which is what
+    /// `ModBootstrapFailed` did before the guard existed.
+    #[test]
+    fn every_diagnosis_template_only_asks_for_slots_its_matcher_can_fill() {
+        for rule in crate::core::diagnose::rules::RULES {
+            let slots = rule
+                .matcher
+                .captures()
+                .into_iter()
+                .map(|capture| capture.slot())
+                .collect::<std::collections::BTreeSet<_>>();
+            for catalog in [ENGLISH_CATALOG, CHINESE_CATALOG] {
+                let text = parse_catalog(catalog);
+                for key in [rule.reason_key, rule.advice_key] {
+                    let template = text.get(key).expect("rule text");
+                    for slot in placeholders(template) {
+                        assert!(
+                            slots.contains(slot.as_str()),
+                            "{} asks for slot {} in {} but the matcher fills {:?}",
+                            rule.id.id(),
+                            slot,
+                            key,
+                            slots
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn every_diagnosis_rule_has_text_in_both_catalogs() {
+        let english = parse_catalog(ENGLISH_CATALOG);
+        let chinese = parse_catalog(CHINESE_CATALOG);
+        for rule in crate::core::diagnose::rules::RULES {
+            for key in [rule.reason_key, rule.advice_key] {
+                assert!(english.contains_key(key), "en-US is missing {key}");
+                assert!(chinese.contains_key(key), "zh-CN is missing {key}");
+            }
+        }
+    }
+
+    /// The old prefix is gone; a leftover key would be dead weight nobody reads.
+    #[test]
+    fn no_retired_crash_keys_remain() {
+        for catalog in [ENGLISH_CATALOG, CHINESE_CATALOG] {
+            let parsed = parse_catalog(catalog);
+            assert!(
+                parsed.keys().all(|key| !key.starts_with("crash.")),
+                "a crash.* key survived the move to diagnose.*"
+            );
+        }
+    }
+
     #[test]
     fn checked_in_catalogs_have_the_same_keys() {
         let english = parse_catalog(ENGLISH_CATALOG);

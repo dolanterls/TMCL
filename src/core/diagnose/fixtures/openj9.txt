@@ -1,0 +1,1 @@
+[stdout] OpenJ9 is incompatible with Minecraft

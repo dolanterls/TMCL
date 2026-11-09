@@ -68,10 +68,9 @@ pub struct CacheEviction {
 
 /// Deletes the least recently used files until the cache fits `limit_bytes`.
 ///
-/// Files newer than `protect` are kept regardless: a download that just landed
-/// in the cache is about to be copied into an instance, and evicting it would
-/// make the install read the same bytes twice. `limit_bytes == 0` means "no
-/// limit" and evicts nothing.
+/// Files newer than `protect` are kept regardless: a file written moments ago is
+/// about to be copied into an instance, and evicting it would make the install read
+/// the same bytes twice. `limit_bytes == 0` means "no limit" and evicts nothing.
 pub fn evict_to(
     root: &Path,
     limit_bytes: u64,
@@ -674,8 +673,8 @@ mod tests {
         let path = root.join("hot.bin");
         std::fs::write(&path, vec![0u8; 100]).expect("write cache file");
 
-        // Over the limit, but the file was just written: an install that is
-        // about to copy it must not lose it to its own cleanup.
+        // Over the limit, but the file was written moments ago: an install about to
+        // copy it must not lose it to its own cleanup.
         let report = evict_to(&root, 50, std::time::Duration::from_secs(600)).expect("evict");
         assert_eq!(report.removed_files, 0);
         assert!(path.exists());

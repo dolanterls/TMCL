@@ -110,10 +110,10 @@ impl ContentKind {
 /// Directory one content kind is read from.
 ///
 /// Everything else lives directly under the instance. A data pack does not: it
-/// belongs to exactly one world, so the world name has to travel with the kind
-/// instead of being spliced into a path by each caller. A data pack named
-/// without a world points at `<instance>/datapacks`, which does not exist —
-/// callers that list packs always know which world they mean.
+/// belongs to exactly one world, so the world name travels with the kind instead
+/// of being spliced into a path by each caller. A data pack named without a world
+/// points at `<instance>/datapacks`, which does not exist; callers that list packs
+/// always know which world they mean.
 pub fn content_directory(root: &Path, kind: ContentKind, world: Option<&str>) -> PathBuf {
     match (kind, world) {
         (ContentKind::Datapack, Some(world)) => root.join("saves").join(world).join("datapacks"),
@@ -123,8 +123,8 @@ pub fn content_directory(root: &Path, kind: ContentKind, world: Option<&str>) ->
 
 /// Vanilla `pack_format` for a Minecraft release.
 ///
-/// Only a hint: a pack with another format is not incompatible, the game just
-/// warns and may render it wrong, so an unknown version gets no hint at all.
+/// Only a hint: a pack with another format is not incompatible, the game warns and
+/// may render it wrong, so an unknown version gets no hint at all.
 pub fn expected_pack_format(minecraft_version: &str) -> Option<u32> {
     /// Lowest version that uses each format, newest last.
     const TABLE: &[(&str, u32)] = &[

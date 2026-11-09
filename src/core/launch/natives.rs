@@ -4,8 +4,8 @@
 //! LWJGL 3 (1.13+) can unpack those itself, but LWJGL 2 (1.12.2 and older)
 //! loads `lwjgl.dll`/`liblwjgl.so` from `java.library.path`, so every launch
 //! has to materialise them. Instances imported from other launchers happen to
-//! carry a natives folder, which is why the gap stayed invisible for a while;
-//! an instance TMCL created has none.
+//! carry a natives folder, so the gap stays invisible until an instance TMCL
+//! created is launched.
 //!
 //! The extraction is idempotent: a stamp file records which archives (and
 //! hashes) produced the directory, so a second launch does no work and a

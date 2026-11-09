@@ -1,10 +1,10 @@
 //! P6 contract: no mouse target exists without a documented keyboard path.
 //!
-//! The parity table is hand-written on purpose — a new `Action` has to be added
-//! to it, which is exactly the moment someone should decide what key reaches
-//! the same place. The coverage test walks a drawn matrix and proves that every
-//! registered target appears in the table, while shapes that no frame ever
-//! registers must be allowlisted with a reason.
+//! The parity table is hand-written on purpose: a new `Action` has to be added to
+//! it, which is the moment someone decides what key reaches the same place. The
+//! coverage test walks a drawn matrix and proves that every registered target
+//! appears in the table; shapes no frame ever registers must be allowlisted with
+//! a reason.
 
 use ratatui::{Terminal, backend::TestBackend};
 
@@ -527,6 +527,7 @@ fn mouse_reach(cmd: Command) -> Option<Shape> {
         // as keys, task/log controls and the text-editing commands.
         Command::Quit
         | Command::Help
+        | Command::Diagnose
         | Command::Create
         | Command::Import
         | Command::ImportModpack
@@ -556,6 +557,9 @@ fn mouse_reach(cmd: Command) -> Option<Shape> {
         | Command::RestoreWorld
         | Command::CloneWorld
         | Command::SettingAction(_)
+        | Command::Remedy(_)
+        | Command::ExportDiagnosis
+        | Command::LocateInLog
         | Command::Input(_)
         | Command::Backspace
         | Command::CursorLeft
@@ -574,6 +578,22 @@ const KEYBOARD_ONLY_COMMANDS: &[(Command, &str)] = &[
     (
         Command::Help,
         "opens an overlay; only closing it has a target",
+    ),
+    (
+        Command::Diagnose,
+        "opens the diagnosis card; only closing it has a target",
+    ),
+    (
+        Command::Remedy('M'),
+        "the card's key caps are printed, not drawn as buttons",
+    ),
+    (
+        Command::ExportDiagnosis,
+        "the card's key caps are printed, not drawn as buttons",
+    ),
+    (
+        Command::LocateInLog,
+        "the card's key caps are printed, not drawn as buttons",
     ),
     (Command::Create, "page action without a drawn button"),
     (Command::Import, "page action without a drawn button"),

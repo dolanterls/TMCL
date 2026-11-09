@@ -203,10 +203,10 @@ impl HttpClient {
     /// One request, tried again while the failure looks like a dropped
     /// connection.
     ///
-    /// Launches used to die on the first reset from Xbox Live — common from
-    /// mainland networks, and indistinguishable from "the launcher is broken"
-    /// when the error text stopped at "error sending request". Auth bodies are
-    /// small and side-effect free, so re-sending one is safe.
+    /// A reset from Xbox Live, common from mainland networks, kills a launch and
+    /// is indistinguishable from "the launcher is broken" when the error text stops
+    /// at "error sending request". Auth bodies are small and side-effect free, so
+    /// re-sending one is safe.
     async fn send_with_retry<F>(&self, mut build: F) -> Result<reqwest::Response>
     where
         F: FnMut() -> reqwest::RequestBuilder,
@@ -240,10 +240,9 @@ fn transient(error: &reqwest::Error) -> bool {
 
 /// The whole error chain.
 ///
-/// `reqwest::Error`'s `Display` stops at "error sending request", which hides
-/// the one part that says what actually happened (DNS failure, TLS rejection,
-/// connection reset). Joining the sources keeps those in the status line and
-/// the launcher log.
+/// `reqwest::Error`'s `Display` stops at "error sending request", which hides the
+/// part that says what happened (DNS failure, TLS rejection, connection reset).
+/// Joining the sources keeps those in the status line and the launcher log.
 fn describe(error: &reqwest::Error) -> String {
     let mut text = error.to_string();
     let mut source = std::error::Error::source(error);
@@ -337,7 +336,7 @@ mod tests {
     }
 
     /// Xbox Live drops connections from time to time, more so from mainland
-    /// networks. A launch used to die on the first drop even though a second
+    /// networks. A launch that dies on the first drop never learns that a second
     /// attempt would have answered.
     #[tokio::test]
     async fn a_dropped_connection_is_retried() {

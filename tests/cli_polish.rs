@@ -19,16 +19,10 @@ struct Sandbox {
 
 impl Sandbox {
     fn new(tag: &str) -> Self {
-        let root = std::env::temp_dir().join(format!(
-            "tmcl-polish-{tag}-{}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("clock")
-                .as_nanos()
-        ));
+        let root = support::sandbox_root(&format!("tmcl-polish-{tag}"));
+        support::install_launcher(&root);
         let instance = root.join("game").join("versions").join("demo");
         std::fs::create_dir_all(&instance).expect("instance dir");
-        std::fs::create_dir_all(root.join("appdata")).expect("appdata");
         std::fs::write(instance.join("demo.jar"), b"jar").expect("jar");
         std::fs::write(
             instance.join("demo.json"),
@@ -63,8 +57,8 @@ impl Sandbox {
     }
 
     fn run_with_env(&self, args: &[&str], envs: &[(&str, &str)]) -> Output {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_tmcl"));
-        command.env("APPDATA", self.root.join("appdata")).args(args);
+        let mut command = Command::new(support::launcher_at(&self.root));
+        command.args(args);
         // Keep the developer's TMCL_LOG out of the assertions.
         command.env_remove("TMCL_LOG");
         for (name, value) in envs {

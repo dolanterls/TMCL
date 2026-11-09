@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WorldSummary {
     pub name: String,
-    /// `level.dat`'s modification time — the closest thing to "last played"
+    /// `level.dat`'s modification time: the closest thing to "last played"
     /// without opening the world.
     pub modified: SystemTime,
 }

@@ -193,9 +193,9 @@ impl ProgressRenderer {
                 }
             }
         };
-        // The writer puts this string on stderr verbatim. A bar rewrites one
-        // line with `\r`, but a line or an NDJSON event has to end here —
-        // without it, thirty events become one unparseable line.
+        // The writer puts this string on stderr verbatim. A bar rewrites one line
+        // with `\r`, but a line or an NDJSON event has to end here; without it,
+        // thirty events become one unparseable line.
         if self.mode == ProgressMode::Bar {
             line
         } else {

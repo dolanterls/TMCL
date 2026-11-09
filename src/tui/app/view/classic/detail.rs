@@ -34,14 +34,13 @@ impl App {
         Some((columns[0], columns[2]))
     }
 
-    /// Result table plus the resource detail card — on the project index only.
+    /// Result table plus the resource detail card, on the project index only.
     ///
-    /// The second level is the file table, and that table already carries what
-    /// the card would say: compatibility, channel and dependency count, one row
-    /// per file. A card beside it repeated the selected row and took a third of
-    /// the width for it, so the file list always keeps its full width. Project
-    /// rows are title-only (author and id live in the card), which is what lets
-    /// a regular 120-column terminal show both.
+    /// The second level is the file table, which already carries what the card
+    /// would say: compatibility, channel and dependency count, one row per file.
+    /// A card beside it repeated the selected row and took a third of the width,
+    /// so the file list keeps its full width. Project rows are title-only
+    /// (author and id live in the card), which lets 120 columns show both.
     pub(in crate::tui::app) fn download_detail_areas(
         &self,
         list_area: Rect,
@@ -83,8 +82,8 @@ impl App {
         if inner.is_empty() {
             return;
         }
-        let paragraph =
-            Paragraph::new(self.styled_detail_lines(self.theme)).wrap(Wrap { trim: false });
+        let paragraph = Paragraph::new(self.styled_detail_lines(self.theme, self.theme.fg))
+            .wrap(Wrap { trim: false });
         let total = paragraph.line_count(inner.width);
         let max_scroll = total.saturating_sub(usize::from(inner.height));
         self.pane_max_scroll.set(max_scroll);
@@ -131,7 +130,7 @@ impl App {
             // `modals::detail` paints the unstyled rows in a card.
             self.detail_lines()
         } else {
-            self.styled_detail_lines(self.theme)
+            self.styled_detail_lines(self.theme, self.theme.fg)
         };
         Paragraph::new(lines)
             .wrap(Wrap { trim: false })
@@ -420,8 +419,8 @@ impl App {
                     .as_ref()
                     .or_else(|| self.resource_projects.get(self.download_center.selected))
                 {
-                    // Everything the result list used to repeat lives here once:
-                    // downloads, merged loaders, tags (loaders removed) and the
+                    // Everything the result list also shows, printed once here:
+                    // downloads, merged loaders, tags without loaders, and the
                     // full description.
                     let loaders = project_loaders(project);
                     let tags = project_tags(project, &loaders);

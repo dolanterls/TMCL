@@ -1,15 +1,9 @@
-//! The `creeper` palette: neon lime on near-black, and the light sheet it
-//! flips to under `主题 = 浅色`.
+//! The `creeper` palette: neon lime on near-black.
 //!
-//! The colours used to be the shared `crate::tui::palette` constants, read
-//! straight out of the render code. They live here now so the preset can carry
-//! two sheets: `ThemeMode::Light` swaps the whole ladder (page, panels, ink and
-//! every hue), and `Terminal` keeps the dark sheet — the page colour is handed
-//! back to the terminal by `punch_through_terminal`, so transparency survives
-//! while the ink stays legible on a dark terminal.
-//!
-//! `accent_color` and `high_contrast` still stay out: this preset's identity is
-//! the lime, and a second accent would fight the page/state hues.
+//! `ThemeMode::Light` swaps the whole ladder; `Terminal` keeps the dark sheet
+//! and hands the page colour back through `punch_through_terminal`, so
+//! transparency survives while the ink stays legible. `accent_color` and
+//! `high_contrast` stay out: a second accent would fight the lime.
 
 use ratatui::style::Color;
 
@@ -38,10 +32,9 @@ pub struct Palette {
     pub blue: Color,
     pub pink: Color,
     pub red: Color,
-    /// `跟随终端`: the fills are withdrawn so the terminal's own background —
-    /// acrylic, blur, an image behind the window — shows through. The ink stays
-    /// this sheet's, because a terminal a creeper runs on is dark far more
-    /// often than not.
+    /// `跟随终端`: the fills are withdrawn so the terminal's own background
+    /// shows through. The ink stays this sheet's, because a terminal a creeper
+    /// runs on is dark far more often than not.
     pub transparent: bool,
 }
 
@@ -69,9 +62,9 @@ pub const DARK: Palette = Palette {
 
 /// The light sheet: the same ladder sunk far enough to read on paper.
 ///
-/// The lime is the one that has to move most — `#BEF680` is 1.3:1 on a white
-/// page. At `#3E7A1C` it keeps the hue (a chartreuse green, not a forest one)
-/// and clears 4.5:1, which is what the key caps and the brand mark need.
+/// The lime moves furthest: `#BEF680` is 1.3:1 on a white page. At `#3E7A1C`
+/// it keeps the chartreuse hue and clears 4.5:1, which the key caps and the
+/// brand mark need.
 pub const LIGHT: Palette = Palette {
     bg: Color::Rgb(0xF7, 0xF5, 0xEE),
     surface: Color::Rgb(0xFF, 0xFF, 0xFF),
@@ -103,6 +96,12 @@ pub const TERMINAL: Palette = Palette {
     ..DARK
 };
 
+/// The light sheet with its fills withdrawn, for `跟随终端` on a light terminal.
+pub const TERMINAL_LIGHT: Palette = Palette {
+    transparent: true,
+    ..LIGHT
+};
+
 impl Sheet for Palette {
     fn surface(&self) -> Color {
         self.surface
@@ -122,8 +121,8 @@ impl Sheet for Palette {
     }
 }
 
-/// The subset the shared `kit` primitives paint with. They used to read the
-/// global constants; the sheet in force is now handed to them once per frame.
+/// The subset the shared `kit` primitives paint with, handed to them once per
+/// frame instead of reading global constants.
 pub fn skin(pal: &Palette) -> crate::tui::widgets::kit::Skin {
     crate::tui::widgets::kit::Skin {
         bg: pal.bg,

@@ -1,9 +1,8 @@
 //! Palette derivation for the `nightlight` preset.
 //!
-//! One accent seed plus an optional second hue and an optional design base is
-//! enough to derive the whole ladder — that is the core of the visual language
-//! we are reproducing: a single hue family, no per-page colours. Ratios are
-//! fixed, so a new theme is just three optional colours in [`THEMES`].
+//! One accent seed plus an optional second hue and an optional design base
+//! derive the whole ladder: a single hue family, no per-page colours. Ratios are
+//! fixed, so a new theme is three optional colours in [`THEMES`].
 //!
 //! Clean-room notice: the ratios below were chosen by looking at how the
 //! reference implementation behaves, then re-derived and verified here. No
@@ -25,7 +24,7 @@ pub const WHITE: Rgb = (255, 255, 255);
 const OK_RGB: Rgb = (0x5A, 0xDC, 0x78);
 const ERR_RGB: Rgb = (0xF0, 0x5A, 0x5A);
 
-/// Seed used when a theme has no fixed accent and the caller passes none —
+/// Seed used when a theme has no fixed accent and the caller passes none, as in
 /// `live` with the clock unavailable. Matches the `accent_color: orange` row.
 const FALLBACK_ACCENT: Rgb = (0xFF, 0xAA, 0x5A);
 
@@ -205,9 +204,9 @@ pub const fn accent_seed(color: AccentColor) -> Rgb {
 
 /// Derive the ladder for `theme`.
 ///
-/// `seed` replaces the accent only for themes that leave `accent` empty —
-/// `live` follows the clock or the user's accent colour that way, while fixed
-/// designs stay fixed. `ThemeMode::Terminal` is treated as dark: a terminal
+/// `seed` replaces the accent only for themes that leave `accent` empty: `live`
+/// follows the clock or the user's accent colour that way, while fixed designs
+/// stay fixed. `ThemeMode::Terminal` is treated as dark, because a terminal
 /// palette has no single accent to derive from.
 pub fn palette(
     theme: NightlightTheme,
@@ -309,9 +308,9 @@ fn light_ladder(spec: ThemeSpec, seed: Rgb, high_contrast: bool) -> Palette {
     let accent_ink = mix(seed, BLACK, 0.55);
     let accent2_ink = match spec.secondary {
         Some(secondary) => mix(secondary, BLACK, 0.50),
-        // Phosphor is the only theme without a second hue. The fallback used to
-        // land at 3.20:1 on its paper white — below the text floor — so it is
-        // pushed further towards the ink instead of towards white.
+        // Phosphor is the only theme without a second hue. The fallback is
+        // pushed towards the ink rather than white, because white would land at
+        // 3.20:1 on its paper, below the text floor.
         None => mix(accent_ink, WHITE, 0.12),
     };
     let (bg, surface, raised) = match spec.light_base {

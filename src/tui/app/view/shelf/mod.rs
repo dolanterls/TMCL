@@ -33,7 +33,23 @@ use crate::tui::shell::{LayoutMode, SHELF_WORDMARK_COLS, SHELF_WORDMARK_ROWS};
 use crate::tui::theme::Theme;
 
 impl App {
+    /// Whether the row should wear the `当前` marker instead of its status.
+    ///
+    /// Only a resting instance is marked. `启动中` / `运行中` / `未安装` all say
+    /// something the player needs more than `当前` does, and a marker that
+    /// hides a live state is worse than no marker: the list would report a
+    /// launching instance as settled.
+    pub(in crate::tui::app) fn shelf_marks_current(
+        &self,
+        item: &crate::tui::pages::instances::InstanceSummary,
+    ) -> bool {
+        self.instances.current_id == Some(item.id) && item.status.eq_ignore_ascii_case("ready")
+    }
+
     pub(in crate::tui::app) fn shelf_palette(&self) -> &'static tone::Palette {
+        if self.light_terminal() {
+            return tone::palette_on_light_terminal(self.config.state.ui.shelf_theme);
+        }
         tone::palette(
             self.config.state.ui.shelf_theme,
             self.config.state.ui.theme_mode,
@@ -41,10 +57,11 @@ impl App {
     }
 
     pub(in crate::tui::app) fn shelf_theme(&self) -> Theme {
-        tone::theme(
-            self.config.state.ui.shelf_theme,
-            self.config.state.ui.theme_mode,
-        )
+        // Derived from the palette being painted, not from the config again:
+        // `跟随终端` on a light terminal picks a sheet the mode alone cannot
+        // name, and a record drawn in the dark sheet's inks would sit on a
+        // light page.
+        tone::theme_of(self.shelf_palette())
     }
 
     pub(in crate::tui::app) fn draw_shelf(&self, frame: &mut Frame<'_>, area: Rect) {
@@ -81,7 +98,6 @@ impl App {
         if self.page == Page::Instances && self.workspace_is_open() {
             self.draw_workspace_page(frame, regions.main, self.anim_time());
             self.shelf_footer(frame, &regions, pal);
-            self.shelf_overlays(frame, area);
             return;
         }
         match self.page {
@@ -94,20 +110,22 @@ impl App {
             Page::Settings => self.draw_shelf_settings(frame, regions.main, pal),
         }
         self.shelf_footer(frame, &regions, pal);
-        self.shelf_overlays(frame, area);
     }
 
     /// Detail, help and dialogs, all painted with shelf's palette.
     ///
     /// The overlays use the shared geometry from `view/overlays.rs`; the dialog
     /// is `modal/shelf.rs`, which owns its own slab.
-    fn shelf_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
-        if self.detail_open || self.help_open || self.modal.is_some() {
+    pub(in crate::tui::app) fn shelf_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
+        if self.detail_open || self.diagnosis_open || self.help_open || self.modal.is_some() {
             crate::tui::widgets::scrim::dim(frame);
         }
         self.register_overlay_hits(area);
         if self.detail_open {
             self.draw_shelf_detail(frame);
+        }
+        if self.diagnosis_open {
+            self.draw_diagnosis_overlay_with(frame, self.diagnosis_theme());
         }
         if self.help_open {
             self.draw_shelf_help(frame);
@@ -382,11 +400,10 @@ impl App {
 
 /// The block wordmark, ramped instead of filled flat.
 ///
-/// `tui-big-text` paints one colour for the whole widget, so the ramp is
-/// applied to the cells it just wrote: a diagonal from a near-white lavender at
-/// the top-left corner to the accent at the bottom-right. The wordmark is the
-/// one place the preset raises its voice, and a flat lavender fill reads as a
-/// second heading rather than as a mark.
+/// `tui-big-text` paints one colour for the whole widget, so the ramp is applied
+/// to the cells it wrote: a diagonal from a near-white lavender at the top-left
+/// to the accent at the bottom-right. A flat lavender fill reads as a second
+/// heading rather than as a mark.
 fn shelf_wordmark(frame: &mut Frame<'_>, rect: Rect, pal: &tone::Palette) {
     let banner = BigTextBuilder::default()
         .pixel_size(PixelSize::Quadrant)

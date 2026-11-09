@@ -105,7 +105,7 @@ fn logs_follow_scrolls_to_bottom_and_indicator_is_rendered() {
     for index in 0..40 {
         app.logs.append(format!("line {index}"));
     }
-    app.logs.set_follow(true);
+    app.logs.set_follow(true, app.log_max_scroll_offset());
     let rendered = render_app(&app, 120, 40);
     assert!(rendered.contains("Live game log"), "{rendered}");
     assert!(rendered.contains("line 39"), "{rendered}");
@@ -273,6 +273,37 @@ fn help_overlay_lists_current_page_hints() {
     let rendered = render_app(&app, 120, 40);
     assert!(rendered.contains("Details"), "{rendered}");
     assert!(rendered.contains("Keyboard help"), "{rendered}");
+}
+
+/// The download reference lists `PageUp/PageDown`.
+///
+/// The status line under the list has always told the reader to use them, and
+/// the reference — the page that answers "what else can I press here" — did
+/// not. It stays out of the footer on purpose: one more cap pushed the
+/// 120-column hint band onto a second row.
+#[test]
+fn the_download_reference_lists_page_up_and_down() {
+    let mut app = App::new();
+    app.page = Page::DownloadCenter;
+    let rows = app
+        .help_lines()
+        .into_iter()
+        .filter_map(|line| match line {
+            crate::tui::app::view::HelpLine::Row { key, action } => Some((key, action)),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        rows.iter()
+            .any(|(key, action)| key.contains("PgUp/PgDn") && action == "Page"),
+        "{rows:?}"
+    );
+    assert!(
+        !app.page_hints()
+            .iter()
+            .any(|hint| hint.key.contains("PgUp")),
+        "the key is help-only: the footer must not grow a row for it"
+    );
 }
 
 #[test]
@@ -503,9 +534,10 @@ fn list_navigation_keys_reach_the_edges() {
         app.logs.append(format!("line {index}"));
     }
     app.handle(key(KeyCode::PageUp));
-    assert!(app.logs.scroll_offset() > 0);
+    assert!(!app.logs.follow(), "PageUp leaves the tail");
+    assert!(app.log_max_scroll_offset() > 0);
     app.handle(key(KeyCode::End));
-    assert_eq!(app.logs.scroll_offset(), 0);
+    assert!(app.logs.follow(), "End returns to it");
 }
 
 #[test]
@@ -832,7 +864,7 @@ fn repair_failure_clears_the_pending_launch() {
 fn repair_success_resumes_the_blocked_launch() {
     let root = std::env::temp_dir().join(format!("tmcl-resume-{}", Uuid::new_v4()));
     let instance = missing_files_instance(&root);
-    // The repair the launcher just ran has put the library in place.
+    // The repair the launcher ran has put the library in place.
     let library = root.join("game/libraries/org/example/library/1.0/library-1.0.jar");
     std::fs::create_dir_all(library.parent().expect("library dir")).expect("dirs");
     std::fs::write(&library, b"jar").expect("library");
@@ -878,7 +910,7 @@ fn a_launch_after_repair_does_not_start_another_repair() {
 #[test]
 fn auto_repair_setting_defaults_on_and_toggles_off() {
     // A private data root keeps the shared test store clean: this test writes
-    // config and would otherwise leak into every later `App::new()`.
+    // config that would otherwise reach every later `App::new()`.
     let root = std::env::temp_dir().join(format!("tmcl-settings-{}", Uuid::new_v4()));
     let (sender, _) = tokio::sync::mpsc::unbounded_channel();
     let mut app = App::with_state(
@@ -1175,9 +1207,9 @@ fn browsing_the_archive_fills_the_name_only_when_it_is_empty() {
     assert_eq!(values[2], "Example Pack", "a typed name is kept");
 }
 
-/// The strip used to drop the key line whenever the selection had a
-/// description and the panel was narrower than 100 columns — which is every
-/// terminal while the category rail is open.
+/// The strip must keep the key line when the selection has a description and the
+/// panel is narrower than 100 columns, which is every terminal while the category
+/// rail is open.
 #[test]
 fn a_description_does_not_swallow_the_workspace_key_line() {
     use crate::core::content::{ContentEntry, ContentKind, ContentMeta};
@@ -1462,4 +1494,31 @@ fn refresh_cover_reads_the_new_icon_on_the_next_frame() {
         .expect("the install wrote a cover");
     assert_eq!(cover.pixel(0, 0), [9, 8, 7, 255]);
     std::fs::remove_dir_all(base).expect("clean");
+}
+
+/// The first launch of a session can happen before the background Java scan
+/// answers. An empty cache means "not known yet", and must not be handed to
+/// `prepare` as "this machine has no Java".
+#[test]
+fn a_launch_before_the_java_scan_finishes_does_not_claim_there_is_no_java() {
+    let mut app = App::new();
+    assert!(
+        app.cached_java().is_none(),
+        "an unscanned list must fall back to discovery"
+    );
+
+    app.java.push(JavaInstallation {
+        executable: PathBuf::from("C:/Java/jdk-17/bin/java.exe"),
+        version: "17.0.1".into(),
+        major: 17,
+        vendor: None,
+        is_jdk: true,
+        lts: true,
+    });
+
+    assert_eq!(
+        app.cached_java().map(|list| list.len()),
+        Some(1),
+        "a scanned list is authoritative"
+    );
 }

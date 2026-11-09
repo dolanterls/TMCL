@@ -1,0 +1,4 @@
+[stdout] [19:02:12] [main/INFO]: Backend library: LWJGL version 3.3.3
+[stdout] [19:10:02] [Render thread/ERROR]: Encountered an unexpected exception
+[stdout] Block: minecraft:oak_sign
+[stdout] Block location: World: (0,64,0)

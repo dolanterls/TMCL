@@ -34,7 +34,8 @@ Everything TMCL can do is on the command line; the TUI is another layer over the
 - [14. Self-update: `tmcl update`](#14-self-update-tmcl-update)
 - [15. Completions and the TUI: `completions` / `tui`](#15-completions-and-the-tui-completions--tui)
 - [16. Adding tmcl to PATH: `tmcl path`](#16-adding-tmcl-to-path-tmcl-path)
-- [17. Recipes](#17-recipes)
+- [17. Crash diagnosis: `tmcl diagnose`](#17-crash-diagnosis-tmcl-diagnose)
+- [18. Recipes](#18-recipes)
 
 ---
 
@@ -344,7 +345,7 @@ tmcl instance launch 14 --max-memory-mb 8192
 tmcl instance launch 14 --export-script launch.bat
 ```
 
-In an exported script the session token becomes an environment reference (`TMCL_ACCESS_TOKEN`), so the file can be shared; an offline account has no token and the script carries the literal `0`. Game output is also written to `%APPDATA%\TMCL\logs\game\<uuid>.log` (only stderr when `logs.game_debug` is off; a failed launch appends the tail of stdout).
+In an exported script the session token becomes an environment reference (`TMCL_ACCESS_TOKEN`), so the file can be shared; an offline account has no token and the script carries the literal `0`. Game output is also written to `logs\game\<uuid>.log` in the data directory (only stderr when `logs.game_debug` is off; a failed launch appends the tail of stdout).
 
 ### `tmcl instance unregister`
 
@@ -398,7 +399,7 @@ Runs the device-code flow: prints a URL and a code, saves the account once you c
 tmcl account login-microsoft
 ```
 
-Tokens are encrypted with Windows DPAPI under `%APPDATA%\TMCL`.
+Tokens are encrypted with Windows DPAPI under `secrets\` in the data directory.
 
 ### `tmcl account add-offline`
 
@@ -434,7 +435,7 @@ tmcl java list [--json]
 ```
 
 ```
-Java 25  C:\Users\you\AppData\Roaming\TMCL\runtime\java-25\bin\java.exe
+Java 25  D:\mc\TMCL\runtime\java-25\bin\java.exe
 Java 21  C:\Users\you\AppData\Roaming\.minecraft\runtime\java-runtime-delta\bin\java.exe
 Java 8   C:\Users\you\AppData\Roaming\.minecraft\runtime\jre-legacy\bin\java.exe
 ```
@@ -466,7 +467,7 @@ tmcl java download 21
 tmcl java download 17 --dry-run
 ```
 
-Installs into `%APPDATA%\TMCL\runtime\java-<major>`; `config java auto` picks it up from there.
+Installs into `runtime\java-<major>` in the data directory; `config java auto` picks it up from there.
 
 ---
 
@@ -548,14 +549,14 @@ tmcl task cancel <TASK_ID> [--yes]
 
 ### `tmcl config path`
 
-Prints the data directory (configuration, tasks, logs and runtimes all live under it).
+Prints the data directory (configuration, accounts, tasks, logs and runtimes all live under it). It is the `TMCL` folder beside the launcher: with the exe in `D:\mc`, the data lives in `D:\mc\TMCL`.
 
 ```bash
 tmcl config path
 ```
 
 ```
-C:\Users\you\AppData\Roaming\TMCL
+D:\mc\TMCL
 ```
 
 ### `tmcl config list`
@@ -1117,7 +1118,36 @@ Removes every spelling that points at this directory, including broken entries w
 
 > **Open a new terminal after a PATH change**: a process copies its parent's environment block at startup, so windows that are already open see nothing. The TUI says the same after a successful change.
 
-## 17. Recipes
+## 17. Crash diagnosis: `tmcl diagnose`
+
+Read a game log and report a verdict, its evidence and the next step. Same rules as the diagnosis card in the TUI: 59 phenomena, ranked by weight, with at most two "also possible" entries beside the primary cause.
+
+```bash
+tmcl diagnose
+tmcl diagnose survival
+tmcl diagnose survival --log "D://logs//20261108-190211.log"
+tmcl diagnose --json
+tmcl diagnose survival --export D://diag//survival.zip
+```
+
+| Argument | Effect |
+|---|---|
+| `[REF]` | Instance name, path or index; defaults to the current instance |
+| `--log PATH` | Read this log instead of the newest one under `logs/game`; **only this file** — the instance's `latest.log`, newest crash report and `hs_err` are left out, as they may belong to a later session |
+| `--export PATH` | Also write the diagnosis bundle (zip); no dialog |
+| `--json` | Print the structured `Diagnosis`; the fields are stable and meant for issues |
+
+In `--json`, `primary.rule` is the rule name in PascalCase, `stage` is one of `NeverStarted` / `NoWindow` / `InGame`, and `exit` is one of `Clean` / `UserKilled` / `NativeAbort` / `Crashed`.
+
+Without `--log` the instance's crash report, `hs_err_pid*.log` and `logs/latest.log` are read too — but only the ones **this run wrote** (timestamp no earlier than the run's start). `crash-reports/` is never pruned, so a three-day-old report is still "the newest"; counting it would move the stage to "in game", disqualify every startup rule, and report a missing mod dependency as a missing class.
+
+The bundle holds `report.txt`, `game.log`, `launcher.log`, `crash-report.txt`, `hs-err.log`, `instance.json`, `system.json` and `launch.txt`. A source that was missing has no entry at all, and the "Read" section of `report.txt` says what was looked for.
+
+`tmcl instance launch` calls the same entry point on a non-zero exit: the human-readable line gains `· crash: <cause>`, and `--json` gains a `diagnosis` field (added, never changed).
+
+---
+
+## 18. Recipes
 
 **See what an instance has installed**
 

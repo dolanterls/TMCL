@@ -10,6 +10,7 @@ mod common;
 mod completions;
 mod config;
 mod content;
+mod diagnose;
 mod instance;
 mod java;
 mod mods;
@@ -29,6 +30,7 @@ pub async fn run(cli: Cli) -> Result<()> {
     let output = OutputOptions::from_cli(&cli);
     match cli.command {
         Some(Command::Tui) | None => crate::tui::run().await,
+        Some(Command::Diagnose(args)) => diagnose::run(args, output).await,
         Some(Command::Instance { command }) => instance::run(command, output).await,
         Some(Command::Account { command }) => account::run(command, output).await,
         Some(Command::Java { command }) => java::run(command, output).await,

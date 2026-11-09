@@ -2,8 +2,8 @@
 //!
 //! No frame: a sheet one step brighter than the page, a title in the accent
 //! colour, a hairline under it and another along the bottom edge. The key row
-//! is printed at the foot of the slip, so the dialog reads like a note pinned
-//! to the page rather than a window floating above it.
+//! sits at the foot of the slip, so the dialog reads as part of the page rather
+//! than as a window over it.
 //!
 //! Geometry lives in [`Modal::paper_area`] / [`Modal::paper_body`] and is used
 //! by the painter **and** by the hit map. Classic's `Block::inner` cannot be
@@ -86,8 +86,8 @@ impl Modal {
     /// The slip, three rows taller than classic's framed box.
     ///
     /// `area()` sizes the box for a border top and bottom; the slip draws
-    /// neither, so those two rows go back to the content — plus one more for
-    /// the blank row that keeps the title off the top edge.
+    /// neither, so those two rows go to the content, plus one for the blank row
+    /// that keeps the title off the top edge.
     pub(crate) fn paper_area(&self, terminal_area: Rect) -> Rect {
         let base = self.area(terminal_area);
         let height = base.height.saturating_add(3).min(terminal_area.height);
@@ -308,11 +308,11 @@ impl Modal {
                 if body.is_empty() {
                     return;
                 }
-                // Two rows for the question, wrapped: the name of the thing
-                // about to be deleted is often longer than the slip. The key
-                // row keeps its own row at the foot, so a longer prompt can
-                // never push it out of the slip.
-                let prompt_rows = body.height.min(2);
+                // Every row above the key line is available: `Modal::area`
+                // sized the card for the wrapped prompt, and a two-row cap
+                // clipped anything longer. The key row keeps its own row at the
+                // foot, so a long prompt can never push it out.
+                let prompt_rows = body.height.saturating_sub(1).max(1);
                 frame.render_widget(
                     Paragraph::new(Line::from(Span::styled(
                         prompt.as_str(),
@@ -655,13 +655,11 @@ impl Modal {
             lines.push(Line::from(spans));
         }
 
-        // Rows the option window can actually hold. The slip is a fixed
-        // sixteen-row box (`Modal::area`) whatever the preset, and paper's
-        // picker spends four of its fifteen body rows on the counter, the
-        // version filters and the search line. Promising
-        // `PICKER_VISIBLE_ROWS` options anyway pushed the last of them — and
-        // with them the selection bar — past the slip's bottom rule, so the
-        // bar hung outside the form.
+        // Rows the option window can hold. The slip is a fixed sixteen-row box
+        // (`Modal::area`) whatever the preset, and paper's picker spends four of
+        // its fifteen body rows on the counter, the version filters and the search
+        // line. Promising `PICKER_VISIBLE_ROWS` options anyway would push the last
+        // of them, and the selection bar with them, past the slip's bottom rule.
         let reserved = lines.len().saturating_add(3); // help line, ↑ more, ↓ more
         let visible = usize::from(body.height)
             .saturating_sub(reserved)
@@ -735,24 +733,17 @@ impl Modal {
         }
         pad_to_bottom(&mut lines, body, 1);
         let picker_help = version_picker.filter(|picker| picker.field == field);
-        lines.push(Line::from(Span::styled(
-            match (picker_help, selection_states.get(&field)) {
-                (Some(picker), Some(SelectionState::Error(_))) if picker.editing_search => {
-                    i18n.text("modal.search_help")
-                }
-                (Some(_), Some(SelectionState::Error(_))) => i18n.text("modal.retry_filters_help"),
-                (_, Some(SelectionState::Error(_))) => i18n.text("modal.retry_help"),
-                (_, Some(SelectionState::Loading | SelectionState::Unavailable(_))) => {
-                    i18n.text("modal.back_help")
-                }
-                (Some(picker), _) if picker.editing_search => i18n.text("modal.search_help"),
-                (Some(_), _) => i18n.text("modal.filter_help"),
-                (None, _) if options.is_empty() => i18n.text("modal.load_retry_help"),
-                (None, _) => i18n.text("modal.choose_help"),
-            },
-            ink(pal, pal.faint),
-        )));
+        let (keys, acts) = super::picker_key_row(&super::picker_key_hints(
+            picker_help,
+            selection_states.get(&field),
+            selection_selected,
+            options.is_empty(),
+        ));
+        let key_line = lines.len();
+        let (row, caps) = paper_key_row(i18n, pal, &keys, false);
+        lines.push(row);
         frame.render_widget(Paragraph::new(lines), body);
+        super::register_caps(hits, body, key_line, &caps, &acts);
         for (line, index) in &option_rows {
             hits.add(
                 Rect::new(

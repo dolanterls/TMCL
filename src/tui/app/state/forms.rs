@@ -61,7 +61,7 @@ impl App {
                         if let Some(modal) = &mut self.modal {
                             modal.set_selection_unavailable(
                                 field,
-                                "Vanilla does not use a loader version.",
+                                self.i18n.text("form.vanilla_no_loader_version"),
                             );
                         }
                     }
@@ -154,7 +154,9 @@ impl App {
             _ => return None,
         };
         let minecraft_version = values.get(version_field)?.clone();
-        let kind = match values.get(loader_field)?.as_str() {
+        // The picker stores `原版|vanilla`: the field prints the first half,
+        // the loader code is the second.
+        let kind = match selection_value(values.get(loader_field)?.as_str()) {
             "vanilla" => None,
             "fabric" => Some(MetadataLoaderKind::Fabric),
             "quilt" => Some(MetadataLoaderKind::Quilt),

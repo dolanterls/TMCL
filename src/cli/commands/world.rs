@@ -434,8 +434,8 @@ fn datapack_remove(args: DatapackNameArgs, output: OutputOptions) -> Result<()> 
     )
 }
 
-/// Data packs of one world, after checking the world is actually there: a typo
-/// in the world name must say so instead of reporting an empty list.
+/// Data packs of one world, after checking the world exists: a typo in the world
+/// name must say so instead of reporting an empty list.
 fn datapack_entries(instance: &ResolvedInstance, world: &str) -> Result<Vec<ContentEntry>> {
     let directory = content_directory(&instance.config.path, ContentKind::Datapack, Some(world));
     if !directory.is_dir() {

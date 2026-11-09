@@ -40,10 +40,10 @@ impl InstallPlan {
 
 /// Asks the service what `project_id` would install, without touching disk.
 ///
-/// `file_id` pins one version; without it the newest file the instance can run
-/// is taken (see `select::choose_file`). `with_dependencies` resolves one level
-/// of required dependencies — the same depth the workspace uses, because
-/// transitive expansion drags in mods the author never intended.
+/// `file_id` pins one version; without it the newest file the instance can run is
+/// taken (see `select::choose_file`). `with_dependencies` resolves one level of
+/// required dependencies, the same depth the workspace uses, because transitive
+/// expansion drags in mods the author never intended.
 pub async fn plan(
     service: &ResourceService,
     request: ResourceServiceRequest,

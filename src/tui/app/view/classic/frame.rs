@@ -1,8 +1,8 @@
 //! `classic` frame: the framed shell, its per-page dispatch and the overlays.
 //!
-//! Everything here is `classic`-only. What is shared — layout geometry, hover
-//! tinting, overlay blockers and the key-hint rows — stays in
-//! `app/view/dispatch.rs`, which also owns the one `match` that picks a preset.
+//! Everything here is `classic`-only. Layout geometry, hover tinting, overlay
+//! blockers and the key-hint rows stay in `app/view/dispatch.rs`, which also
+//! owns the one `match` that picks a preset.
 
 use super::*;
 use crate::tui::hit::Layer;
@@ -46,8 +46,15 @@ impl App {
             &self.i18n,
             self.theme,
         );
+    }
 
-        if self.detail_open || self.help_open || self.modal.is_some() {
+    /// One scrim, the shared blockers, then detail / help / dialog.
+    ///
+    /// Split out of `draw_classic` so the frame can hand its fills back to the
+    /// terminal between the page and these. A dialog has a background of its
+    /// own, and punching through it would leave the text on the terminal colour.
+    pub(in crate::tui::app) fn classic_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
+        if self.detail_open || self.diagnosis_open || self.help_open || self.modal.is_some() {
             crate::tui::widgets::scrim::dim(frame);
         }
 
@@ -55,6 +62,10 @@ impl App {
 
         if self.detail_open {
             self.draw_detail_popup(frame);
+        }
+
+        if self.diagnosis_open {
+            self.draw_diagnosis_overlay_with(frame, self.diagnosis_theme());
         }
 
         if self.help_open {
@@ -150,8 +161,8 @@ impl App {
         ]
     }
 
-    /// Shared by every preset that has no help screen of its own — the overlay
-    /// is chrome, not a page, and `paper` borrows it until it draws one.
+    /// Shared by every preset that has no help screen of its own. The overlay is
+    /// chrome, not a page, and `paper` borrows it until it draws one.
     fn draw_help_overlay(&self, frame: &mut Frame<'_>) {
         self.draw_help_overlay_with(frame, self.theme);
     }

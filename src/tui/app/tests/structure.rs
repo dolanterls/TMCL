@@ -1,10 +1,10 @@
 //! Structural tests: the directory layout is part of the contract.
 //!
 //! Adding a preset means adding one directory under `app/view/` and one enum
-//! variant. These tests read the tree off disk, so a shortcut — a second
-//! top-level folder for a preset, a preset reaching into a sibling's files, a
-//! "shared" file that quietly moved into one preset — fails the build instead
-//! of being discovered months later.
+//! variant. These tests read the tree off disk, so a shortcut fails the build
+//! instead of being discovered months later: a second top-level folder for a
+//! preset, a preset reaching into a sibling's files, a "shared" file that moved
+//! into one preset.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -68,8 +68,8 @@ fn every_view_directory_is_a_registered_preset() {
 
 /// `src/tui` itself stays shallow: the shared kit and the models, nothing else.
 ///
-/// A new directory here is how the last mess started — one preset became three
-/// differently-named top-level folders.
+/// A new directory here starts the same mess as before, when one preset became
+/// three differently-named top-level folders.
 #[test]
 fn the_tui_root_holds_only_the_shared_layers() {
     assert_eq!(
@@ -79,7 +79,7 @@ fn the_tui_root_holds_only_the_shared_layers() {
     );
 }
 
-/// A preset draws with the shared kit or with its own files — never with a
+/// A preset draws with the shared kit or with its own files, never with a
 /// sibling's.
 ///
 /// Two presets needing the same thing is the signal to move it up into

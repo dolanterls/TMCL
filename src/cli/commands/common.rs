@@ -219,7 +219,7 @@ fn watch_for_interrupt(
 /// A throttled one-line download indicator for single-file fetches.
 ///
 /// Steps that go through the task engine get `ProgressRenderer` instead; this is
-/// for the few places that just fetch one file and would not justify a task.
+/// for the few places that fetch one file and would not justify a task.
 pub(super) struct DownloadProgress {
     quiet: bool,
     terminal: bool,

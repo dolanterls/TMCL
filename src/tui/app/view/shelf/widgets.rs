@@ -12,9 +12,9 @@ use crate::tui::shell::LayoutMode;
 
 /// A deterministic stand-in for an instance without any cover file.
 ///
-/// Blocky cells from a splitmix hash, with a darker centre so the picture
-/// reads as a case with a label rather than as noise. It is obviously an
-/// illustration, never a fake screenshot.
+/// Blocky cells from a splitmix hash, with a darker centre so the picture reads
+/// as a case with a label rather than as noise. It must look like an
+/// illustration, never like a screenshot.
 pub(in crate::tui::app) fn placeholder(seed: u64, side: u32, pal: &Palette) -> Cover {
     let side = side.clamp(4, 96);
     let mut rgba = vec![0; (side * side * 4) as usize];
@@ -25,10 +25,9 @@ pub(in crate::tui::app) fn placeholder(seed: u64, side: u32, pal: &Palette) -> C
     let centre_end = side - side / 3;
     // The pattern's cell scales with the picture: four-pixel blocks read as
     // noise on a 34-pixel cover and as one flat field on a 20-pixel badge.
-    // Bands are three pixels tall and therefore odd, so the two pixels a
-    // half-block cell paints as foreground and background land in different
-    // bands — an even band made every cell a single colour and the picture
-    // printed as a flat field of `▀`.
+    // Bands are three pixels and therefore odd, so the two pixels a half-block
+    // cell paints land in different bands; an even band would give every cell a
+    // single colour and print the picture as a field of `▀`.
     let cell = (side / 8).max(2);
     let band = 3u32;
     for y in 0..side {
@@ -91,8 +90,8 @@ pub(in crate::tui::app) fn rule(frame: &mut Frame<'_>, area: Rect, pal: &Palette
 
 /// The selected row of a one-line list: a surface band with an accent bar.
 ///
-/// A filled accent row would swallow the status colours this list depends on —
-/// `ERROR` on `ACCENT` is about 1.6:1 — so the band marks the row without
+/// A filled accent row would override the status colours this list depends on
+/// (`ERROR` on `ACCENT` is about 1.6:1), so the band marks the row without
 /// taking the colour away from the compatibility column.
 pub(in crate::tui::app) fn selection_band(frame: &mut Frame<'_>, area: Rect, pal: &Palette) {
     if area.width == 0 || area.height == 0 {

@@ -214,7 +214,7 @@ impl App {
             let value = self.render_setting_row(frame, area, row, index == selected);
             self.hitmap.add(area, Action::row(Page::Settings, index));
             // `‹ ` and ` ›` occupy the two ends of the value area; only rows
-            // that actually offer a choice advertise them.
+            // that offer a choice advertise them.
             if row.enabled && matches!(row.kind, SettingKind::Choice | SettingKind::Number { .. }) {
                 self.hitmap.add(
                     Rect::new(value.x, value.y, 2.min(value.width), 1),

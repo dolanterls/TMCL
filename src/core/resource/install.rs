@@ -122,7 +122,7 @@ pub async fn install_modpack_files(spec: ModpackFilesSpec, context: TaskContext)
             };
             if valid {
                 // Already on disk: count it so the bar starts where the work
-                // actually stands instead of at zero.
+                // stands instead of at zero.
                 let bytes = std::fs::metadata(&destination)
                     .map_err(|error| (label.clone(), error.to_string()))?
                     .len();
@@ -262,12 +262,12 @@ pub fn extract_modpack_archive(archive_path: &Path, target_root: &Path) -> Resul
             std::fs::create_dir_all(parent)?;
         }
         let mut output = File::create(&destination)?;
-        // Some packers compress an empty file, then label the entry `stored`
-        // with a zero uncompressed size: two bytes of deflate stream, compressed
-        // size 2, CRC 0. `zip` copies the two bytes and then fails the checksum,
-        // while readers that trust the declared size (Python, and our own
-        // extraction before this) produce an empty file — which is what the
-        // entry says it is, and what inflating those two bytes returns.
+        // Some packers compress an empty file, then label the entry `stored` with a
+        // zero uncompressed size: two bytes of deflate stream, compressed size 2,
+        // CRC 0. `zip` copies the two bytes and fails the checksum, while readers
+        // that trust the declared size (Python, and this extraction before the fix)
+        // produce an empty file, which is what the entry declares and what
+        // inflating those two bytes returns.
         if entry.size() > 0 {
             std::io::copy(&mut entry, &mut output)?;
         }
@@ -404,8 +404,8 @@ mod tests {
     }
 
     /// Empty files are stored by some packers as `deflate(03 00)` with a zero
-    /// uncompressed size. `zip` reads the two bytes and then reports a checksum
-    /// failure, which used to abort the whole import.
+    /// uncompressed size. `zip` reads the two bytes and reports a checksum failure,
+    /// which aborts the whole import unless the declared size is trusted.
     #[test]
     fn modpack_extraction_accepts_an_empty_deflate_entry() {
         let root = std::env::temp_dir().join(format!("tmcl-empty-{}", uuid::Uuid::new_v4()));

@@ -113,8 +113,8 @@ pub fn render(spec: &CommandSpec, shell: ScriptShell, token: &str) -> RenderedSc
         _ => {}
     }
 
-    // Only an export that actually substitutes a token gets the environment
-    // reference and its "not set" warning.
+    // Only an export that substitutes a token gets the environment reference and
+    // its "not set" warning.
     let reference = references_token.then_some(token_reference);
     let reference = reference.as_deref();
     let contents = match shell {

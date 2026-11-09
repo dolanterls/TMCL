@@ -2,6 +2,16 @@
 
 use super::*;
 
+/// The value half of a `display|value` picker entry.
+///
+/// A selection picker stores both: `原版|vanilla` prints as `原版` (see
+/// `modal::selection_display`) and means `vanilla` to the code. Entries whose
+/// display text equals the value carry no bar at all, so the plain form is
+/// returned unchanged.
+pub(in crate::tui::app) fn selection_value(value: &str) -> &str {
+    value.rsplit_once('|').map_or(value, |(_, value)| value)
+}
+
 pub(in crate::tui::app) fn parse_install_loader(
     loader: &str,
     loader_version: &str,
@@ -31,7 +41,7 @@ pub(in crate::tui::app) fn source_mode_label(mode: DownloadSourceMode) -> &'stat
     }
 }
 
-/// `3,827,502` — download counts read better with a separator.
+/// `3,827,502`: download counts read better with a separator.
 pub(in crate::tui::app) fn format_count(value: u64) -> String {
     let digits = value.to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
@@ -46,10 +56,9 @@ pub(in crate::tui::app) fn format_count(value: u64) -> String {
 
 /// Human byte size in the units people read: `980 B`, `512.0 KB`, `132.7 MB`.
 ///
-/// One decimal from KB up, and the 1024 step means a value can never print as
-/// `1024.0 KB` — it rolls into the next unit instead. This is the only size
-/// formatter in the TUI; the pages used to carry five near-copies that
-/// disagreed about `MB` versus `MiB`.
+/// One decimal from KB up, and the 1024 step means a value never prints as
+/// `1024.0 KB`; it rolls into the next unit instead. This is the only size
+/// formatter in the TUI, so no page can disagree about `MB` versus `MiB`.
 pub(in crate::tui::app) fn format_size(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KB", "MB", "GB", "TB"];
     let mut value = bytes as f64;

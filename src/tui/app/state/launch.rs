@@ -35,6 +35,19 @@ impl App {
             .or_else(|| self.instances.selected_item())
     }
 
+    /// The Java list a launch should trust.
+    ///
+    /// The launcher starts with an empty list and fills it from a background
+    /// scan. An empty cache therefore means "not known yet", not "this machine
+    /// has no Java": handing it to `prepare` as authoritative is what produced
+    /// a `no Java runtime was detected` failure for a launch that happened in
+    /// the first moments after startup. `None` lets `prepare` discover instead.
+    pub(in crate::tui::app) fn cached_java(
+        &self,
+    ) -> Option<Vec<crate::core::java::JavaInstallation>> {
+        (!self.java.is_empty()).then(|| self.java.clone())
+    }
+
     fn launch_instance(&mut self, instance: InstanceSummary) {
         // One repair round per launch: the flag is consumed here, so a second
         // missing-file check right after a repair stops with an error instead of
@@ -100,9 +113,7 @@ impl App {
         let request = crate::core::launch::session::LaunchRequest {
             instance: resolved_instance(&instance, &game_directory),
             account_id: Some(account.id),
-            // The list the app already scanned is the authority: rescanning on
-            // every launch would stall the first frame of the launch.
-            java_installations: Some(self.java.clone()),
+            java_installations: self.cached_java(),
             java_override: None,
             // The TUI has never downloaded a runtime at launch time; that stays
             // a deliberate decision so the launch never starts a long download
@@ -177,21 +188,26 @@ impl App {
                     spec.args
                         .splice(main_class..main_class, service.jvm_args.clone());
                 }
-                process::run_with_events_and_priority_and_logging(
+                // Captured before the run so the diagnosis bundle can ship
+                // `launch.txt`: the log says what the game printed, not what
+                // the JVM was asked to run.
+                let command = process::describe_command(&spec);
+                let result = process::run_with_events_and_priority_and_logging(
                     &spec,
                     &prepared.log_path,
                     Some(game_events),
                     game_debug,
                     process_priority,
                 )
-                .await
+                .await?;
+                Ok::<_, Error>((result, command))
             }
             .await;
             if let Some(service) = local_authlib {
                 service.stop().await;
             }
             match result {
-                Ok(result) => {
+                Ok((result, command)) => {
                     let _ = sender.send(AppEvent::LaunchFinished {
                         instance_id,
                         instance_directory,
@@ -199,6 +215,7 @@ impl App {
                         exit_code: result.exit_code,
                         log_path: result.log_path,
                         crash_report: result.crash_report,
+                        launch_command: command,
                     });
                 }
                 Err(error) => {

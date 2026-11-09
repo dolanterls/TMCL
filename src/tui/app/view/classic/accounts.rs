@@ -158,12 +158,13 @@ impl App {
             let result = async {
                 let oauth = MicrosoftOAuth::new(HttpClient::new()?);
                 let device = oauth.request_device_code().await?;
-                let browser_status = match open_verification_url(&device.verification_uri) {
-                    Ok(()) => i18n.text("status.browser_waiting"),
-                    Err(error) => {
-                        i18n.format("status.browser_not_open", &[("error", &error.to_string())])
-                    }
-                };
+                let browser_status =
+                    match crate::platform::windows::open_url(&device.verification_uri) {
+                        Ok(()) => i18n.text("status.browser_waiting"),
+                        Err(error) => {
+                            i18n.format("status.browser_not_open", &[("error", &error.to_string())])
+                        }
+                    };
                 let _ = sender.send(AppEvent::DeviceCode {
                     user_code: device.user_code.clone(),
                     verification_uri: device.verification_uri.clone(),

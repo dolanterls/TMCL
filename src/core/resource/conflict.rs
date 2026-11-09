@@ -106,7 +106,7 @@ mod tests {
     #[test]
     fn a_name_that_was_only_codes_does_not_become_a_hidden_file() {
         assert_eq!(sanitize_file_name("\u{a7}7.zip"), "pack.zip");
-        // A name the author really started with a dot is left alone.
+        // A name the author wrote with a leading dot is left alone.
         assert_eq!(sanitize_file_name(".hidden.zip"), ".hidden.zip");
         // And an empty result keeps the original rather than inventing one.
         assert_eq!(sanitize_file_name("\u{a7}7"), "\u{a7}7");

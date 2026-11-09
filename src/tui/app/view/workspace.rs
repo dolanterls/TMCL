@@ -1,13 +1,11 @@
 //! Instance workspace rendering.
 //!
 //! The body is shared: label/value rows, launch editors and content lists are
-//! drawn once and coloured per preset. What differs is the frame around it —
-//! `creeper` puts a category rail beside a rounded card, `classic` puts the
-//! categories in a tab row above a plain panel, matching how those presets
-//! render their settings pages.
+//! drawn once and coloured per preset. Only the frame differs: `creeper` puts a
+//! category rail beside a rounded card, `classic` a tab row above a plain panel,
+//! matching how each preset renders its settings pages.
 
 use super::*;
-use crate::core::instance::models::InstanceLoader;
 use crate::core::instance::overrides::{EffectiveLaunch, JavaChoice};
 use crate::tui::app::view::paper::{PaperPalette, ink};
 use crate::tui::pages::workspace::{LaunchField, Workspace, WorkspaceCategory};
@@ -123,13 +121,7 @@ impl App {
 
     fn workspace_overview_rows(&self, workspace: &Workspace) -> Vec<(String, String)> {
         let text = |key: &str| self.i18n.text(key);
-        let loader = match &workspace.draft.loader {
-            InstanceLoader::Vanilla => "Vanilla".to_owned(),
-            InstanceLoader::Fabric { version } => format!("Fabric {version}"),
-            InstanceLoader::Quilt { version } => format!("Quilt {version}"),
-            InstanceLoader::Forge { version } => format!("Forge {version}"),
-            InstanceLoader::NeoForge { version } => format!("NeoForge {version}"),
-        };
+        let loader = self.draft_loader_text(&workspace.draft.loader);
         let seconds = workspace.draft.stats.play_time_seconds;
         let hours = seconds / 3_600;
         let minutes = (seconds % 3_600) / 60;
@@ -469,9 +461,9 @@ impl App {
                 LoaderState::Incompatible { current } => self
                     .i18n
                     .format("workspace.install.incompatible", &[("current", current)]),
-                // OptiFine is downloadable, just not by us: its license
-                // forbids redistribution. "Unsupported" would read as "this
-                // launcher can never run it".
+                // OptiFine is downloadable, but not by this launcher: its
+                // license forbids redistribution. "Unsupported" would read as
+                // "this launcher can never run it".
                 LoaderState::Unsupported
                     if loader == crate::core::instance::config::InstallableLoader::OptiFine =>
                 {
@@ -548,14 +540,11 @@ impl App {
         self.draw_workspace_body(frame, body, workspace, &ws, t);
     }
 
-    /// `classic`: no sidebar. The categories are a tab row under the page tabs,
-    /// exactly like the instance filters and the settings categories, and the
-    /// body is a plain panel rather than a rounded card.
     /// `paper`: a chapter directory beside the shared body.
     ///
-    /// The body is the same one classic and creeper use; only the frame changes
-    /// — no cards, no tabs, a margin bar for the selection and a printed
-    /// counter on the bottom edge of the page block.
+    /// The body is the one classic and creeper use; only the frame changes: no
+    /// cards, no tabs, a margin bar for the selection and a counter printed on
+    /// the bottom edge of the page block.
     pub(in crate::tui::app) fn draw_paper_workspace(&self, frame: &mut Frame<'_>, area: Rect) {
         let Some(workspace) = self.workspace.as_ref() else {
             return;
@@ -600,12 +589,11 @@ impl App {
         self.draw_workspace_body(frame, body, workspace, &ws, self.anim_time());
     }
 
-    /// `shelf`: a category line above the shared body.
+    /// `shelf`: a category strip above the shared body.
     ///
-    /// No rail — the categories are a strip, the same one the settings page
-    /// uses, so both second-level screens read alike. The overview keeps the
-    /// instance's cover at the top: it is the one category where the instance
-    /// itself is the subject.
+    /// The same strip the settings page uses, so both second-level screens read
+    /// alike. The overview keeps the cover at the top, the one category where
+    /// the instance itself is the subject.
     pub(in crate::tui::app) fn draw_shelf_workspace(
         &self,
         frame: &mut Frame<'_>,
@@ -672,9 +660,8 @@ impl App {
     /// The 20×10 cover above the overview rows, when there is room for it.
     ///
     /// Returns the rectangle left for the card. The cover takes eleven rows
-    /// (ten plus a blank), so it only appears when the page can still show the
-    /// whole facts list under it — at 80×24 it would leave six rows and cut the
-    /// card in half.
+    /// (ten plus a blank), so it appears only when the page can still show the
+    /// whole facts list under it; at 80×24 that would leave six rows.
     fn shelf_workspace_cover(
         &self,
         frame: &mut Frame<'_>,
@@ -1150,11 +1137,9 @@ impl App {
         }
         self.hitmap
             .scroll(area, crate::tui::action::ScrollTarget::WorkspaceRows);
-        // The note strip lives inside the panel: line 1 explains the selection,
-        // line 2 lists the keys that work on it. Both lines are reserved
-        // whenever there is an explanation to show — the old "two rows only
-        // above 100 columns" rule meant every terminal with the rail open lost
-        // the key line as soon as the selection had a description.
+        // The note strip sits inside the panel: line 1 explains the selection,
+        // line 2 lists the keys that work on it. Both rows are reserved
+        // whenever there is an explanation, not only above 100 columns.
         let (message, is_warning) = self.workspace_note(workspace);
         let note_rows = if inner.width < 24 {
             0
@@ -1307,8 +1292,8 @@ impl App {
             }
             return;
         }
-        // The key line moves up when there is no description, so the strip never
-        // wastes a blank row — and it stays visible while a description exists.
+        // The key line moves up when there is no description, so the strip takes
+        // one row instead of two.
         let key_row = area.y.saturating_add(u16::from(!message.is_empty()));
         frame.render_widget(
             Paragraph::new(Line::from(Span::styled(
@@ -1358,8 +1343,8 @@ impl App {
         }
     }
 
-    /// Line 2 of the strip: what the keys do on this screen, and only the keys
-    /// that actually work in the current state.
+    /// Line 2 of the strip: what the keys do on this screen, limited to those
+    /// that work in the current state.
     pub(in crate::tui::app) fn workspace_action_line(&self, workspace: &Workspace) -> String {
         let text = |key: &str| self.i18n.text(key);
         let hint = |key: &str, label: &str| format!("{key} {}", text(label));
@@ -1545,9 +1530,9 @@ impl App {
             let pad = LABEL_WIDTH
                 .saturating_sub(palette::width(&row.label))
                 .max(1);
-            // Only rows whose value `←/→` can actually change get arrows. A
-            // text or picker row opens an editor, so arrows there would
-            // advertise a control that does not exist.
+            // Only rows whose value `←/→` can change get arrows. A text or
+            // picker row opens an editor, so arrows there would advertise a
+            // control that does not exist.
             let adjustable = row.enabled && matches!(row.kind, LaunchFieldKind::Number { .. });
             let mut spans = vec![Span::styled(
                 format!(" {}{}", row.label, " ".repeat(pad)),
@@ -1761,12 +1746,12 @@ impl App {
                     Style::default().fg(dim).bg(background).add_modifier(bold),
                 ),
             ];
-            // The trailing column is one slot with two jobs: a real problem wins
-            // (gold), otherwise a world puts its date and hardcore flag there.
+            // The trailing column carries either a problem (gold) or a world's
+            // date and hardcore flag.
             //
-            // It is drawn in its own rectangle instead of as another span, so the
-            // available width is whatever the fixed columns left over — an extra
-            // span would be clipped by the panel edge and lose its last glyph.
+            // Drawn in its own rectangle rather than as another span: the width
+            // is whatever the fixed columns leave, and an extra span would be
+            // clipped at the panel edge.
             let fixed = 5 + name_width + version_width + size_width;
             frame.render_widget(
                 Paragraph::new(Line::from(spans)),
@@ -1845,8 +1830,8 @@ fn launch_kind_hint(kind: LaunchFieldKind) -> &'static str {
 /// Colours one workspace surface draws with.
 ///
 /// The two presets differ only here: `creeper` paints a `SURFACE` card with the
-/// fixed palette, `classic` follows the terminal theme. Row semantics — marks,
-/// warnings, selection — stay shared, so neither preset can drift in content.
+/// fixed palette, `classic` follows the terminal theme. Row semantics (marks,
+/// warnings, selection) stay shared, so neither preset can drift in content.
 #[derive(Clone, Copy)]
 struct WsColors {
     bg: ratatui::style::Color,
@@ -1945,9 +1930,9 @@ impl WsSkin {
         use crate::tui::palette;
         match self {
             // The workspace is a second-level screen of Instances, so it takes
-            // that page's accent (green), not the settings page's blue. The
-            // fills come from creeper's own sheet — reading the module
-            // constants here left a dark panel on a light page.
+            // that page's accent (green), not the settings page's blue. Fills
+            // come from creeper's own sheet; the module constants would leave a
+            // dark panel on a light page.
             Self::Creeper => {
                 let pal = app.creeper_palette();
                 WsColors {
@@ -2047,7 +2032,7 @@ struct WsEmpty<'a> {
 
 impl WsFrame {
     /// Rounded and palette-driven under `creeper`, the straight single-line box
-    /// of `classic` — the same split every other page already makes.
+    /// under `classic`, the same split every other page makes.
     fn card(&self, app: &App, title: &str, focused: bool, t: f64) -> Block<'static> {
         match self.skin {
             WsSkin::Creeper => crate::tui::widgets::kit::card(

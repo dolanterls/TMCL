@@ -263,8 +263,8 @@ fn shelf_instance_facts_keep_the_loader_version_whole() {
     }
 }
 
-/// The current game directory is marked in its own column; the marker used to
-/// be painted over the path, turning `D:/games/.minecraft` into `Currentmes/…`.
+/// The current game directory is marked in its own column. Painted over the
+/// path, the marker turns `D:/games/.minecraft` into `Currentmes/…`.
 #[test]
 fn shelf_settings_prints_the_current_directory_without_overwriting_it() {
     use crate::tui::pages::settings::SettingsCategory;
@@ -304,8 +304,8 @@ fn shelf_too_small_still_prints_the_quit_key() {
     );
 }
 
-/// `PageDown` on the version list moves by the rows that are actually painted:
-/// the narrow layout used to reserve a border the painter never drew.
+/// `PageDown` on the version list moves by the rows painted. A narrow layout that
+/// reserves a border the painter does not draw pages past the content.
 #[test]
 fn shelf_version_paging_matches_the_rows_it_paints() {
     use crate::core::version::models::VersionSummary;
@@ -724,9 +724,9 @@ fn shelf_renders_every_page_at_every_size() {
                     "80 columns must not reserve a cover column:\n{text}"
                 );
             }
-            // The classic shell wraps the entire screen in a border; shelf
-            // draws panels of its own but never a frame around the page, so a
-            // `│` or `╭` in column 0 means the fallback leaked back in.
+            // The classic shell wraps the screen in a border; shelf draws panels
+            // of its own but never a frame around the page, so a `│` or `╭` in
+            // column 0 means classic's frame was drawn here.
             let first = text.lines().next().unwrap_or("").trim_start();
             assert!(
                 !first.starts_with('╭') && !first.starts_with('│'),
@@ -1568,7 +1568,7 @@ fn toast_does_not_return_after_it_expires() {
     assert_eq!(
         frame.matches("ZZTOAST").count(),
         2,
-        "toast missing:/n{frame}"
+        "toast missing:\n{frame}"
     );
 
     // Rewind the toast so it is older than its TTL.
@@ -1586,7 +1586,7 @@ fn toast_does_not_return_after_it_expires() {
     assert_eq!(
         frame.matches("ZZTOAST").count(),
         1,
-        "expired toast must not be redrawn:/n{frame}"
+        "expired toast must not be redrawn:\n{frame}"
     );
     // The bug was that the next frame re-enqueued the unchanged status, so the
     // toast came back forever. It must stay gone.
@@ -1594,14 +1594,14 @@ fn toast_does_not_return_after_it_expires() {
     assert_eq!(
         frame.matches("ZZTOAST").count(),
         1,
-        "expired toast came back:/n{frame}"
+        "expired toast came back:\n{frame}"
     );
 }
 
 #[test]
 fn routine_info_status_stays_in_the_footer() {
-    // Regression: opening the download page set an info status that used to
-    // pop a toast and, worse, reappear after every expiry.
+    // Opening the download page sets an info status. It must not pop a toast,
+    // and it must not reappear every time the previous one expires.
     let mut app = creeper_app(Page::DownloadCenter);
     app.motion = true;
     app.status = crate::tui::app::state::status::Status::info("ZZINFO 921 versions loaded");
@@ -1610,7 +1610,7 @@ fn routine_info_status_stays_in_the_footer() {
     assert_eq!(
         frame.matches("ZZINFO").count(),
         1,
-        "info status must not float as a toast:/n{frame}"
+        "info status must not float as a toast:\n{frame}"
     );
     assert!(app.status_toasts.borrow().is_empty());
 }
@@ -1865,6 +1865,7 @@ fn creeper_activity_lists_the_running_game() {
         exit_code: Some(0),
         log_path: std::env::temp_dir().join("tmcl-activity-test.log"),
         crash_report: None,
+        launch_command: String::new(),
     });
     assert!(
         app.active_launch.is_none(),
@@ -1878,7 +1879,8 @@ fn creeper_activity_lists_the_running_game() {
 }
 
 #[test]
-fn a_failed_launch_puts_the_crash_cause_in_the_log() {
+fn a_failed_launch_leaves_a_verdict_instead_of_crash_lines() {
+    use crate::core::diagnose::RuleId;
     use crate::tui::event::AppEvent;
 
     let root = std::env::temp_dir().join(format!("tmcl-crash-ui-{}", Uuid::new_v4()));
@@ -1886,7 +1888,8 @@ fn a_failed_launch_puts_the_crash_cause_in_the_log() {
     let log = root.join("launch.log");
     std::fs::write(
         &log,
-        "[stderr] java.lang.OutOfMemoryError: Java heap space\n",
+        "[stderr] [19:02:11] [main/INFO]: Backend library: LWJGL version 3.3.3\n\
+         [stderr] java.lang.OutOfMemoryError: Java heap space\n",
     )
     .expect("log");
     let mut app = App::new();
@@ -1897,19 +1900,25 @@ fn a_failed_launch_puts_the_crash_cause_in_the_log() {
         exit_code: Some(1),
         log_path: log,
         crash_report: None,
+        launch_command: String::new(),
     });
 
-    let reason = app.i18n.text("crash.out_of_memory");
+    let diagnosis = app.diagnosis.as_ref().expect("verdict");
+    let primary = diagnosis.primary.as_ref().expect("primary");
+    assert_eq!(primary.rule, RuleId::OutOfMemory);
+    assert!(app.diagnosis_open, "the card opens on a crash by default");
+
+    let reason = app.i18n.text("diagnose.reason.out_of_memory");
     assert_eq!(
         app.status.as_str(),
         app.i18n
             .format("status.crash_detected", &[("reason", &reason)])
     );
+    // The verdict lives in the card now; nothing is appended to the scrollback.
     let text = app.logs.matching_lines("").join("\n");
-    assert!(text.contains(&reason), "cause missing: {text}");
     assert!(
-        text.contains(&app.i18n.text("crash.advice.raise_memory")),
-        "advice missing: {text}"
+        !text.contains("[crash]"),
+        "old crash lines came back: {text}"
     );
     std::fs::remove_dir_all(root).expect("clean");
 }
@@ -2033,6 +2042,37 @@ fn workspace_app(category: crate::tui::pages::workspace::WorkspaceCategory) -> A
         workspace.category = category;
     }
     app
+}
+
+/// The workspace's 加载器 row goes through the same mapping.
+///
+/// The row is built from `InstanceLoader`, so `"Vanilla"` must not be spelled out
+/// here; that is the one place the list's translation never reached.
+#[test]
+fn the_workspace_prints_the_vanilla_loader_in_chinese() {
+    use crate::core::config::models::Language;
+    use crate::core::instance::models::InstanceLoader;
+    use crate::tui::pages::workspace::WorkspaceCategory;
+
+    let mut app = workspace_app(WorkspaceCategory::Overview);
+    app.i18n = crate::i18n::I18n::new(Language::SimplifiedChinese);
+    if let Some(workspace) = app.workspace.as_mut() {
+        workspace.draft.loader = InstanceLoader::Vanilla;
+    }
+
+    let text = render_text(&app, 120, 40);
+    assert!(
+        !text.contains("Vanilla"),
+        "the workspace still prints the raw loader name:\n{text}"
+    );
+    let compact = text
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect::<String>();
+    assert!(
+        compact.contains("加载器原版"),
+        "the row must read 原版:\n{text}"
+    );
 }
 
 #[test]
@@ -2463,8 +2503,8 @@ fn nightlight_renders_every_page_at_every_size_in_both_modes() {
     use crate::tui::app::view::nightlight::tone;
 
     for mode in [ThemeMode::Dark, ThemeMode::Light] {
-        // The dark ladder is the reference for "a dark block leaked into the
-        // light frame".
+        // The dark ladder is the reference colour: no cell of the light frame may
+        // match a dark-ladder value.
         let dark = tone::palette(NightlightTheme::Live, ThemeMode::Dark, None, false);
         for width in [64u16, 80, 100, 120, 160] {
             for height in [18u16, 24, 30, 40, 50] {
@@ -3019,7 +3059,7 @@ fn downloads_without_a_target_show_neither_target_nor_compatibility() {
             );
 
             // The narrow layouts fold the table into compact rows; drawing them
-            // must not rely on the columns this page just removed.
+            // must not rely on the columns this page removed.
             let _ = render_text(&app, 80, 24);
         }
     }
@@ -3113,9 +3153,8 @@ fn the_file_list_is_never_split_by_a_detail_column() {
                 dependencies: Vec::new(),
             }];
             let main = app.layout_chrome(Rect::new(0, 0, width, 40)).main;
-            // Each preset measures its own list body; asking one preset's
-            // section helper for another's rectangle was how this test used to
-            // compare two different rows.
+            // Each preset measures its own list body. Asking one preset's section
+            // helper for another's rectangle compares two different rows.
             let list = app.download_list_area(main);
             assert!(
                 app.download_detail_areas(list).is_none(),
@@ -3171,8 +3210,8 @@ fn nightlight_keeps_the_content_visible_while_rescanning() {
     );
 }
 
-/// The description column answers the wheel: the clamp lives on `App`, and a
-/// pane that never sets it swallows every notch.
+/// The description column answers the wheel: the clamp lives on `App`, and a pane
+/// that never sets it receives no scroll input.
 #[test]
 fn nightlight_detail_pane_answers_the_wheel() {
     use crate::core::resource::model::{ResourceProject, ResourceSource};
@@ -3265,7 +3304,7 @@ fn the_overview_instance_card_keeps_the_account_out() {
     assert_eq!(
         text.matches("Steve").count(),
         1,
-        "the account must appear once, in its own card:/n{text}"
+        "the account must appear once, in its own card:\n{text}"
     );
 }
 
@@ -3287,7 +3326,7 @@ fn an_empty_resource_index_counts_from_zero() {
     assert!(text.contains("0/0"), "the counter must read 0/0:\n{text}");
     assert!(
         text.contains(&app.i18n.text("download.no_results")),
-        "an empty index must explain itself:/n{text}"
+        "an empty index must explain itself:\n{text}"
     );
 }
 
@@ -3303,7 +3342,7 @@ fn an_empty_version_table_says_so() {
     let text = render_text(&app, 120, 40);
     assert!(
         text.contains(&app.i18n.text("download.no_results")),
-        "an empty version table needs a message:/n{text}"
+        "an empty version table needs a message:\n{text}"
     );
 }
 
@@ -3338,6 +3377,87 @@ fn the_current_account_keeps_its_whole_badge() {
     );
 }
 
+/// The two sheet presets wrap a long log line instead of cutting it.
+///
+/// One entry per row with the body truncated at the page edge turns every real
+/// Forge line into "…ModLauncher running: args [--username, 233, --version, F…".
+/// Half a mod path or half a stack frame is not a log.
+#[test]
+fn the_sheet_logs_wrap_a_long_line_instead_of_cutting_it() {
+    use crate::core::config::models::UiPreset;
+
+    let tail = "END-OF-A-VERY-LONG-MOD-PATH";
+    let head = "[stdout] [15:39:08] [main/INFO] [cp.mo.mo.Launcher/MODLAUNCHER]: ";
+    for preset in [UiPreset::Paper, UiPreset::Shelf] {
+        let mut app = App::new();
+        app.config.state.ui.preset = preset;
+        app.page = Page::Logs;
+        app.terminal_width = 120;
+        app.terminal_height = 40;
+        app.logs
+            .append(format!("{head}{}{tail}", "padding ".repeat(20)));
+
+        let text = render_text(&app, 120, 40);
+        assert!(
+            text.contains(tail),
+            "{preset:?}: the line was cut instead of wrapped:\n{text}"
+        );
+        assert!(
+            text.contains("MODLAUNCHER"),
+            "{preset:?}: the line is not on the page at all:\n{text}"
+        );
+    }
+}
+
+/// A one-row scroll moves the page by exactly one row, including into the middle
+/// of a wrapped line.
+///
+/// The viewport hands the painter a slice plus "skip this many rows of the first
+/// line". Ignoring the skip, or letting the row arithmetic drift from the
+/// wrapper, makes the page jump a whole line and skip content.
+#[test]
+fn a_one_row_scroll_moves_the_page_by_exactly_one_row() {
+    let mut app = App::new();
+    app.page = Page::Logs;
+    app.terminal_width = 120;
+    app.terminal_height = 40;
+    for index in 0..40 {
+        // Long enough to wrap three times at this width.
+        app.logs
+            .append(format!("line {index:02} {}", "body ".repeat(40)));
+    }
+    let main = app.layout_chrome(Rect::new(0, 0, 120, 40)).main;
+    let inner = crate::tui::chrome::panel(&app.i18n.text(Page::Logs.title_key()), false, app.theme)
+        .inner(main);
+
+    let before = log_body_rows(&app, inner);
+    let max = app.log_max_scroll_offset();
+    assert!(max > 3, "the buffer must overflow the page: {max}");
+    app.logs.scroll(-1, max);
+    let after = log_body_rows(&app, inner);
+
+    assert!(before[0] != after[0], "the page did not move");
+    // Scrolling up one row shows one older row: everything after the first row
+    // of the new frame is what the old frame drew from its second row on.
+    assert_eq!(
+        &after[1..],
+        &before[..before.len() - 1],
+        "the page must shift by one row, not by one line"
+    );
+}
+
+fn log_body_rows(app: &crate::tui::app::App, inner: Rect) -> Vec<String> {
+    let buffer = render_buffer(app, 120, 40);
+    let width = inner.width.saturating_sub(1);
+    (inner.top()..inner.bottom())
+        .map(|y| {
+            (inner.left()..inner.left() + width)
+                .map(|x| buffer[(x, y)].symbol())
+                .collect::<String>()
+        })
+        .collect()
+}
+
 /// The wheel clamp must describe the same rectangle the painter fills. The
 /// shared clamp is four rows taller than the nightlight body, which made the
 /// top of the buffer unreachable.
@@ -3347,25 +3467,25 @@ fn the_log_page_reaches_both_ends_of_the_buffer() {
     for index in 0..200 {
         app.logs.append(format!("line-{index:03}"));
     }
-    app.logs.set_follow(false);
     let max = app.log_max_scroll_offset();
+    app.logs.set_follow(false, max);
     app.logs.scroll(-(max as isize), max);
     let top = render_text(&app, 120, 40);
     assert!(
         top.contains("line-000"),
-        "the first line must be reachable:/n{top}"
+        "the first line must be reachable:\n{top}"
     );
 
-    app.logs.set_follow(true);
+    app.logs.set_follow(true, app.log_max_scroll_offset());
     let bottom = render_text(&app, 120, 40);
     assert!(
         bottom.contains("line-199"),
-        "the last line must be visible when following:/n{bottom}"
+        "the last line must be visible when following:\n{bottom}"
     );
 }
 
-/// A status message must not reflow the page. The footer used to grow to two
-/// rows when the message was long, which shrank every card by a row.
+/// A status message must not reflow the page. A footer that grows to two rows for
+/// a long message shrinks every card by a row.
 #[test]
 fn a_long_status_never_changes_the_page_height() {
     let mut app = nightlight_app_at(Page::Overview, 120, 40);
@@ -3386,11 +3506,11 @@ fn a_long_status_never_changes_the_page_height() {
     let text = render_text(&app, 120, 40);
     assert!(
         text.contains("Next page"),
-        "the key hints must survive a long message:/n{text}"
+        "the key hints must survive a long message:\n{text}"
     );
     assert!(
         text.contains('…'),
-        "the message itself must be truncated, not clipped:/n{text}"
+        "the message itself must be truncated, not clipped:\n{text}"
     );
 }
 
@@ -3410,19 +3530,19 @@ fn the_logs_card_names_the_instance() {
     );
 }
 
-/// 80x24 keeps playtime and launches: they used to vanish because the big
-/// glyphs need six rows.
+/// 80x24 keeps playtime and launches. The big glyphs need six rows, so a short
+/// hero falls back to one text line instead of dropping them.
 #[test]
 fn the_narrow_overview_keeps_both_numbers() {
     let mut app = nightlight_app_at(Page::Overview, 80, 24);
     nightlight_seed_overview(&mut app);
     let text = render_text(&app, 80, 24);
-    assert!(text.contains("12h"), "playtime missing:/n{text}");
-    assert!(text.contains("34"), "launches missing:/n{text}");
+    assert!(text.contains("12h"), "playtime missing:\n{text}");
+    assert!(text.contains("34"), "launches missing:\n{text}");
 }
 
-/// At 80 columns the chip row used to cut off the last categories, so cycling
-/// onto `Worlds` produced no visible change at all.
+/// At 80 columns the chip row must not cut off the last categories; cycling onto
+/// `Worlds` would otherwise produce no visible change.
 #[test]
 fn the_active_filter_chip_is_always_visible() {
     use crate::core::resource::model::ResourceKind;
@@ -3441,26 +3561,27 @@ fn the_active_filter_chip_is_always_visible() {
     );
 }
 
-/// A confirm prompt longer than the card ends in an ellipsis instead of being
-/// sliced at the card edge without any indication.
+/// A confirm prompt longer than the card wraps instead of being cut. An
+/// ellipsis was the old answer; on a destructive dialog the truncated tail is
+/// exactly the part that names what is about to change.
 #[test]
-fn a_long_confirm_prompt_is_truncated_with_an_ellipsis() {
+fn a_long_confirm_prompt_wraps_instead_of_being_sliced() {
     use crate::tui::modal::{ConfirmAction, Modal};
 
+    let prompt = "要从 TMCL 移除 TMCL-Test-A-Very-Long-Instance-Name-For-Clipping 吗？游戏文件和存档会保留。";
     let mut app = nightlight_app_at(Page::Instances, 120, 40);
-    app.modal = Some(Modal::confirm(
-        "要从 TMCL 移除 TMCL-Test-A-Very-Long-Instance-Name-For-Clipping 吗？游戏文件和存档会保留。",
-        ConfirmAction::RemoveAccount,
-    ));
-    let text = render_text(&app, 120, 40);
+    app.modal = Some(Modal::confirm(prompt, ConfirmAction::RemoveAccount));
+
+    // Newlines are the wrap itself, so they come out with the spaces.
+    let flat = render_text(&app, 120, 40).replace([' ', '\n'], "");
     assert!(
-        text.contains('…'),
-        "the prompt must end with an ellipsis:/n{text}"
+        flat.contains("游戏文件和存档会保留"),
+        "the tail of the prompt is still cut:\n{flat}"
     );
 }
 
-/// `Vanilla` used to be a literal in the filter strip and in every list row;
-/// in a Chinese UI it has to read `原版`. Brand loader names stay as they are.
+/// In a Chinese UI `Vanilla` must read `原版`, in the filter strip and in every
+/// list row. Brand loader names stay as they are.
 #[test]
 fn the_vanilla_loader_name_is_translated() {
     use crate::core::config::models::Language;
@@ -3491,10 +3612,60 @@ fn the_vanilla_loader_name_is_translated() {
     );
 }
 
+/// No screen prints `Vanilla` in a Chinese UI.
+///
+/// The current-instance block, the overview table and the workspace's loader row
+/// each built "loader, plus the version" by hand, so `Vanilla` kept coming back.
+/// Every preset's two instance-facing pages are rendered here, so a new call site
+/// cannot reintroduce it.
+#[test]
+fn no_screen_prints_the_vanilla_loader_untranslated() {
+    use crate::core::config::models::{Language, UiPreset};
+    use crate::core::instance::models::InstanceLoader;
+
+    let mut app = shelf_data_app(Page::Instances);
+    app.i18n = crate::i18n::I18n::new(Language::SimplifiedChinese);
+    let id = Uuid::from_u128(0x5E1F_00FF);
+    app.instances.apply(vec![InstanceSummary {
+        id,
+        name: "纯净生存".into(),
+        version: "1.21.4".into(),
+        loader: "Vanilla".into(),
+        loader_version: None,
+        status: "ready".into(),
+        path: PathBuf::from("C:/games/.minecraft/versions/vanilla"),
+        launch_count: 2,
+        play_time_seconds: 600,
+    }]);
+    app.instances.current_id = Some(id);
+
+    // The two helpers every screen goes through now.
+    assert_eq!(app.instance_loader_text(&app.instances.items[0]), "原版");
+    assert_eq!(app.draft_loader_text(&InstanceLoader::Vanilla), "原版");
+    assert_eq!(
+        app.draft_loader_text(&InstanceLoader::Fabric {
+            version: "0.16.5".into()
+        }),
+        "Fabric 0.16.5",
+        "brand names keep their spelling and carry the version"
+    );
+
+    for page in [Page::Instances, Page::Overview] {
+        app.page = page;
+        for preset in UiPreset::ALL {
+            app.config.state.ui.preset = preset;
+            let text = render_text(&app, 120, 40);
+            assert!(
+                !text.contains("Vanilla"),
+                "{preset:?}/{page:?} still prints the raw loader name:\n{text}"
+            );
+        }
+    }
+}
+
 /// Task rows print sizes, not byte counts, and the bar, the percentage and the
-/// size share one set of column edges: the bar used to be sized from the byte
-/// count, so every row ended somewhere else and the percentage was clipped
-/// before its `%`.
+/// size share one set of column edges. A bar sized from the byte count ends every
+/// row somewhere else and clips the percentage before its `%`.
 #[test]
 fn task_rows_align_their_sizes_bars_and_percents() {
     use crate::core::task::{TaskOperationType, TaskSnapshot, TaskState};
@@ -3521,16 +3692,16 @@ fn task_rows_align_their_sizes_bars_and_percents() {
     let text = render_text(&app, 120, 35);
     assert!(
         !text.contains("139191552") && !text.contains("765673220"),
-        "raw byte counts must not reach the frame:/n{text}"
+        "raw byte counts must not reach the frame:\n{text}"
     );
-    assert!(text.contains("132.7/132.7 MB"), "sizes in MB:/n{text}");
+    assert!(text.contains("132.7/132.7 MB"), "sizes in MB:\n{text}");
     assert!(
         text.contains("730.2 MB"),
-        "an unknown total still shows a size:/n{text}"
+        "an unknown total still shows a size:\n{text}"
     );
     assert!(
         text.contains("169.8/339.6 KB"),
-        "KB below a megabyte:/n{text}"
+        "KB below a megabyte:\n{text}"
     );
 
     // One bar per task row; the sidebar wordmark also draws block glyphs, so
@@ -3539,7 +3710,7 @@ fn task_rows_align_their_sizes_bars_and_percents() {
         .lines()
         .filter(|line| [" MB", " KB", " GB"].iter().any(|unit| line.contains(unit)))
         .collect();
-    assert_eq!(rows.len(), 3, "three task rows:/n{text}");
+    assert_eq!(rows.len(), 3, "three task rows:\n{text}");
     // Count cells, not bytes: `▎` and `█` are three bytes each in UTF-8.
     fn bar_column(line: &str) -> usize {
         line.chars()
@@ -3562,7 +3733,7 @@ fn task_rows_align_their_sizes_bars_and_percents() {
     }
     assert!(
         rows.iter().any(|row| row.trim_end().ends_with('—')),
-        "unknown total:/n{text}"
+        "unknown total:\n{text}"
     );
 }
 
@@ -3585,9 +3756,9 @@ fn creeper_task_states_share_one_right_edge() {
             total,
             failure: None,
         };
-    // Three names of different lengths: the pill used to start right after the
-    // name, so the same state sat on three different columns. The first row is
-    // a three-step job, which also carries `3/3` in that column.
+    // Three names of different lengths. A pill placed right after the name puts
+    // the same state on three different columns. The first row is a three-step
+    // job, which also carries `3/3` in that column.
     let job = Some(Uuid::new_v4());
     app.apply_task_snapshots(vec![
         snapshot(job, 0, "short", TaskState::Succeeded, 34, Some(34)),
@@ -3649,7 +3820,7 @@ fn creeper_task_states_share_one_right_edge() {
     );
 
     // `3/3` sits in the right-hand column next to the pill, not on the name's
-    // tail — that is the whole reason the row looked ragged.
+    // tail; on the tail it makes the row ragged.
     let first = text
         .lines()
         .find(|line| line.contains("short"))
@@ -3744,8 +3915,8 @@ fn byte_sizes_and_percentages_share_one_format() {
     );
 }
 
-/// A dialog prints its keys once. The classic dialog used to list them three
-/// times: a help sentence, the clickable key row, and the footer bar.
+/// A dialog prints its keys once. A help sentence, the clickable key row and the
+/// footer bar would otherwise name the same key three times.
 #[test]
 fn a_classic_dialog_prints_its_keys_once() {
     use crate::core::config::models::UiPreset;
@@ -3779,17 +3950,17 @@ fn a_classic_dialog_prints_its_keys_once() {
     assert_eq!(
         text.matches(&cancel).count(),
         1,
-        "the form's cancel hint belongs to its key row alone:/n{text}"
+        "the form's cancel hint belongs to its key row alone:\n{text}"
     );
     assert!(
         !text.contains(&app.i18n.text("modal.text_form_help")),
-        "the paraphrased help line is gone:/n{text}"
+        "the paraphrased help line is gone:\n{text}"
     );
 }
 
-/// The nightlight form printed only `Enter` and `Esc`: `F2` lived in the key
-/// handler but nowhere on screen, and `Enter` was labelled 保存 while it really
-/// walks to the next field. A picker field is unreachable if nothing says so.
+/// The nightlight form must show `F2`: it lives in the key handler, so a form
+/// that omits it leaves the picker unreachable. `Enter` is labelled 保存, but it
+/// walks to the next field.
 #[test]
 fn a_nightlight_form_shows_the_browse_key_and_what_enter_really_does() {
     use crate::tui::action::ModalAct;
@@ -3852,24 +4023,24 @@ fn the_classic_settings_page_searches_from_a_field() {
     app.config.state.ui.preset = UiPreset::Classic;
     draw_key(&mut app, crossterm::event::KeyCode::Char('/'));
     let text = render_text(&app, 120, 40);
-    assert!(text.contains('⌕'), "the field has to be on screen:/n{text}");
+    assert!(text.contains('⌕'), "the field has to be on screen:\n{text}");
     assert!(
         text.contains(&app.i18n.text("settings.search_title")),
-        "the panel says what it is:/n{text}"
+        "the panel says what it is:\n{text}"
     );
 
     for character in "mem".chars() {
         draw_key(&mut app, crossterm::event::KeyCode::Char(character));
     }
     let text = render_text(&app, 120, 40);
-    assert!(text.contains("mem"), "the query is visible:/n{text}");
+    assert!(text.contains("mem"), "the query is visible:\n{text}");
     // A narrowed list keeps the category prefix and drops the rest.
-    assert!(text.contains(" · "), "matches list their category:/n{text}");
+    assert!(text.contains(" · "), "matches list their category:\n{text}");
 
     // Esc closes the view and gives the table back.
     draw_key(&mut app, crossterm::event::KeyCode::Esc);
     let text = render_text(&app, 120, 40);
-    assert!(!text.contains('⌕'), "the table is back:/n{text}");
+    assert!(!text.contains('⌕'), "the table is back:\n{text}");
 }
 
 /// Feeds one key through the app the way the event loop does.
@@ -3958,11 +4129,11 @@ fn a_modpack_job_collapses_into_one_row() {
     let text = render_text(&app, 120, 30);
     assert!(
         text.contains("2/3"),
-        "the row says which step is running:/n{text}"
+        "the row says which step is running:\n{text}"
     );
     assert!(
         !text.contains("Install 129 modpack files"),
-        "a step must not get a row of its own:/n{text}"
+        "a step must not get a row of its own:\n{text}"
     );
 }
 
@@ -4006,9 +4177,9 @@ fn a_failed_step_marks_the_whole_job_failed() {
     assert!(rows[0].retryable, "the row is retryable through its step");
 }
 
-/// `?` is advertised as a global key, so it has to open the help from every
-/// mode — including the two the key map used to forget: an open detail pane and
-/// the instance workspace. Outside those it looked like the help page was gone.
+/// `?` is advertised as a global key, so it has to open the help from every mode,
+/// including an open detail pane and the instance workspace. Any mode left out
+/// makes the help page look gone.
 #[test]
 fn the_help_page_opens_from_every_mode() {
     let press = |app: &mut App| {
@@ -4041,8 +4212,9 @@ fn the_help_page_opens_from_every_mode() {
     assert!(press(&mut app), "workspace mode");
 }
 
-/// An option list that failed used to render as an empty box: the same picture
-/// as "your filter matched nothing", with no way to learn that `r` retries.
+/// An option list that failed must not render as an empty box: that is the same
+/// picture as "your filter matched nothing", with no way to learn that `r`
+/// retries.
 #[test]
 fn a_failed_option_list_says_so_and_offers_the_retry_key() {
     use crate::tui::modal::{FormAction, Modal};
@@ -4157,7 +4329,7 @@ fn the_instance_detail_advertises_the_launch_key() {
 /// The panel lists three sections in every preset: the shared content is built
 /// once, so a preset cannot quietly lose one.
 #[test]
-fn the_help_page_lists_three_sections_in_every_preset() {
+fn the_help_page_lists_every_section_in_every_preset() {
     use crate::core::config::models::{Language, UiPreset};
 
     for preset in UiPreset::ALL {
@@ -4194,12 +4366,14 @@ fn the_help_page_lists_three_sections_in_every_preset() {
             crossterm::event::KeyModifiers::NONE,
         ));
         let text = render(&app);
-        let title = app.i18n.text("help.section.mouse");
-        let compact: String = title.chars().filter(|c| !c.is_whitespace()).collect();
-        assert!(
-            text.contains(&compact),
-            "{preset:?}: the mouse section must be reachable"
-        );
+        for key in ["help.section.diagnosis", "help.section.mouse"] {
+            let title = app.i18n.text(key);
+            let compact: String = title.chars().filter(|c| !c.is_whitespace()).collect();
+            assert!(
+                text.contains(&compact),
+                "{preset:?}: `{title}` must be reachable by scrolling"
+            );
+        }
         assert!(
             text.contains("滚动当前列表"),
             "{preset:?}: the last mouse row must be reachable"
@@ -4244,9 +4418,8 @@ fn the_help_card_scrolls_instead_of_growing_with_the_key_map() {
 }
 
 /// The reference is a dialog in every preset, `paper` included: same card
-/// rectangle, same scroll window. `paper` used to print it as a page, which
-/// also covered the running head and the key band that close it — the way out
-/// disappeared together with the page.
+/// rectangle, same scroll window. Printed as a page, it also covers the running
+/// head and the key band that close it, so the way out disappears with the page.
 #[test]
 fn every_preset_puts_the_help_in_the_same_card() {
     use crate::core::config::models::{Language, UiPreset};
@@ -4274,8 +4447,8 @@ fn every_preset_puts_the_help_in_the_same_card() {
     }
 }
 
-/// The card is measured from its own rows, not from the terminal: a page with
-/// short labels used to sit in a 76-column box that was two thirds empty.
+/// The card is measured from its own rows, not from the terminal. Short labels in
+/// a fixed 76-column box leave two thirds of it empty.
 #[test]
 fn the_help_card_is_measured_from_its_longest_row() {
     let app = nightlight_app_at(Page::Instances, 120, 40);
@@ -4328,8 +4501,8 @@ fn the_help_page_scrolls_from_the_keyboard() {
     assert_eq!(app.help_scroll, page.min(max));
 }
 
-/// The workspace used to swallow the arrow keys while the help card was open:
-/// `?` over an instance looked frozen because the hidden list moved instead.
+/// With the help card open the arrows must scroll it, not the workspace behind
+/// it: `?` over an instance would look frozen while the hidden list moved.
 #[test]
 fn the_help_card_scrolls_over_the_instance_workspace() {
     use crate::core::config::models::Language;
@@ -4402,11 +4575,11 @@ fn the_account_card_names_the_credential_lifetime() {
         .collect();
     assert!(
         text.contains("凭据有效期5小时"),
-        "the card must name the credential, not just a countdown:/n{text}"
+        "the card must name the credential, not just a countdown:\n{text}"
     );
     assert!(
         !text.contains("剩余"),
-        "the old countdown wording is gone:/n{text}"
+        "the old countdown wording is gone:\n{text}"
     );
 }
 
@@ -4421,7 +4594,7 @@ fn shelf_download_project_index_keeps_the_record_column() {
     let wide = render_text(&app, 120, 40);
     assert!(
         wide.contains(&app.i18n.text("common.details")),
-        "the project index lost its record column:/n{wide}"
+        "the project index lost its record column:\n{wide}"
     );
     for field in ["shelf-project-0", "1.21.4", "neoforge"] {
         assert!(
@@ -4437,7 +4610,7 @@ fn shelf_download_project_index_keeps_the_record_column() {
     let narrow = render_text(&app, 80, 24);
     assert!(
         !narrow.contains(&app.i18n.text("common.details")),
-        "a narrow shelf page must not keep the record column:/n{narrow}"
+        "a narrow shelf page must not keep the record column:\n{narrow}"
     );
     assert!(narrow.contains("Farming Tales"), "{narrow}");
 
@@ -4461,7 +4634,7 @@ fn shelf_download_project_index_keeps_the_record_column() {
     assert!(files.contains("farmingtales-1.4.3.jar"), "{files}");
     assert!(
         !files.contains(&app.i18n.text("common.details")),
-        "the file table must keep the full width:/n{files}"
+        "the file table must keep the full width:\n{files}"
     );
 }
 
@@ -4550,8 +4723,8 @@ fn shelf_task_bars_follow_the_progress() {
     assert_eq!(filled(TaskState::Running, 1, None), 0, "no total, no bar");
 }
 
-/// The bar is the right-hand column of the entry, under the state label — not
-/// a block that starts at the name's left margin and stops wherever it likes.
+/// The bar is the right-hand column of the entry, under the state label, not a
+/// block that starts at the name's left margin and stops wherever it likes.
 #[test]
 fn shelf_task_bars_share_one_right_edge() {
     use crate::core::task::{TaskOperationType, TaskSnapshot, TaskState};
@@ -4640,14 +4813,14 @@ fn shelf_logs_reach_the_bottom_and_say_when_empty() {
     );
     assert!(
         !text.contains("line 00"),
-        "`End` must scroll the oldest lines away:/n{text}"
+        "`End` must scroll the oldest lines away:\n{text}"
     );
 
     let empty = shelf_app(Page::Logs);
     let text = render_text(&empty, 120, 40);
     assert!(
         text.contains(&empty.i18n.text("logs.empty")),
-        "an empty buffer must say so:/n{text}"
+        "an empty buffer must say so:\n{text}"
     );
 }
 
@@ -4665,7 +4838,7 @@ fn shelf_settings_switch_every_category() {
         let title = app.i18n.text(category.title_key());
         assert!(
             text.contains(&title),
-            "{category:?} lost its name on the category row:/n{text}"
+            "{category:?} lost its name on the category row:\n{text}"
         );
         assert!(
             app.settings.selected < app.settings_row_count().max(1),
@@ -4697,11 +4870,11 @@ fn shelf_detail_and_help_open_on_their_own_slab() {
     let wide = render_text(&app, 120, 40);
     assert!(
         wide.contains(&app.i18n.text("common.details")),
-        "the detail card lost its title:/n{wide}"
+        "the detail card lost its title:\n{wide}"
     );
     assert!(
         wide.contains(&app.i18n.text("action.close").to_uppercase()) || wide.contains("Esc"),
-        "the detail card must keep its way out:/n{wide}"
+        "the detail card must keep its way out:\n{wide}"
     );
 
     app.detail_open = false;
@@ -4712,17 +4885,17 @@ fn shelf_detail_and_help_open_on_their_own_slab() {
     let help = render_text(&app, 80, 24);
     assert!(
         help.contains(&app.i18n.text("help.keyboard")),
-        "the help card lost its title:/n{help}"
+        "the help card lost its title:\n{help}"
     );
     // `Esc` is printed on the card; the footer behind it is covered, so the way
     // out has to be inside the overlay.
     assert!(help.contains("Esc"), "the help card lost `Esc`:\n{help}");
 }
 
-/// The wordmark is a mark, not a heading: four rows of block glyphs on every
-/// size class that can spare them. Before this, a 120×35 terminal — `Compact`,
-/// four rows short of `Full` — fell back to a one-line `TMCL 0.3.0` with two
-/// thirds of the page empty underneath.
+/// The wordmark is a mark, not a heading: four rows of block glyphs on every size
+/// class that can spare them. A `Compact` 120×35 terminal, four rows short of
+/// `Full`, would otherwise show a one-line `TMCL 0.3.0` over two thirds empty
+/// page.
 #[test]
 fn shelf_draws_the_block_wordmark_on_every_size_that_can_spare_it() {
     use crate::core::config::models::UiPreset;
@@ -4736,11 +4909,11 @@ fn shelf_draws_the_block_wordmark_on_every_size_that_can_spare_it() {
         let head = text.lines().take(4).collect::<Vec<_>>().join("\n");
         assert!(
             head.contains('▀') || head.contains('█'),
-            "{width}x{height} drew a text line where the mark belongs:/n{text}"
+            "{width}x{height} drew a text line where the mark belongs:\n{text}"
         );
         assert!(
             text.contains(env!("CARGO_PKG_VERSION")),
-            "{width}x{height} kept the mark but dropped the version:/n{text}"
+            "{width}x{height} kept the mark but dropped the version:\n{text}"
         );
     }
 }
@@ -4791,7 +4964,7 @@ fn shelf_overview_puts_the_launch_hint_beside_the_name_bar() {
     let line = text
         .lines()
         .find(|line| line.contains(&hint))
-        .unwrap_or_else(|| panic!("the launch hint is gone://n{text}"));
+        .unwrap_or_else(|| panic!("the launch hint is gone:\n{text}"));
     assert!(
         line.contains("Create Above and Beyond"),
         "the hint is not on the name bar's row: {line:?}"
@@ -4802,9 +4975,9 @@ fn shelf_overview_puts_the_launch_hint_beside_the_name_bar() {
     );
 }
 
-/// The version lines up under the `M` of `Minecraft`, on the row of the
-/// count — not under the count at the far right. The tagline is right-aligned,
-/// so that left edge is a computed column, not the block's.
+/// The version lines up under the `M` of `Minecraft`, on the row of the count,
+/// not under the count at the far right. The tagline is right-aligned, so that
+/// left edge is a computed column, not the block's.
 #[test]
 fn shelf_version_lines_up_with_the_taglines_left_edge() {
     let app = shelf_app(Page::Overview);
@@ -4837,7 +5010,42 @@ fn shelf_version_lines_up_with_the_taglines_left_edge() {
     assert_eq!(
         version_row,
         tagline_row + 1,
-        "the version is not on the count's row:/n{text}"
+        "the version is not on the count's row:\n{text}"
+    );
+}
+
+/// The instance `Enter` will start says `当前` instead of its stored status,
+/// in the list and in the facts beside it. shelf was the only preset that kept
+/// printing `就绪` after the key was pressed, so nothing on the page said the
+/// choice had taken.
+#[test]
+fn shelf_marks_the_current_instance_in_the_list_and_in_the_facts() {
+    let app = shelf_app(Page::Instances);
+    let text = render_text(&app, 120, 40);
+    let current = app.i18n.text("common.current");
+    let status = app.i18n.text("task.status");
+
+    // The list row, third line: `Current · 2h` rather than `Ready · 2h`.
+    assert!(
+        text.contains(&format!(" {current} · ")),
+        "the list row still prints the stored status:\n{text}"
+    );
+    // The facts column of the panel on the right.
+    assert!(
+        text.contains(&format!("{status}  {current}")),
+        "the facts column still prints the stored status:\n{text}"
+    );
+    // And only for that instance: the others keep the status they have.
+    assert!(
+        text.contains(" Ready · "),
+        "every row was marked current:\n{text}"
+    );
+
+    // The overview prints the same fact for the focused instance.
+    let overview = render_text(&shelf_app(Page::Overview), 120, 40);
+    assert!(
+        overview.contains(&format!("{status}  {current}")),
+        "the overview still prints the stored status:\n{overview}"
     );
 }
 
@@ -5023,7 +5231,7 @@ fn an_expired_access_token_is_not_an_expired_account() {
     app.accounts.accounts = vec![
         // Spent token, refresh token on disk: the launcher renews it silently.
         account(AccountKind::Microsoft, Some("slot"), Some(now - 60)),
-        // Nothing left to renew with — this is the only state that needs help.
+        // Nothing left to renew with: this is the only state that needs help.
         account(AccountKind::Microsoft, None, Some(now - 60)),
         account(AccountKind::Offline, None, None),
     ];
@@ -5045,11 +5253,68 @@ fn an_expired_access_token_is_not_an_expired_account() {
     let text = render_text(&app, 120, 40);
     assert!(
         text.contains(&app.i18n.text("account.session_renewable")),
-        "a renewable account must say so:/n{text}"
+        "a renewable account must say so:\n{text}"
     );
     assert!(
         !text.contains(&app.i18n.text("account.expired")),
-        "no account here is actually expired:/n{text}"
+        "no account here is actually expired:\n{text}"
+    );
+}
+
+/// A launch that retires a credential updates the row at once.
+///
+/// A rejected refresh token cannot be traded again, so the launch clears it on
+/// disk (`Error::AccountExpired` → `retire_credential`). The account page kept
+/// printing `自动续期` — a renewal that could never happen — until the next full
+/// reload, and that page is exactly where the player goes after a failed
+/// launch.
+#[test]
+fn an_aborted_launch_reloads_the_retired_account() {
+    use crate::core::account::models::{Account, AccountKind};
+    use crate::core::account::store::AccountStore;
+    use crate::tui::event::AppEvent;
+
+    let mut app = shelf_data_app(Page::Accounts);
+    std::fs::create_dir_all(&app.paths.root).expect("data root");
+    let account = Account {
+        id: Uuid::new_v4(),
+        kind: AccountKind::Microsoft,
+        username: "Donalan".into(),
+        uuid: Uuid::new_v4(),
+        skin: None,
+        secret_ref: Some("slot".into()),
+        access_expires_at: Some(crate::tui::app::state::data::unix_seconds() - 60),
+    };
+    AccountStore::new(&app.paths.accounts_file)
+        .save(std::slice::from_ref(&account))
+        .expect("seed accounts");
+    app.accounts.accounts = vec![account.clone()];
+    assert_eq!(
+        app.account_expiry_label(&account),
+        app.i18n.text("account.session_renewable"),
+        "the fixture has to start in the renewable state"
+    );
+
+    // What the launch writes once AAD refuses the token.
+    let retired = Account {
+        secret_ref: None,
+        access_expires_at: None,
+        ..account
+    };
+    AccountStore::new(&app.paths.accounts_file)
+        .save(std::slice::from_ref(&retired))
+        .expect("retire account");
+
+    app.handle(AppEvent::LaunchAborted {
+        error: "Microsoft 启动失败：account error: sign in again".into(),
+    });
+
+    let row = app.accounts.accounts.first().expect("the account survives");
+    assert!(row.secret_ref.is_none(), "the dead reference must be gone");
+    assert_eq!(
+        app.account_expiry_label(row),
+        app.i18n.text("account.session_reauth"),
+        "the row must stop promising an automatic renewal"
     );
 }
 
@@ -5079,14 +5344,14 @@ fn a_running_instance_is_not_listed_as_ready() {
     let text = render_text(&app, 120, 40);
     assert!(
         status_line(&text).contains(&app.i18n.text("status.launching")),
-        "the facts card still says 就绪 while the instance starts:/n{text}"
+        "the facts card still says 就绪 while the instance starts:\n{text}"
     );
 
     app.handle(AppEvent::Game(GameEvent::GameStarted { pid: 4242 }));
     let text = render_text(&app, 120, 40);
     assert!(
         status_line(&text).contains(&app.i18n.text("status.running")),
-        "the card does not follow the process into `运行中`:/n{text}"
+        "the card does not follow the process into `运行中`:\n{text}"
     );
     assert_eq!(
         app.status.as_str(),
@@ -5095,7 +5360,7 @@ fn a_running_instance_is_not_listed_as_ready() {
     );
     assert!(
         !text.contains(&app.i18n.text("status.launch_stage.verifying_files")),
-        "the footer still says it is verifying files:/n{text}"
+        "the footer still says it is verifying files:\n{text}"
     );
 
     // The process ends: the row goes back to what the disk says.
@@ -5105,11 +5370,11 @@ fn a_running_instance_is_not_listed_as_ready() {
     let row = status_line(&text);
     assert!(
         !row.contains(&app.i18n.text("status.running")),
-        "a finished launch left `运行中` behind:/n{text}"
+        "a finished launch left `运行中` behind:\n{text}"
     );
     assert!(
         !row.contains(&app.i18n.text("status.launching")),
-        "a finished launch left `启动中` behind:/n{text}"
+        "a finished launch left `启动中` behind:\n{text}"
     );
 }
 
@@ -5166,8 +5431,8 @@ fn creeper_light_mode_leaves_no_dark_panels() {
             tone::LIGHT.bg,
             "{page:?}: the page stayed dark"
         );
-        // A single dark panel on a white page is what "浅色没覆盖全" looked
-        // like: the shared `kit` primitives used to read the module constants.
+        // A single dark panel on a white page is what "浅色没覆盖全" means: a
+        // `kit` primitive read the module constants instead of the skin.
         let dark = buffer
             .content
             .iter()
@@ -5199,9 +5464,8 @@ fn creeper_light_mode_leaves_no_dark_panels() {
 }
 
 /// A row is the bulk of a list page: handing back only the page and the panel
-/// tones left every row band opaque, so the acrylic only showed in the gaps
-/// between them and the window looked unchanged. The rows go now, the pills
-/// and the key caps stay — a status pill carries a label that has to be read.
+/// tones left every row band opaque. The rows go; the pills and the key caps
+/// stay, because a status pill carries a label that has to be read.
 #[test]
 fn creeper_following_the_terminal_hands_back_the_list_rows() {
     use crate::core::config::models::{ThemeMode, UiPreset};
@@ -5242,9 +5506,9 @@ fn creeper_following_the_terminal_hands_back_the_list_rows() {
 /// The contract itself, not a proportion: after a frame, **no cell may still
 /// be painted with any colour the preset declared as a container fill**.
 ///
-/// The percentage test below cannot see a single missing layer — dropping
+/// The percentage test below cannot see a single missing layer. Dropping
 /// `nightlight`'s `selection` costs 6.9% of the frame and still clears an 88%
-/// floor — while a selected row would come back solid.
+/// floor, while a selected row comes back solid.
 #[test]
 fn every_preset_hands_back_every_container_fill() {
     use crate::core::config::models::{ThemeMode, UiPreset};
@@ -5264,10 +5528,10 @@ fn every_preset_hands_back_every_container_fill() {
             UiPreset::Paper => app.paper_palette().fills(),
             UiPreset::Shelf => app.shelf_palette().fills(),
         };
-        // The count is pinned rather than derived: a preset that forgets a
-        // layer still passes the loop below, because the loop can only check
-        // what was declared. Editing a palette's fills means editing this
-        // line too — that is the point, it is a contract and not a tautology.
+        // The count is pinned rather than derived: a preset that forgets a layer
+        // still passes the loop below, because the loop can only check what was
+        // declared. Editing a palette's fills means editing this line too, which
+        // is the point: it is a contract, not a tautology.
         let expected = match preset {
             UiPreset::Classic => 0,
             UiPreset::Creeper => 3,
@@ -5295,8 +5559,8 @@ fn every_preset_hands_back_every_container_fill() {
     }
 }
 
-/// Every preset hands its list rows back, not just its page and panels — and
-/// the rows are what a list page is made of.
+/// Every preset hands its list rows back, not just its page and panels. The rows
+/// are what a list page is made of.
 ///
 /// `shelf` keeps 8% on purpose: its selected card is a block of `ACCENT` and
 /// its cover square is a picture, and both are content rather than container.
@@ -5308,21 +5572,7 @@ fn every_preset_hands_back_its_list_rows() {
         let mut app = shelf_data_app(Page::Instances);
         app.config.state.ui.preset = preset;
         app.config.state.ui.theme_mode = ThemeMode::Terminal;
-        app.instances.apply(
-            (0..6)
-                .map(|index| InstanceSummary {
-                    id: Uuid::new_v4(),
-                    name: format!("Instance {index}"),
-                    version: "1.21.4".to_owned(),
-                    loader: "Forge".to_owned(),
-                    loader_version: Some("47.4.10".to_owned()),
-                    status: "ready".to_owned(),
-                    path: PathBuf::from(format!("D:/games/.minecraft/versions/Instance {index}")),
-                    launch_count: index,
-                    play_time_seconds: 60,
-                })
-                .collect(),
-        );
+        seed_instances(&mut app);
         let buffer = render_buffer(&app, 120, 40);
         let reset = buffer
             .content
@@ -5334,5 +5584,882 @@ fn every_preset_hands_back_its_list_rows() {
             "{preset:?} handed back only {reset} of {} cells",
             buffer.content.len()
         );
+    }
+}
+
+/// Lifting stops at the edge of a pill: text that was chosen against a solid
+/// fill must keep the ink that fill was built for.
+#[test]
+fn lifting_dim_text_skips_glyphs_that_sit_on_a_pill() {
+    use crate::core::config::models::{ThemeMode, UiPreset};
+
+    let mut app = shelf_data_app(Page::Instances);
+    app.config.state.ui.preset = UiPreset::Creeper;
+    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    seed_instances(&mut app);
+
+    // The other switch off, so the only difference between the two frames is
+    // the lift itself.
+    app.config.state.ui.lift_dim_text = false;
+    let flat = render_buffer(&app, 120, 40);
+    app.config.state.ui.lift_dim_text = true;
+    let lifted = render_buffer(&app, 120, 40);
+
+    let mut raised = 0;
+    for (after, before) in lifted.content.iter().zip(flat.content.iter()) {
+        if after.fg == before.fg {
+            continue;
+        }
+        assert_eq!(
+            before.bg,
+            ratatui::style::Color::Reset,
+            "a glyph on a solid fill was lifted: {:?} on {:?}",
+            before.symbol(),
+            before.bg
+        );
+        // A hair under 0.30 is the 8-bit quantisation, not a missed lift:
+        // the target is hit in linear light and then rounded to a channel.
+        assert!(
+            crate::tui::palette::relative_luminance(after.fg) >= 0.295,
+            "lifted to {after:?}, still under the floor"
+        );
+        raised += 1;
+    }
+    assert!(raised > 0, "nothing was lifted; the test proves nothing");
+}
+
+/// A dialog must not turn the acrylic off.
+///
+/// `跟随终端` hands the page's fills back to the terminal at the end of the frame;
+/// `Color::Reset` is the only background that lets a window's transparency
+/// through. Skipping that pass while an overlay is open turns the whole window
+/// solid. The punch runs between the page and the overlays, so the page keeps its
+/// acrylic and the dialog keeps its own background.
+#[test]
+fn a_dialog_keeps_the_page_transparent_under_follow_terminal() {
+    use crate::core::config::models::{ThemeMode, UiPreset};
+    use crate::tui::modal::{ConfirmAction, Modal};
+
+    let area = Rect::new(0, 0, 120, 40);
+    let prompt = "Clear the download cache?";
+    let card = Modal::confirm(prompt, ConfirmAction::ClearDownloadCache).area(area);
+
+    for preset in [
+        UiPreset::Creeper,
+        UiPreset::Nightlight,
+        UiPreset::Paper,
+        UiPreset::Shelf,
+    ] {
+        let mut app = App::new();
+        app.config.state.ui.preset = preset;
+        app.config.state.ui.theme_mode = ThemeMode::Terminal;
+        app.terminal_width = 120;
+        app.terminal_height = 40;
+
+        let before = see_through(&render_buffer(&app, 120, 40), area, card);
+        app.modal = Some(Modal::confirm(prompt, ConfirmAction::ClearDownloadCache));
+        let buffer = render_buffer(&app, 120, 40);
+        let after = see_through(&buffer, area, card);
+
+        assert!(
+            before > 100,
+            "{preset:?}: nothing was see-through to begin with: {before}"
+        );
+        assert!(
+            after * 10 >= before * 9,
+            "{preset:?}: the dialog turned the page solid: {after} of {before} cells kept the terminal"
+        );
+
+        // The dialog itself stays a slab: its text has to read over whatever is
+        // behind the window.
+        let solid = (card.top() + 1..card.bottom().saturating_sub(1))
+            .flat_map(|y| (card.left() + 1..card.right().saturating_sub(1)).map(move |x| (x, y)))
+            .filter(|(x, y)| buffer[(*x, *y)].bg != ratatui::style::Color::Reset)
+            .count();
+        assert!(
+            solid > 20,
+            "{preset:?}: the dialog slab went see-through: {solid}"
+        );
+    }
+}
+
+/// Cells whose background is the terminal's, still showing what is behind the
+/// window. `card` is the dialog, which is allowed to be solid.
+fn see_through(buffer: &ratatui::buffer::Buffer, area: Rect, card: Rect) -> usize {
+    (area.top()..area.bottom())
+        .flat_map(|y| (area.left()..area.right()).map(move |x| (x, y)))
+        .filter(|(x, y)| !card.contains(ratatui::layout::Position::new(*x, *y)))
+        .filter(|(x, y)| buffer[(*x, *y)].bg == ratatui::style::Color::Reset)
+        .count()
+}
+
+/// A light terminal gets the light sheet and still gives its fills up, which is
+/// the difference between `Terminal + light` and plain `Light`.
+#[test]
+fn a_light_terminal_flips_the_sheet_and_keeps_it_following() {
+    use crate::core::config::models::{ThemeMode, UiPreset};
+    use crate::tui::app::view::creeper::tone;
+    use crate::tui::app::view::sheet::Sheet;
+
+    let mut app = shelf_data_app(Page::Instances);
+    app.config.state.ui.preset = UiPreset::Creeper;
+    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+
+    app.set_terminal_background(Some(true));
+    assert_eq!(app.creeper_palette().bg, tone::LIGHT.bg, "light terminal");
+    assert!(
+        app.creeper_palette().follows_terminal(),
+        "a light terminal still follows: the fills must stay withdrawn"
+    );
+
+    app.set_terminal_background(Some(false));
+    assert_eq!(app.creeper_palette().bg, tone::DARK.bg, "dark terminal");
+
+    // The switch is part of the answer: with detection off, the reply is
+    // ignored even if one arrived.
+    app.config.state.ui.detect_terminal = false;
+    app.set_terminal_background(Some(true));
+    assert_eq!(app.creeper_palette().bg, tone::DARK.bg, "detection is off");
+
+    // Outside `跟随终端` the sheet is whatever the mode names.
+    app.config.state.ui.detect_terminal = true;
+    app.config.state.ui.theme_mode = ThemeMode::Light;
+    assert_eq!(app.creeper_palette().bg, tone::LIGHT.bg);
+    app.config.state.ui.theme_mode = ThemeMode::Dark;
+    assert_eq!(app.creeper_palette().bg, tone::DARK.bg);
+}
+
+/// The record column prints in the same ink as the list beside it.
+///
+/// `styled_detail_lines` takes the ink the preset paints a list row with. Handing
+/// every value to `Span::raw` leaves the terminal's default foreground, the one
+/// colour a preset cannot see, so `shelf`'s light page came out mid grey on white.
+/// The sheet's heading ink fixes the contrast but not the page: near-black text
+/// beside a list printed in `dim`. This reads the ink back off the frame rather
+/// than trusting the call site.
+#[test]
+fn the_shelf_record_column_prints_in_the_list_ink() {
+    use crate::core::config::models::ThemeMode;
+
+    let mut app = shelf_data_app(Page::DownloadCenter);
+    app.download_center.category = crate::tui::pages::download_center::DownloadCategory::Resource(
+        crate::core::resource::model::ResourceKind::Mod,
+    );
+    for mode in [ThemeMode::Dark, ThemeMode::Light] {
+        app.config.state.ui.theme_mode = mode;
+        let pal = app.shelf_palette();
+        let area = Rect::new(0, 0, app.terminal_width, app.terminal_height);
+        let main = app.layout_chrome(area).main;
+        let body = crate::tui::app::view::shelf::download_body(main);
+        let (_, pane) = app
+            .download_detail_areas(body)
+            .expect("120 columns keep the record column");
+
+        let backend = TestBackend::new(app.terminal_width, app.terminal_height);
+        let mut terminal = Terminal::new(backend).expect("create test terminal");
+        terminal.draw(|frame| app.draw(frame)).expect("draw app");
+        let buffer = terminal.backend().buffer();
+
+        let (mut dim, mut heading, mut fallback) = (0usize, 0usize, 0usize);
+        for y in pane.top()..pane.bottom() {
+            for x in pane.left()..pane.right() {
+                match buffer[(x, y)].fg {
+                    ink if ink == pal.dim => dim += 1,
+                    ink if ink == pal.text => heading += 1,
+                    ratatui::style::Color::Reset => fallback += 1,
+                    _ => {}
+                }
+            }
+        }
+        assert!(dim > 20, "{mode:?}: the record printed no values: {dim}");
+        assert_eq!(
+            heading, 0,
+            "{mode:?}: the record is still painted in the heading ink"
+        );
+        assert_eq!(
+            fallback, 0,
+            "{mode:?}: a cell fell back to the terminal default"
+        );
+    }
+}
+
+/// `跟随终端` on a light terminal swaps the palette; the shared `Theme` the
+/// record painter takes has to follow it, or the labels come from the dark
+/// sheet while the page under them is the light one.
+#[test]
+fn the_shelf_theme_follows_the_sheet_being_painted() {
+    use crate::core::config::models::ThemeMode;
+
+    let mut app = shelf_app(Page::Instances);
+    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    app.set_terminal_background(Some(true));
+    let light = app.shelf_palette();
+    assert_eq!(app.shelf_theme().fg, light.text, "light terminal ink");
+    assert_eq!(app.shelf_theme().dim, light.dim, "light terminal dim");
+
+    app.set_terminal_background(Some(false));
+    assert_eq!(
+        app.shelf_theme().fg,
+        app.shelf_palette().text,
+        "dark terminal"
+    );
+}
+
+/// The three readability switches only appear while they can change a frame:
+/// a toggle that does nothing is worse than no toggle.
+#[test]
+fn the_terminal_readability_rows_appear_only_under_the_terminal_mode() {
+    use crate::core::config::models::ThemeMode;
+    use crate::tui::pages::settings::{SettingId, SettingsCategory};
+
+    let mut app = shelf_app(Page::Settings);
+    let ids = |app: &App| {
+        app.settings_rows_for(SettingsCategory::Appearance)
+            .into_iter()
+            .map(|row| row.id)
+            .collect::<Vec<_>>()
+    };
+
+    app.config.state.ui.theme_mode = ThemeMode::Dark;
+    let dark = ids(&app);
+    for id in [SettingId::LiftDimText, SettingId::DetectTerminal] {
+        assert!(
+            !dark.contains(&id),
+            "{id:?} is offered on a dark sheet, where it cannot change anything"
+        );
+    }
+
+    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    let terminal = ids(&app);
+    for id in [SettingId::LiftDimText, SettingId::DetectTerminal] {
+        assert!(terminal.contains(&id), "{id:?} is missing under 跟随终端");
+    }
+}
+
+/// Each switch is a real toggle, not a label: flipping it changes the value it
+/// claims to control.
+#[test]
+fn the_terminal_readability_switches_toggle_and_persist() {
+    use crate::core::config::models::ThemeMode;
+    use crate::tui::pages::settings::SettingId;
+
+    let mut app = shelf_app(Page::Settings);
+    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+
+    for (id, read) in [
+        (
+            SettingId::LiftDimText,
+            (|app: &App| app.config.state.ui.lift_dim_text) as fn(&App) -> bool,
+        ),
+        (SettingId::DetectTerminal, |app: &App| {
+            app.config.state.ui.detect_terminal
+        }),
+    ] {
+        let before = read(&app);
+        app.toggle_setting(id);
+        assert_ne!(read(&app), before, "{id:?} did not flip");
+        app.toggle_setting(id);
+        assert_eq!(read(&app), before, "{id:?} did not flip back");
+    }
+}
+
+/// `classic` opts out by declaring no fills. Lifting its ink anyway would
+/// rewrite the one preset that never asked for any of this.
+#[test]
+fn classic_ignores_the_lift_switch() {
+    use crate::core::config::models::{ThemeMode, UiPreset};
+
+    let mut app = shelf_app(Page::Instances);
+    app.config.state.ui.preset = UiPreset::Classic;
+    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+
+    app.config.state.ui.lift_dim_text = false;
+    let plain = render_buffer(&app, 120, 40);
+
+    app.config.state.ui.lift_dim_text = true;
+    let tuned = render_buffer(&app, 120, 40);
+
+    for (after, before) in tuned.content.iter().zip(plain.content.iter()) {
+        assert_eq!(
+            (after.fg, after.bg),
+            (before.fg, before.bg),
+            "classic changed at {:?}",
+            before.symbol()
+        );
+    }
+}
+
+/// `原版` on screen, `vanilla` on the wire: the picker stores `display|value`
+/// and the loader parser reads the half after the bar.
+#[test]
+fn the_create_form_names_the_loader_and_still_submits_its_code() {
+    use crate::core::config::models::Language;
+
+    let mut app = shelf_app(Page::Instances);
+    app.i18n = crate::i18n::I18n::new(Language::SimplifiedChinese);
+    app.open_create_form_with_version("1.21.4".into());
+
+    let text = render_text(&app, 120, 40).replace(' ', "");
+    assert!(
+        text.contains("加载器:原版"),
+        "the loader field still prints the raw code:\n{text}"
+    );
+    // The version field's own label leans on the same word.
+    assert!(
+        !text.contains("Vanilla") && !text.contains("vanilla"),
+        "an untranslated `vanilla` is still on screen:\n{text}"
+    );
+
+    // The form hands the parser the code, not the label.
+    app.open_selection_picker(3);
+    let options = match app.modal.as_ref() {
+        Some(crate::tui::modal::Modal::Form {
+            selection_options, ..
+        }) => selection_options[&3].clone(),
+        _ => panic!("the loader field lost its picker"),
+    };
+    assert!(
+        options.contains(&"原版|vanilla".to_owned()),
+        "the picker offers {options:?}"
+    );
+    app.create_selection_changed(3);
+    assert_eq!(
+        app.current_create_loader(),
+        Some(("1.21.4".to_owned(), None)),
+        "the label did not parse back to vanilla"
+    );
+}
+
+/// The target picker names the instance. A UUID in that row tells nobody which
+/// instance they are picking.
+#[tokio::test]
+async fn the_download_target_picker_shows_names_and_submits_ids() {
+    use crate::core::resource::model::ResourceKind;
+    use crate::tui::pages::download_center::DownloadCategory;
+
+    let mut app = shelf_data_app(Page::DownloadCenter);
+    app.download_center.category = DownloadCategory::Resource(ResourceKind::Mod);
+    app.open_download_target_picker();
+
+    let options = match app.modal.as_ref() {
+        Some(crate::tui::modal::Modal::Form {
+            selection_options, ..
+        }) => selection_options[&0].clone(),
+        _ => panic!("no target picker"),
+    };
+    for (option, item) in options.iter().zip(&app.instances.items) {
+        let (display, value) = option.rsplit_once('|').expect("display|id");
+        assert_eq!(display, item.name, "the row is not the instance name");
+        assert_eq!(value, item.id.to_string(), "the value is not the id");
+    }
+
+    let picked = options[1].clone();
+    let expected = app.instances.items[1].id;
+    app.submit_form(
+        crate::tui::modal::FormAction::SelectResourceTarget,
+        vec![picked],
+    )
+    .expect("select target");
+    assert_eq!(app.download_target_id, Some(expected));
+}
+
+/// A modpack builds an instance of its own: there is no target to compare its
+/// files against, so the compatibility column does not apply to it.
+#[test]
+fn the_modpack_file_table_drops_the_compatibility_column() {
+    use crate::core::config::models::Language;
+    use crate::core::resource::model::{
+        ReleaseChannel, ResourceFile, ResourceKind, ResourceSource,
+    };
+    use crate::tui::pages::download_center::DownloadCategory;
+
+    let file = |name: &str| ResourceFile {
+        source: ResourceSource::Modrinth,
+        project_id: "p".into(),
+        file_id: format!("f-{name}"),
+        name: name.to_owned(),
+        download_url: String::new(),
+        sha1: None,
+        size: Some(2 * 1024 * 1024),
+        game_versions: vec!["1.21.4".into()],
+        loaders: vec!["fabric".into()],
+        channel: ReleaseChannel::Release,
+        dependencies: Vec::new(),
+    };
+    let mut app = shelf_data_app(Page::DownloadCenter);
+    app.i18n = crate::i18n::I18n::new(Language::SimplifiedChinese);
+    app.resource_detail = Some("p".into());
+    app.resource_detail_project = app.resource_projects.first().cloned();
+    app.resource_files = vec![file("alpha-1.0.jar")];
+
+    let render = |app: &App| render_text(app, 120, 40).replace(' ', "");
+
+    app.download_center.category = DownloadCategory::Resource(ResourceKind::Modpack);
+    let modpack = render(&app);
+    assert!(
+        !modpack.contains("兼容性"),
+        "the modpack list still prints a compatibility column:\n{modpack}"
+    );
+    assert!(
+        modpack.contains("发布类型"),
+        "the channel column lost its header:\n{modpack}"
+    );
+
+    app.download_center.category = DownloadCategory::Resource(ResourceKind::Mod);
+    let module = render(&app);
+    assert!(
+        module.contains("兼容性"),
+        "a mod list without a target has nothing to compare, but the column is\
+         still the reason the table exists:\n{module}"
+    );
+    assert!(
+        !module.contains("频道"),
+        "`频道` reads as a TV channel; `发布类型` is what the column means:\n{module}"
+    );
+}
+
+/// A confirm prompt wraps instead of being cut. Truncated to one line, a
+/// destructive action hides exactly the path or name the reader is being asked
+/// about.
+#[test]
+fn a_long_confirm_prompt_wraps_instead_of_being_cut() {
+    use crate::core::config::models::{Language, UiPreset};
+
+    for preset in UiPreset::ALL {
+        let mut app = shelf_data_app(Page::Settings);
+        app.config.state.ui.preset = preset;
+        app.i18n = crate::i18n::I18n::new(Language::SimplifiedChinese);
+        app.open_add_to_path_confirmation();
+
+        // 108 columns is where the report came from: the dialog is 76 wide and
+        // this sentence is far longer than that.
+        let flat = render_text(&app, 108, 40).replace([' ', '\n'], "");
+        assert!(
+            flat.contains("新开的终端才会生效"),
+            "{preset:?} lost the tail of the prompt:\n{flat}"
+        );
+    }
+}
+
+/// A verdict with one finding, enough to exercise every section of the card.
+fn sample_diagnosis() -> crate::core::diagnose::Diagnosis {
+    use crate::core::diagnose::finding::{EvidenceLine, Finding};
+    use crate::core::diagnose::{Diagnosis, ExitKind, Facts, LaunchStage, RuleId, Source};
+
+    Diagnosis {
+        stage: LaunchStage::InGame,
+        exit: ExitKind::Crashed,
+        primary: Some(Finding {
+            rule: RuleId::OutOfMemory,
+            captures: Vec::new(),
+            evidence: vec![EvidenceLine {
+                line: 3,
+                text: "[stdout] java.lang.OutOfMemoryError: Java heap space".to_owned(),
+            }],
+            score: 53,
+        }),
+        others: Vec::new(),
+        keywords: Vec::new(),
+        facts: Facts {
+            instance_name: "survival".to_owned(),
+            minecraft_version: "1.21.1".to_owned(),
+            loader: "fabric 0.16.9".to_owned(),
+            ..Facts::default()
+        },
+        sources: vec![Source {
+            path: "game.log".to_owned(),
+            present: true,
+            bytes: 1024,
+        }],
+        unknown: false,
+    }
+}
+
+/// The verdict lives in the body, not in the border.
+///
+/// A sentence is wider than a border title, so the copy on the border arrives cut
+/// in half (`…IFakeIResourceManager$V1，通…`) while the whole of it sits ten rows
+/// below.
+#[test]
+fn the_card_title_carries_the_name_and_not_the_verdict() {
+    let mut app = App::new();
+    app.terminal_width = 100;
+    app.terminal_height = 30;
+    app.diagnosis = Some(sample_diagnosis());
+    app.diagnosis_open = true;
+
+    let text = render_text(&app, 100, 30);
+    let title = app.i18n.text("diagnose.title");
+    let row = text
+        .lines()
+        .find(|row| row.contains(&title))
+        .unwrap_or_else(|| panic!("no title row in:\n{text}"));
+    let verdict = app.i18n.text("diagnose.reason.out_of_memory");
+    assert!(
+        !row.contains(&verdict),
+        "the verdict is printed twice: {row:?}"
+    );
+}
+
+/// The stage and the facts have to survive the trip through the border.
+///
+/// A title centred over right-aligned facts meets them in the middle on a
+/// 72-column card, and the facts lose their head: `未进游戏 · 1.20.1 · Forge
+/// 47.4.10` arrives as `戏 · 1.20.1 · …`.
+#[test]
+fn the_card_title_keeps_the_stage_and_the_facts_whole() {
+    let mut app = App::new();
+    app.diagnosis = Some(sample_diagnosis());
+    app.diagnosis_open = true;
+
+    let text = render_text(&app, 120, 40);
+    let title = app.i18n.text("diagnose.title");
+    let row = text
+        .lines()
+        .find(|row| row.contains(&title))
+        .unwrap_or_else(|| panic!("no title row in://n{text}"));
+    let context = app.diagnosis_context();
+    assert!(
+        row.contains(&context),
+        "the facts were clipped: {row:?}\nwanted: {context:?}"
+    );
+}
+
+/// The card is shared by five presets; none of them may draw it off-screen or
+/// print a raw key when a translation is missing.
+#[test]
+fn every_preset_draws_the_diagnosis_card_inside_the_screen() {
+    use crate::core::config::models::UiPreset;
+
+    for preset in [
+        UiPreset::Classic,
+        UiPreset::Creeper,
+        UiPreset::Nightlight,
+        UiPreset::Paper,
+        UiPreset::Shelf,
+    ] {
+        for (width, height) in [(120u16, 40u16), (80, 24)] {
+            let mut app = App::new();
+            app.page = Page::Logs;
+            app.config.state.ui.preset = preset;
+            app.motion = false;
+            app.terminal_width = width;
+            app.terminal_height = height;
+            app.diagnosis = Some(sample_diagnosis());
+            app.diagnosis_open = true;
+
+            let text = render_text(&app, width, height);
+            assert!(
+                text.contains(&app.i18n.text("diagnose.section.conclusion")),
+                "{preset:?} at {width}x{height} did not draw the card:/n{text}"
+            );
+            assert_eq!(
+                raw_key_in(&text),
+                None,
+                "{preset:?} at {width}x{height} printed a raw key:\n{text}"
+            );
+            // The remedy row carries the cap that runs it. OutOfMemory's only
+            // remedy is "raise the memory", whose cap is `M`.
+            assert!(
+                text.contains("[M]"),
+                "{preset:?} at {width}x{height} did not print the remedy cap:\n{text}"
+            );
+
+            let rect = app.diagnosis_rect(Rect::new(0, 0, width, height));
+            assert!(
+                rect.right() <= width && rect.bottom() <= height,
+                "{preset:?} at {width}x{height}: card {rect:?} escapes the screen"
+            );
+            assert!(rect.width >= 20 && rect.height >= 5);
+        }
+    }
+}
+
+/// `F3` is the only opener, and it must not react when there is nothing to show.
+#[test]
+fn f3_is_wired_and_the_card_swallows_q() {
+    use crate::tui::command::{Command, Mode, from_key};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    let key = |code| KeyEvent::new(code, KeyModifiers::NONE);
+    assert_eq!(
+        from_key(Mode::Normal, Page::Logs, key(KeyCode::F(3))),
+        Command::Diagnose
+    );
+    assert_eq!(
+        from_key(Mode::Diagnosis, Page::Logs, key(KeyCode::Char('q'))),
+        Command::Nothing,
+        "q would quit the launcher, not just close the card"
+    );
+    assert_eq!(
+        from_key(Mode::Diagnosis, Page::Logs, key(KeyCode::Esc)),
+        Command::Back
+    );
+    assert_eq!(
+        from_key(Mode::Diagnosis, Page::Logs, key(KeyCode::F(1))),
+        Command::Help,
+        "the card prints F1 as help, so F1 must open it"
+    );
+
+    let mut app = App::new();
+    app.toggle_diagnosis();
+    assert!(!app.diagnosis_open, "no verdict, nothing to open");
+
+    app.diagnosis = Some(sample_diagnosis());
+    app.toggle_diagnosis();
+    assert!(app.diagnosis_open);
+    app.toggle_diagnosis();
+    assert!(!app.diagnosis_open);
+}
+
+/// The key row is chrome: it has to sit on the last body row whatever the
+/// content height, and the text viewport must stop above it.
+#[test]
+fn the_key_row_sits_on_the_last_body_row() {
+    let (width, height) = (120u16, 40u16);
+    let mut app = App::new();
+    app.page = Page::Logs;
+    app.terminal_width = width;
+    app.terminal_height = height;
+    app.diagnosis = Some(sample_diagnosis());
+    app.diagnosis_open = true;
+
+    let area = Rect::new(0, 0, width, height);
+    let layout = app.diagnosis_layout(area);
+    assert_eq!(
+        layout.text.bottom(),
+        layout.body.bottom() - 1,
+        "content must stop one row above the key row"
+    );
+
+    let text = render_text(&app, width, height);
+    let rows = text.lines().collect::<Vec<_>>();
+    let key_row = rows[usize::from(layout.body.bottom() - 1)];
+    let keys = app.i18n.text("diagnose.keys");
+    let prefix = keys.chars().take(12).collect::<String>();
+    assert!(
+        key_row.contains(&prefix),
+        "no key row at row {}: {key_row:?}",
+        layout.body.bottom() - 1
+    );
+    let above = rows[usize::from(layout.body.bottom() - 2)];
+    assert!(
+        !above.contains(&prefix),
+        "the key row also leaked into the content"
+    );
+}
+
+/// Where the card's ghosting does *not* come from.
+///
+/// A player reported fragments of the previous line left inside the card while
+/// scrolling (a `toms` in the middle of the evidence, tails of long lines at
+/// the right edge); resizing the window cleared them. This test rules out the
+/// card itself: every frame is a complete buffer, and the diff emits every cell
+/// whose content changed, so the artefacts are the terminal's to explain. It is
+/// here so the next investigation starts from that fact instead of re-deriving
+/// it.
+#[test]
+fn the_card_diff_repaints_every_changed_cell() {
+    use crate::core::diagnose::Source;
+
+    let mut app = App::new();
+    app.config.state.ui.theme_mode = crate::core::config::models::ThemeMode::Terminal;
+    app.terminal_width = 100;
+    app.terminal_height = 30;
+    let mut diagnosis = sample_diagnosis();
+    // A tab, because the loader's own evidence line has one, plus enough
+    // sources to make the card scroll.
+    diagnosis.primary.as_mut().expect("primary").evidence = vec![
+        crate::core::diagnose::finding::EvidenceLine {
+            line: 3,
+            text: "[stdout] \tMod ID: 'exposure', Requested by: 'exposure_camcorder'".to_owned(),
+        },
+        crate::core::diagnose::finding::EvidenceLine {
+            line: 4,
+            text: "[stdout] Expected range: '[1.9,)', Actual version: '[MISSING]'".to_owned(),
+        },
+    ];
+    diagnosis.sources = (0..40)
+        .map(|index| Source {
+            path: format!("source-{index}.log"),
+            present: true,
+            bytes: 1024,
+        })
+        .collect();
+    app.diagnosis = Some(diagnosis);
+    app.diagnosis_open = true;
+
+    // Every frame starts from a clean buffer, so two fresh renders are exactly
+    // the two buffers `Terminal::draw` diffs against each other.
+    let mut before = render_buffer(&app, 100, 30);
+    let max_scroll = app.diagnosis_max_scroll();
+    assert!(max_scroll > 4, "the fixture must scroll: {max_scroll}");
+    for offset in 1..=max_scroll {
+        app.scroll_diagnosis(1);
+        assert_eq!(app.diagnosis_scroll, offset);
+        let after = render_buffer(&app, 100, 30);
+        let painted: std::collections::HashSet<(u16, u16)> = after
+            .diff(&before)
+            .iter()
+            .map(|(x, y, _)| (*x, *y))
+            .collect();
+        let lost: Vec<String> = (0..30u16)
+            .flat_map(|y| (0..100u16).map(move |x| (x, y)))
+            .filter(|&(x, y)| after[(x, y)] != before[(x, y)] && !painted.contains(&(x, y)))
+            .map(|(x, y)| {
+                format!(
+                    "({x},{y}) {:?} -> {:?}",
+                    before[(x, y)].symbol(),
+                    after[(x, y)].symbol()
+                )
+            })
+            .collect();
+        assert!(
+            lost.is_empty(),
+            "scroll {offset}: {} cells changed but were never repainted: {lost:?}",
+            lost.len()
+        );
+        before = after;
+    }
+
+    assert_eq!(app.diagnosis_scroll, max_scroll);
+}
+
+/// No cell of the card may hold a control character.
+///
+/// `Buffer::set_stringn` filters them and `Paragraph` does not, so a tab is
+/// stored as a cell symbol and printed as a tab stop. The rest of the row is
+/// then drawn outside the card's border, in cells no later frame repaints.
+#[test]
+fn the_card_prints_no_control_characters() {
+    use crate::core::diagnose::finding::EvidenceLine;
+
+    let mut app = App::new();
+    app.terminal_width = 131;
+    app.terminal_height = 38;
+    let mut diagnosis = sample_diagnosis();
+    diagnosis.primary.as_mut().expect("primary").evidence = vec![
+        EvidenceLine {
+            line: 1,
+            text: "[stdout] [14:54:39] [main/ERROR] [ne.mi.fm.lo.ModSorter/LOADING]: Missing or unsupported mandatory dependencies:".to_owned(),
+        },
+        EvidenceLine {
+            line: 2,
+            text: "[stdout] \tMod ID: 'exposure', Requested by: 'exposure_camcorder', Expected range: '[1.9,)', Actual version: '[MISSING]'"
+                .to_owned(),
+        },
+    ];
+    app.diagnosis = Some(diagnosis);
+    app.diagnosis_open = true;
+
+    let buffer = render_buffer(&app, 131, 38);
+    let rect = app.diagnosis_rect(Rect::new(0, 0, 131, 38));
+    let mut offenders = Vec::new();
+    for y in rect.top()..rect.bottom() {
+        for x in rect.left()..rect.right() {
+            let symbol = buffer[(x, y)].symbol();
+            if symbol.chars().any(char::is_control) {
+                offenders.push(format!("({x},{y}) {symbol:?}"));
+            }
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "the card hands control characters to the terminal: {offenders:?}"
+    );
+}
+
+/// Closing the card is not navigation: the page underneath stays put.
+#[test]
+fn escape_closes_the_card_without_leaving_the_page() {
+    let mut app = App::new();
+    app.page = Page::Logs;
+    app.diagnosis = Some(sample_diagnosis());
+    app.diagnosis_open = true;
+    app.go_back();
+    assert!(!app.diagnosis_open);
+    assert_eq!(app.page, Page::Logs);
+}
+
+/// The arrows belong to the card while it is up: the list behind it must not
+/// move, or the player scrolls two things at once.
+#[test]
+fn the_up_key_scrolls_the_card_not_the_list_behind_it() {
+    use crate::core::diagnose::Source;
+    use crate::tui::command::Command;
+
+    let mut app = App::new();
+    app.page = Page::Instances;
+    app.terminal_width = 80;
+    app.terminal_height = 24;
+    app.instances.focused = 3;
+
+    let mut diagnosis = sample_diagnosis();
+    diagnosis.sources = (0..40)
+        .map(|index| Source {
+            path: format!("source-{index}.log"),
+            present: true,
+            bytes: 1024,
+        })
+        .collect();
+    app.diagnosis = Some(diagnosis);
+    app.diagnosis_open = true;
+    app.diagnosis_scroll = app.diagnosis_max_scroll();
+    assert!(
+        app.diagnosis_scroll > 0,
+        "the fixture must overflow the card"
+    );
+
+    app.run_command(Command::PrevRow);
+    assert_eq!(app.diagnosis_scroll, app.diagnosis_max_scroll() - 1);
+    assert_eq!(app.instances.focused, 3, "the instance list did not move");
+
+    app.run_command(Command::NextRow);
+    assert_eq!(app.diagnosis_scroll, app.diagnosis_max_scroll());
+    assert_eq!(app.instances.focused, 3);
+}
+
+/// The log page shows `诊断：<cause>` when a verdict exists and nothing when it
+/// does not. Three presets draw it in their log panel; `paper` and `shelf` have
+/// no bottom bar there and leave the verdict to the status bar and `F3`, so for
+/// them only the empty state is asserted.
+#[test]
+fn the_log_page_badge_appears_only_with_a_verdict() {
+    use crate::core::config::models::UiPreset;
+
+    for preset in [
+        UiPreset::Classic,
+        UiPreset::Creeper,
+        UiPreset::Nightlight,
+        UiPreset::Paper,
+        UiPreset::Shelf,
+    ] {
+        let mut app = App::new();
+        app.page = Page::Logs;
+        app.config.state.ui.preset = preset;
+        app.motion = false;
+        app.terminal_width = 120;
+        app.terminal_height = 40;
+
+        let empty = render_text(&app, 120, 40);
+        assert!(
+            !empty.contains(&app.i18n.text("diagnose.badge").replace("{reason}", "")),
+            "{preset:?} printed a badge with no verdict"
+        );
+
+        app.diagnosis = Some(sample_diagnosis());
+        let badge = app.diagnosis_badge().expect("badge");
+        let with_verdict = render_text(&app, 120, 40);
+        if matches!(preset, UiPreset::Paper | UiPreset::Shelf) {
+            assert!(
+                !with_verdict.contains(&badge),
+                "{preset:?} has no log panel bar; the badge should not appear there:\n{with_verdict}"
+            );
+        } else {
+            assert!(
+                with_verdict.contains(&badge),
+                "{preset:?} lost the log-page badge:\n{with_verdict}"
+            );
+        }
     }
 }

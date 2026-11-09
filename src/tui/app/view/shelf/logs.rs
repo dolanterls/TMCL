@@ -1,8 +1,8 @@
-//! `shelf` logs: one line per entry, level spelled as a letter.
+//! `shelf` logs: level spelled as a letter, body wrapped to the page.
 //!
-//! The page keeps the launcher's filter field and follow state; the body is the
-//! buffer as it arrived, truncated to the page instead of wrapped — a log line
-//! that reflows reads as two entries.
+//! The page keeps the launcher's filter field and follow state. Long lines wrap
+//! rather than being cut at the edge: a mod path or a stack frame that stops
+//! mid-word tells the reader nothing.
 
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect};
@@ -38,9 +38,6 @@ impl App {
         }
         self.hitmap.scroll(area, ScrollTarget::LogLines);
 
-        let lines = self
-            .logs
-            .matching_lines(self.log_filter.as_deref().unwrap_or(""));
         let instance = self
             .instances
             .current_id
@@ -74,11 +71,16 @@ impl App {
             pal,
         );
         let body = self.shelf_log_area(area);
+        let query = self.log_filter.as_deref().unwrap_or("");
+        // One column is kept for the rail; a log line that ends under the thumb
+        // looks truncated by the scrollbar rather than by the width.
+        let text_width = body.width.saturating_sub(1);
+        let window = self.logs.window(query, text_width, body.height, false);
         self.shelf_log_search(
             frame,
             Rect::new(area.x, area.y.saturating_add(2), area.width, 1),
             pal,
-            lines.len(),
+            &window,
             body.height,
         );
         widgets::rule(
@@ -90,7 +92,7 @@ impl App {
         if body.height == 0 || body.width < 4 {
             return;
         }
-        if lines.is_empty() {
+        if window.total_rows == 0 {
             let text = self.i18n.text("logs.empty");
             frame.render_widget(
                 Paragraph::new(Span::styled(
@@ -102,26 +104,22 @@ impl App {
             return;
         }
 
-        // One column is kept for the rail; a log line that ends under the thumb
-        // looks truncated by the scrollbar rather than by the width.
-        let text_width = body.width.saturating_sub(1);
-        let rows = usize::from(body.height);
-        let max_offset = lines.len().saturating_sub(rows);
-        let bottom = self.logs.scroll_offset().min(max_offset);
-        let start = max_offset.saturating_sub(bottom);
-        let query = self.log_filter.as_deref().unwrap_or("");
-        for (row, line) in lines.iter().skip(start).take(rows).enumerate() {
-            let y = body
-                .y
-                .saturating_add(u16::try_from(row).unwrap_or(u16::MAX));
-            let rect = Rect::new(body.x, y, text_width, 1);
-            frame.render_widget(Paragraph::new(self.shelf_log_line(line, pal, query)), rect);
-        }
+        let rows = window
+            .lines
+            .iter()
+            .map(|line| self.shelf_log_line(line, pal, query))
+            .collect::<Vec<_>>();
+        frame.render_widget(
+            Paragraph::new(rows)
+                .wrap(Wrap { trim: false })
+                .scroll((u16::try_from(window.skip_rows).unwrap_or(u16::MAX), 0)),
+            Rect::new(body.x, body.y, text_width, body.height),
+        );
         crate::tui::app::view::margin_scrollbar(
             frame,
             body,
-            lines.len(),
-            start,
+            window.total_rows,
+            window.from_row,
             pal.faint,
             pal.accent,
             pal.bg,
@@ -134,19 +132,18 @@ impl App {
         frame: &mut Frame<'_>,
         area: Rect,
         pal: &Palette,
-        total: usize,
+        window: &crate::tui::pages::log::LogWindow,
         viewport: u16,
     ) {
         let target = SearchTarget::Logs;
         let focused = matches!(self.search.as_ref(), Some(state) if state.target == target);
         let filter = self.log_filter.as_deref().unwrap_or("");
         let label = self.i18n.text("common.search");
-        let position = if total == 0 {
+        let position = if window.total_rows == 0 {
             String::new()
         } else {
-            let max = total.saturating_sub(usize::from(viewport));
-            let bottom = self.logs.scroll_offset().min(max);
-            format!("{} / {total}", total.saturating_sub(bottom))
+            let last = (window.from_row + usize::from(viewport)).min(window.total_rows);
+            format!("{last} / {}", window.total_rows)
         };
         let position_width = palette::width(&position) as u16;
         let budget = area
@@ -195,7 +192,7 @@ impl App {
         self.hitmap.add(area, Action::search(target));
     }
 
-    /// `▌E boot failed` — the letter is the level, the rest is the line.
+    /// `▌E boot failed`: the letter is the level, the rest is the line.
     fn shelf_log_line(&self, line: &str, pal: &Palette, query: &str) -> Line<'static> {
         let (level, body) = split_log_level(line);
         let mut spans = Vec::with_capacity(4);

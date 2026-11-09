@@ -1,10 +1,9 @@
 //! Typesetting primitives shared by every `paper` page.
 //!
-//! A page is only allowed to place text and ask for these six things: a sheet,
-//! a hairline, a section head, a margin bar, a row of right-anchored columns and
-//! a footnote. Keeping the arithmetic here is what stops each page from growing
-//! its own idea of where a rule sits or how wide the status column is — the
-//! failure mode the earlier presets already paid for.
+//! A page places text and asks for six things: a sheet, a hairline, a section
+//! head, a margin bar, a row of right-anchored columns and a footnote. The
+//! arithmetic stays here, so no page grows its own idea of where a rule sits or
+//! how wide the status column is.
 
 use super::*;
 
@@ -125,8 +124,8 @@ pub(in crate::tui::app) fn columns(area: Rect, widths: &[u16], gap: u16) -> Vec<
     let mut right = area.right();
     let mut previous = 0u16;
     for width in widths {
-        // A zero-width column occupies nothing, so it neither takes a gutter
-        // nor moves the anchor: it is simply reported at the current edge.
+        // A zero-width column occupies nothing: it takes no gutter, moves no
+        // anchor, and is reported at the current edge.
         if *width == 0 {
             rects.push(Rect::new(right, area.y, 0, area.height));
             continue;

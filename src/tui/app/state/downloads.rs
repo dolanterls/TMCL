@@ -78,7 +78,7 @@ impl App {
     /// `classic` keeps its prompt dialog, so both rows collapse to zero height
     /// and every caller (render, mouse, detail geometry) shares the offsets.
     /// The third slot keeps its place so existing indices stay valid; the
-    /// version chips it used to hold are gone in both presets.
+    /// version chips it held are gone from both presets.
     pub(in crate::tui::app) fn download_page_sections_with_filter_rows(
         area: Rect,
         search_rows: u16,
@@ -123,9 +123,9 @@ impl App {
         self.i18n.text(key)
     }
 
-    /// Localized release channel of a project file. The table used to print
-    /// `ReleaseChannel` through `Debug`, so a Chinese UI showed `Stable` and
-    /// `Beta` in English and leaked the enum's spelling into the layout.
+    /// Localized release channel of a project file. Printing the enum through
+    /// `Debug` showed `Stable` and `Beta` in English to a Chinese UI and put the
+    /// variant's spelling into the layout.
     pub(in crate::tui::app) fn release_channel_label(
         &self,
         channel: crate::core::resource::model::ReleaseChannel,
@@ -432,6 +432,31 @@ impl App {
         }
     }
 
+    /// Drop everything that belonged to the previous query.
+    ///
+    /// The page renders `resource_projects` and `resource_detail` directly, so a
+    /// stale list is painted under the new search text, and an open detail hides
+    /// the list entirely. Every path that changes the category, the source or the
+    /// query has to come through here; writing the four fields by hand is how the
+    /// diagnosis remedy ended up showing yesterday's results.
+    pub(in crate::tui::app) fn reset_resource_view(&mut self) {
+        self.search = None;
+        self.search_backup = None;
+        self.resource_projects.clear();
+        self.resource_files.clear();
+        self.resource_detail = None;
+        self.resource_detail_project = None;
+        self.download_center.selected = 0;
+        self.download_center.page = 0;
+        self.download_center.total = 0;
+        self.download_center.loading = false;
+        self.download_center.error = None;
+        // Bump, do not zero: a response already in flight belongs to the old
+        // query and must fail the `request_id ==` check in `dispatch`.
+        self.download_center.request_id = self.download_center.request_id.saturating_add(1);
+        self.reset_detail_scroll();
+    }
+
     pub(in crate::tui::app) fn change_download_category(&mut self, delta: isize) {
         let current = DownloadCategory::ALL
             .iter()
@@ -440,15 +465,9 @@ impl App {
         let next = move_bounded(current, DownloadCategory::ALL.len(), delta);
         self.download_center
             .set_category(DownloadCategory::ALL[next]);
-        self.search = None;
-        self.search_backup = None;
-        self.resource_projects.clear();
-        self.resource_files.clear();
-        self.resource_detail = None;
-        self.resource_detail_project = None;
+        self.reset_resource_view();
         self.version_selected = 0;
         self.version_scroll = 0;
-        self.reset_detail_scroll();
         self.refresh_download_center();
     }
 
@@ -469,12 +488,7 @@ impl App {
             return;
         }
         self.download_center.set_source(source);
-        self.search = None;
-        self.search_backup = None;
-        self.resource_projects.clear();
-        self.resource_files.clear();
-        self.resource_detail = None;
-        self.resource_detail_project = None;
+        self.reset_resource_view();
         self.spawn_resource_search();
     }
 }

@@ -12,10 +12,10 @@ use crate::core::cover::Cover;
 
 /// Paints `cover` into the largest centred square that fits `area`.
 ///
-/// Every cell outside the square is filled with `background` first: a cover is
-/// allowed to be smaller than its slot, but a stale glyph from the previous
-/// frame is not. Returns the rectangle that was actually painted, so a caller
-/// can register a click target without recomputing the geometry.
+/// Every cell outside the square is filled with `background` first: a cover may
+/// be smaller than its slot, but a stale glyph from the previous frame may not.
+/// Returns the rectangle painted, so a caller can register a click target without
+/// recomputing the geometry.
 pub fn render(buffer: &mut Buffer, area: Rect, cover: &Cover, background: Color) -> Rect {
     if area.is_empty() {
         return Rect::default();

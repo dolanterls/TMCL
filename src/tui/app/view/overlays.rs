@@ -1,10 +1,8 @@
 //! Detail and help overlays shared by every preset.
 //!
-//! The geometry is already shared (`help_rect` / `chrome::popup`), but the
-//! painters used to live in `view/classic` and read `self.theme` directly, so a
-//! preset outside that folder could not borrow them. They now take the theme
-//! they should paint with: classic passes its own, shelf passes its palette,
-//! and the copy stays identical.
+//! The painters take the theme they should paint with rather than reading
+//! `self.theme`: classic passes its own, shelf passes its palette, and the copy
+//! stays identical.
 
 use ratatui::Frame;
 use ratatui::style::{Modifier, Style};
@@ -61,7 +59,7 @@ impl App {
         );
         self.hitmap
             .scroll_on(Layer::Detail, inner, ScrollTarget::DetailBody);
-        let lines = self.styled_detail_lines(theme);
+        let lines = self.styled_detail_lines(theme, theme.fg);
         // Wrapping makes a row occupy more than one screen line; ask the same
         // painter the wheel uses so draw and input cannot disagree.
         let max_scroll = self.detail_max_scroll();
@@ -74,7 +72,18 @@ impl App {
         );
     }
 
-    pub(in crate::tui::app) fn styled_detail_lines(&self, theme: Theme) -> Vec<Line<'static>> {
+    /// The record, typeset for `theme`, with its values in `body_ink`.
+    ///
+    /// `body_ink` is the ink the preset paints a list row with. Taking it as an
+    /// argument rather than reading `theme.fg` keeps the panel looking like part
+    /// of the page: `shelf` prints its browsing lists in `dim`, and a record in
+    /// heading ink would not match them. `classic` passes its `fg`, the terminal
+    /// default its rows also use.
+    pub(in crate::tui::app) fn styled_detail_lines(
+        &self,
+        theme: Theme,
+        body_ink: Color,
+    ) -> Vec<Line<'static>> {
         let raw = self
             .detail_lines()
             .into_iter()
@@ -86,23 +95,29 @@ impl App {
             .map(|label| Line::from(label).width())
             .max()
             .unwrap_or(0);
+        // Every value paints its own ink. Leaving them `raw` handed them the
+        // terminal's default foreground, which is the one colour the preset
+        // cannot see: `shelf`'s light page came out mid grey on white, and the
+        // same cell read fine on `classic` only because that theme's `fg` *is*
+        // the terminal default.
+        let body = Style::default().fg(body_ink);
         raw.into_iter()
             .map(|text| {
                 if let Some(paragraph) = detail_paragraph(&text) {
-                    Line::from(Span::raw(paragraph.to_owned()))
+                    Line::from(Span::styled(paragraph.to_owned(), body))
                 } else if let Some((label, value)) = split_detail_label(&text) {
                     let label_width = Line::from(label).width();
                     let padding = " ".repeat(width.saturating_sub(label_width));
                     Line::from(vec![
                         Span::styled(label.to_owned(), theme.label_style()),
-                        Span::raw(padding),
+                        Span::styled(padding, body),
                         Span::styled(": ", theme.dim()),
-                        Span::raw(value.to_owned()),
+                        Span::styled(value.to_owned(), body),
                     ])
                 } else if text.is_empty() {
                     Line::default()
                 } else {
-                    Line::from(Span::raw(text))
+                    Line::from(Span::styled(text, body))
                 }
             })
             .collect()

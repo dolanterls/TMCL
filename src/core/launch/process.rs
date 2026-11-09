@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -9,7 +9,6 @@ use tokio::sync::mpsc;
 use crate::core::config::models::ProcessPriority;
 use crate::core::error::{Error, Result};
 use crate::core::launch::command::CommandSpec;
-use crate::core::launch::log::crash_report_path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum GameEvent {
@@ -20,9 +19,9 @@ pub enum GameEvent {
 
 /// How much of stdout is held back for a launch that fails.
 ///
-/// With `logs.game_debug` off, stdout is not written to the log file at all —
-/// which is why a launch could fail and leave a zero-byte log behind, telling
-/// nobody anything. The tail is enough to hold the exception that ended it.
+/// With `logs.game_debug` off, stdout is not written to the log file at all, so a
+/// launch can fail and leave a zero-byte log behind that says nothing. The tail is
+/// enough to hold the exception that ended it.
 const STDOUT_TAIL: usize = 200;
 
 #[derive(Debug, Clone)]
@@ -171,8 +170,44 @@ pub async fn run_with_events_and_priority_and_logging(
     })
 }
 
+/// The exact line Minecraft prints when it has written a crash report.
+const CRASH_MARKER: &str = "#@!@# Game crashed! Crash report saved to: #@!@# ";
+/// What older versions printed, and what some mods still print.
+const CRASH_MARKER_OLD: &str = "Crash report saved to";
+
+/// Crash-report path from the line the game printed.
+///
+/// The whole remainder of the line is the path: it contains spaces
+/// (`C://Users//Foo Bar\…`) and, on Windows, backslashes. The old matcher looked
+/// for literal `crash-reports/` and stopped at the first whitespace, so it
+/// never matched anything on the target platform.
+///
+/// It lives here rather than in `diagnose` because this is the module that
+/// watches the game's stdout: `diagnose` reads the file it names, so the
+/// dependency has to point that way and not back.
+pub fn crash_report_path(line: &str) -> Option<PathBuf> {
+    let rest = line
+        .split_once(CRASH_MARKER)
+        .map(|(_, rest)| rest)
+        .or_else(|| line.split_once(CRASH_MARKER_OLD).map(|(_, rest)| rest))?;
+    let path = rest
+        .trim()
+        .trim_start_matches(':')
+        .trim()
+        .trim_matches('"')
+        .trim();
+    if path.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(path))
+}
+
 /// Renders a [`CommandSpec`] for a debug dump, with the access token masked.
-fn describe_command(spec: &CommandSpec) -> String {
+///
+/// Public because the diagnosis bundle ships it as `launch.txt`: the log alone
+/// does not say what the JVM was asked to run, and the exact arguments are the
+/// first thing a helper asks for.
+pub fn describe_command(spec: &CommandSpec) -> String {
     use std::fmt::Write;
 
     let mut text = String::new();
@@ -227,13 +262,15 @@ fn spawn_reader<R>(
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::{run_with_events, run_with_events_and_priority_and_logging};
     use crate::core::launch::command::CommandSpec;
 
     #[tokio::test]
     async fn keeps_log_lines_that_are_not_utf8() {
-        // A Chinese Windows JVM writes GBK. The reader used to stop at the
-        // first such line, which is why a failed launch left an empty log.
+        // A Chinese Windows JVM writes GBK. A reader that stops at the first such
+        // line leaves a failed launch with an empty log.
         let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
         super::spawn_reader(
             "stderr",
@@ -373,9 +410,8 @@ mod tests {
         std::fs::remove_dir_all(root).expect("clean process debug test");
     }
 
-    /// A launch that fails has to leave its stdout behind: with
-    /// `logs.game_debug` off the file used to be empty exactly when it was
-    /// needed.
+    /// A launch that fails has to leave its stdout behind. With `logs.game_debug`
+    /// off, the file is otherwise empty exactly when it is needed.
     #[tokio::test]
     async fn a_failed_launch_keeps_the_stdout_tail() {
         let (program, args) = if cfg!(windows) {
@@ -447,5 +483,38 @@ mod tests {
         let text = std::fs::read_to_string(&log).expect("read log");
         assert!(text.is_empty(), "a normal exit stays quiet: {text}");
         std::fs::remove_dir_all(root).expect("clean successful launch test");
+    }
+
+    #[test]
+    fn the_crash_report_path_keeps_spaces_and_backslashes() {
+        // Built from a code point rather than a literal: this file has been
+        // mangled once already by a tool that rewrote every backslash in it.
+        let separator = char::from(92u8);
+        let raw = format!(
+            "C:{s}Users{s}Foo Bar{s}.minecraft{s}versions{s}pack{s}crash-reports{s}crash-2024-01-01_12.00.00-client.txt",
+            s = separator
+        );
+        let line = format!("[stdout] #@!@# Game crashed! Crash report saved to: #@!@# {raw}");
+        assert_eq!(
+            super::crash_report_path(&line),
+            Some(PathBuf::from(&raw)),
+            "the trailing path is taken verbatim, spaces and all"
+        );
+    }
+
+    /// A bare marker with nothing after it is not a path; returning an empty
+    /// `PathBuf` would make the caller try to read a directory.
+    #[test]
+    fn the_old_crash_report_line_still_parses() {
+        assert_eq!(
+            super::crash_report_path(
+                "[stdout] Crash report saved to crash-reports/crash-2026-01-01.txt"
+            ),
+            Some(PathBuf::from("crash-reports/crash-2026-01-01.txt"))
+        );
+        assert!(super::crash_report_path("[stdout] normal output").is_none());
+        assert!(
+            super::crash_report_path("#@!@# Game crashed! Crash report saved to: #@!@# ").is_none()
+        );
     }
 }

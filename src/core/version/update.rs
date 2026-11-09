@@ -67,10 +67,10 @@ pub async fn check_latest(client: &HttpClient, endpoint: &str) -> Result<UpdateI
 
 /// The asset built for this machine, if the release ships one.
 ///
-/// Matching is by substring because that is what release pipelines actually
-/// produce (`tmcl-x86_64-pc-windows-msvc.exe`, `tmcl-windows-amd64.zip`, …).
-/// A plain binary wins over an archive: unpacking is a step this command cannot
-/// take back, so it is left to the user.
+/// Matching is by substring, because release pipelines produce names like
+/// `tmcl-x86_64-pc-windows-msvc.exe` and `tmcl-windows-amd64.zip`. A plain binary
+/// wins over an archive: unpacking is a step this command cannot take back, so it
+/// is left to the user.
 pub fn platform_asset(assets: &[UpdateAsset]) -> Option<&UpdateAsset> {
     let os = std::env::consts::OS;
     let arch = std::env::consts::ARCH;

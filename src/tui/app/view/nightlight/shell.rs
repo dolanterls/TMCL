@@ -172,10 +172,10 @@ pub(in crate::tui::app) fn footer(
         return;
     }
 
-    // One row: the hints keep a fixed minimum for the status, then the status
-    // is truncated into whatever is left. Fitting the hints against the *full*
-    // message made a long failure text swallow the whole line — and the row
-    // count is fixed here, so the page never reflows.
+    // One row: the hints keep a fixed minimum for the status, and the status is
+    // truncated into whatever is left. Fitting the hints against the full
+    // message let a long failure text take the whole line; the row count is
+    // fixed here, so the page never reflows.
     let hint_budget = area.width.saturating_sub(super::STATUS_MIN_WIDTH);
     let hints = hints_line(app, &fitted_hints(app, hint_budget), pal);
     let hints_width = line_width(&hints) as u16;
@@ -202,9 +202,8 @@ pub(in crate::tui::app) fn footer(
 /// `● 就绪`, the glyph carrying the state colour.
 ///
 /// `budget` is the width the footer can spare. The glyph survives and the
-/// message gives way with an ellipsis, so a long error can never push the key
-/// hints off the line. The session uptime that used to trail the message now
-/// lives in the sidebar summary, under the version.
+/// message gives way with an ellipsis, so a long error cannot push the key hints
+/// off the line. The session uptime lives in the sidebar summary.
 fn status_line(app: &App, pal: &Palette, budget: usize) -> Line<'static> {
     let kind = app.status.kind();
     // " " + glyph + " " before the message.
@@ -297,7 +296,7 @@ fn line_width(line: &Line<'_>) -> usize {
     line.spans.iter().map(|span| width(&span.content)).sum()
 }
 
-/// Floating results: still cards above the footer, newest at the bottom.
+/// Transient status cards above the footer, newest at the bottom.
 pub(in crate::tui::app) fn toast(
     app: &App,
     frame: &mut Frame<'_>,

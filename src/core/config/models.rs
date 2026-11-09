@@ -18,6 +18,7 @@ pub struct Config {
     pub launch: LaunchConfig,
     pub state: StateConfig,
     pub logs: LogConfig,
+    pub diagnosis: DiagnosisConfig,
 }
 
 impl Default for Config {
@@ -32,6 +33,7 @@ impl Default for Config {
             launch: LaunchConfig::default(),
             state: StateConfig::default(),
             logs: LogConfig::default(),
+            diagnosis: DiagnosisConfig::default(),
         }
     }
 }
@@ -39,10 +41,9 @@ impl Default for Config {
 impl Config {
     /// Download settings a task starts from.
     ///
-    /// Three copies of this used to exist (CLI, TUI, launch session). The
-    /// snapshot decides mirrors, cache directory, retry count and timeout, so a
-    /// divergence would make the same download behave differently depending on
-    /// which front end started it.
+    /// The snapshot decides mirrors, cache directory, retry count and timeout, so a
+    /// copy per front end would make the same download behave differently depending
+    /// on which one started it.
     pub fn download_snapshot(
         &self,
         paths: &crate::core::config::paths::DataPaths,
@@ -198,8 +199,8 @@ impl UiPreset {
 /// Which of the eight palettes the `nightlight` preset wears.
 ///
 /// `Live` is the identity: its accent follows the local clock and warms as the
-/// evening comes on. The rest are fixed palettes. Names stay in their original
-/// form in every language — translating `gruvbox` would make it unrecognisable.
+/// evening comes on. The rest are fixed palettes. Names stay in their original form
+/// in every language, because translating `gruvbox` would make it unrecognisable.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum NightlightTheme {
     #[default]
@@ -630,9 +631,23 @@ pub struct UiConfig {
     /// Whether the `live` palette takes its accent from the local clock.
     #[serde(default = "default_live_accent")]
     pub live_accent: bool,
+    /// Lifts auxiliary text to a legible floor when the sheet follows the
+    /// terminal. Only cells painted directly on the terminal background move:
+    /// a label sitting on a solid pill must keep the ink the pill was built
+    /// around.
+    #[serde(default = "default_true")]
+    pub lift_dim_text: bool,
+    /// Asks the terminal for its background colour (OSC 11) at start-up, so a
+    /// light terminal gets the light sheet instead of pale text on white.
+    #[serde(default = "default_true")]
+    pub detect_terminal: bool,
 }
 
 fn default_live_accent() -> bool {
+    true
+}
+
+const fn default_true() -> bool {
     true
 }
 
@@ -692,6 +707,8 @@ impl Default for UiConfig {
             paper_theme: PaperTheme::Ivory,
             shelf_theme: ShelfTheme::Lavender,
             live_accent: true,
+            lift_dim_text: true,
+            detect_terminal: true,
         }
     }
 }
@@ -702,6 +719,22 @@ pub struct LogConfig {
     pub retention_days: u32,
     pub launcher_enabled: bool,
     pub game_debug: bool,
+}
+
+/// What the diagnosis card does on its own.
+///
+/// A crash is the one moment a player cannot be expected to go looking for a tab,
+/// so the card opens itself, but only over pages where it cannot eat a half-typed
+/// form, which `handle_diagnosis_ready` enforces separately.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DiagnosisConfig {
+    pub auto_open: bool,
+}
+
+impl Default for DiagnosisConfig {
+    fn default() -> Self {
+        Self { auto_open: true }
+    }
 }
 
 impl Default for LogConfig {

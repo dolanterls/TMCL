@@ -3,6 +3,9 @@ use std::path::{Path, PathBuf};
 
 use crate::core::error::{Error, Result};
 
+/// The folder the launcher keeps its data in.
+const DATA_DIR: &str = "TMCL";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DataPaths {
     pub root: PathBuf,
@@ -18,7 +21,12 @@ pub struct DataPaths {
 
 impl DataPaths {
     pub fn from_appdata(appdata: impl AsRef<Path>) -> Self {
-        let root = appdata.as_ref().join("TMCL");
+        Self::from_root(appdata.as_ref().join(DATA_DIR))
+    }
+
+    /// The tree under `root`.
+    pub fn from_root(root: impl Into<PathBuf>) -> Self {
+        let root = root.into();
         Self {
             config_file: root.join("config.json"),
             accounts_file: root.join("accounts.json"),
@@ -32,10 +40,18 @@ impl DataPaths {
         }
     }
 
+    /// The launcher's data lives in a `TMCL` folder beside the launcher, so a
+    /// copied folder is a copied launcher: settings, accounts and logs come
+    /// along.
     pub fn discover() -> Result<Self> {
-        let appdata =
-            env::var_os("APPDATA").ok_or_else(|| Error::Config("APPDATA is not set".into()))?;
-        Ok(Self::from_appdata(appdata))
+        let executable = env::current_exe()?;
+        let directory = executable.parent().ok_or_else(|| {
+            Error::Config(format!(
+                "cannot determine the launcher directory from {}",
+                executable.display()
+            ))
+        })?;
+        Ok(Self::from_root(directory.join(DATA_DIR)))
     }
 
     pub fn ensure_dirs(&self) -> Result<()> {
@@ -68,6 +84,19 @@ mod tests {
                 .expect("system clock")
                 .as_nanos()
         ))
+    }
+
+    /// `mc\tmcl.exe` keeps its data in `mc\TMCL`, not in `%APPDATA%`.
+    #[test]
+    fn discover_stays_next_to_the_executable() {
+        let paths = DataPaths::discover().expect("discover");
+        let executable = std::env::current_exe().expect("current executable");
+        assert_eq!(
+            paths.root,
+            executable.parent().expect("its folder").join("TMCL")
+        );
+        assert!(paths.config_file.ends_with("config.json"));
+        assert!(paths.game_logs_dir.starts_with(&paths.root));
     }
 
     #[test]

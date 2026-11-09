@@ -1,0 +1,5 @@
+[stdout] [19:02:11] [main/INFO]: Setting user: Player
+[stdout] [19:02:12] [main/INFO]: Backend library: LWJGL version 3.3.3+33
+[stdout] [19:02:14] [main/INFO]: Loading 42 mods:/n[stdout] [19:02:14] [main/INFO]: - fabric-api 0.92.0
+[stdout] [19:02:15] [main/INFO]: - sodium 0.5.8
+[stdout] [19:42:20] [main/INFO]: Stopping!

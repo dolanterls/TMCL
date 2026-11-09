@@ -45,8 +45,8 @@ fn directory_field_opens_picker_and_accepts_selected_path() {
 }
 
 /// A click on the picker's own caps has to do what the keys do there: `Enter`
-/// takes the highlighted option, `Esc` closes the list. Both used to route to
-/// the dialog's submit and cancel, so the mouse did something else entirely.
+/// takes the highlighted option, `Esc` closes the list. Routing both to the
+/// dialog's submit and cancel would let the mouse do something else entirely.
 #[test]
 fn the_picker_caps_choose_and_close_instead_of_submitting_the_form() {
     let mut modal = Modal::form(
@@ -223,7 +223,8 @@ fn selection_picker_displays_loading_and_retryable_error_states() {
     assert!(modal.set_selection_error(1, "network unavailable"));
     let rendered = render_modal(&modal);
     assert!(rendered.contains("network unavailable"));
-    assert!(rendered.contains("r: retry"));
+    // The retry cap is a key row now, not a sentence: cap + label.
+    assert!(rendered.contains("Retry"), "{rendered}");
     assert!(matches!(
         modal.handle_key(key(KeyCode::Char('r'))),
         ModalResult::RetrySelectionPicker { field: 1 }
@@ -956,7 +957,7 @@ fn cell_of(rows: &[String], needle: &str) -> (u16, u16) {
     let y = rows
         .iter()
         .position(|row| row.contains(needle))
-        .unwrap_or_else(|| panic!("{needle:?} not drawn:/n{}", rows.join("\n")));
+        .unwrap_or_else(|| panic!("{needle:?} not drawn:\n{}", rows.join("\n")));
     let byte = rows[y].find(needle).expect("column");
     (
         crate::tui::palette::width(&rows[y][..byte]) as u16,
@@ -969,13 +970,13 @@ fn the_paper_confirm_prints_its_title_and_both_keys() {
     let modal = Modal::confirm("Delete this instance?", ConfirmAction::RemoveAccount);
     let (rows, _) = draw_paper_modal(&modal, 100, 30);
     let text = rows.join("\n");
-    assert!(text.contains("Confirm"), "the title is missing:/n{text}");
+    assert!(text.contains("Confirm"), "the title is missing:\n{text}");
     assert!(text.contains("Delete this instance?"), "{text}");
     assert!(
         text.contains("Enter"),
-        "the confirm key is missing:/n{text}"
+        "the confirm key is missing:\n{text}"
     );
-    assert!(text.contains("Esc"), "the cancel key is missing:/n{text}");
+    assert!(text.contains("Esc"), "the cancel key is missing:\n{text}");
 }
 
 #[test]
@@ -1069,7 +1070,7 @@ fn the_paper_picker_lists_every_option() {
     assert!(text.contains("fabric"), "{text}");
     assert!(
         text.contains('▌'),
-        "the chosen option has no margin bar:/n{text}"
+        "the chosen option has no margin bar:\n{text}"
     );
 }
 
@@ -1116,7 +1117,7 @@ fn a_long_confirmation_wraps_instead_of_losing_its_tail() {
     let text = rows.join("\n");
     assert!(
         text.contains("ENDMARK"),
-        "the end of the question was cut off:/n{text}"
+        "the end of the question was cut off:\n{text}"
     );
     // The keys still sit on their own row, inside the slip.
     let enter = rows
@@ -1127,7 +1128,7 @@ fn a_long_confirmation_wraps_instead_of_losing_its_tail() {
         .iter()
         .rposition(|row| row.contains('─'))
         .expect("bottom rule");
-    assert!(enter < last_rule, "the keys fell out of the slip:/n{text}");
+    assert!(enter < last_rule, "the keys fell out of the slip:\n{text}");
 }
 
 /// The slip is a fixed sixteen-row box, so the option window has to be measured
@@ -1165,7 +1166,7 @@ fn the_paper_picker_keeps_its_selection_inside_the_slip() {
     let at = rows
         .iter()
         .position(|row| row.contains("1.20.39"))
-        .unwrap_or_else(|| panic!("the selected version is not drawn://n{}", rows.join("\n")));
+        .unwrap_or_else(|| panic!("the selected version is not drawn:\n{}", rows.join("\n")));
     assert!(
         (body.y as usize..body.bottom() as usize).contains(&at),
         "the selected option printed outside the slip body: row {at}, body {body:?}"
@@ -1265,15 +1266,15 @@ fn the_shelf_dialog_draws_every_shape_at_both_sizes() {
             // the dialog was taller than the frame.
             assert!(
                 text.matches('╰').count() >= 1 && text.matches('╭').count() >= 1,
-                "{name} at {width}x{height} has no closed slab://n{text}"
+                "{name} at {width}x{height} has no closed slab:\n{text}"
             );
         }
     }
 }
 
-/// A prompt is six rows tall, so its body is four — the key row has to be the
-/// last of them. It used to be gated on a fifth row, and the one dialog that is
-/// nothing but a field and a help line printed no keys at all.
+/// A prompt is six rows tall, so its body is four, and the key row has to be the
+/// last of them. Gating it on a fifth row would leave the one dialog that is
+/// nothing but a field and a help line with no keys at all.
 #[test]
 fn the_shelf_prompt_prints_its_keys_on_the_last_body_row() {
     use crate::tui::pages::settings::SettingId;

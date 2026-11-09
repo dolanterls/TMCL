@@ -1,15 +1,14 @@
-//! `paper` logs: one line per entry, level spelled as a letter.
+//! `paper` logs: level spelled as a letter, body wrapped to the page.
 //!
-//! Colour is a restatement here, not the carrier: every line starts with `I`,
-//! `W` or `E`, and an error also carries the margin bar. The page keeps the
-//! launcher's search field and follow state, since those already exist in the
-//! log buffer.
+//! Colour restates the level rather than carrying it: every entry starts with
+//! `I`, `W` or `E`, and an error also carries the margin bar. A log line wraps
+//! rather than being cut at the page edge, because half a stack trace is a
+//! caption, not a log; continuation rows start at the left edge.
 
 use super::*;
 use crate::tui::palette;
 
-/// Rows the head takes: title, rule, search, soft rule. The search takes the
-/// row the section's blank used to hold.
+/// Rows the head takes: title, rule, search, soft rule.
 const HEAD_ROWS: u16 = 4;
 
 impl App {
@@ -48,18 +47,17 @@ impl App {
         let counter = format!("{instance} · {follow}");
         kit::section(frame, area, pal, &title, Some(&counter));
 
-        let lines = self
-            .logs
-            .matching_lines(self.log_filter.as_deref().unwrap_or(""));
-        let body_height = self.paper_log_area(area).height;
+        let query = self.log_filter.as_deref().unwrap_or("");
+        let body = self.paper_log_area(area);
+        let window = self.logs.window(query, body.width, body.height, false);
         // Directly under the section rule, like the downloads page: a blank
         // row above a control reads as a hole.
         self.paper_log_search(
             frame,
             Rect::new(area.x, area.y.saturating_add(2), area.width, 1),
             pal,
-            lines.len(),
-            body_height,
+            &window,
+            body.height,
         );
         kit::rule(
             frame,
@@ -67,26 +65,23 @@ impl App {
             pal,
             pal.rule_soft,
         );
-        let body = self.paper_log_area(area);
         if body.height == 0 {
             return;
         }
-        if lines.is_empty() {
+        if window.total_rows == 0 {
             self.paper_message_at(frame, body, pal, "logs.empty");
             return;
         }
 
-        let rendered = lines
+        let rendered = window
+            .lines
             .iter()
-            .map(|line| self.paper_log_line(line, pal, body.width))
+            .map(|line| self.paper_log_line(line, pal))
             .collect::<Vec<_>>();
-        let paragraph = Paragraph::new(rendered).wrap(Wrap { trim: false });
-        let total = paragraph.line_count(body.width);
-        let max_offset = total.saturating_sub(usize::from(body.height));
-        let bottom = self.logs.scroll_offset().min(max_offset);
-        let from_top = max_offset.saturating_sub(bottom);
         frame.render_widget(
-            paragraph.scroll((u16::try_from(from_top).unwrap_or(u16::MAX), 0)),
+            Paragraph::new(rendered)
+                .wrap(Wrap { trim: false })
+                .scroll((u16::try_from(window.skip_rows).unwrap_or(u16::MAX), 0)),
             body,
         );
     }
@@ -96,7 +91,7 @@ impl App {
         frame: &mut Frame<'_>,
         area: Rect,
         pal: &PaperPalette,
-        total: usize,
+        window: &crate::tui::pages::log::LogWindow,
         height: u16,
     ) {
         let focused = matches!(
@@ -105,14 +100,13 @@ impl App {
         );
         let filter = self.log_filter.as_deref().unwrap_or("");
         let label = self.i18n.text("common.search");
-        let position = if total == 0 {
+        // The last row on the page, 1-based: following the tail reads
+        // `3 / 3`, and scrolling up counts down.
+        let position = if window.total_rows == 0 {
             String::new()
         } else {
-            let bottom = self
-                .logs
-                .scroll_offset()
-                .min(total.saturating_sub(usize::from(height)));
-            format!("{} / {total}", total.saturating_sub(bottom))
+            let last = (window.from_row + usize::from(height)).min(window.total_rows);
+            format!("{last} / {}", window.total_rows)
         };
         let position_width = palette::width(&position) as u16;
         let budget = area
@@ -152,8 +146,11 @@ impl App {
             .add(area, Action::search(crate::tui::input::SearchTarget::Logs));
     }
 
-    /// `▌E boot failed` — the letter is the level, the rest is the line.
-    fn paper_log_line(&self, line: &str, pal: &PaperPalette, width: u16) -> Line<'static> {
+    /// `▌E boot failed`: the letter is the level, the rest is the line.
+    ///
+    /// The body is handed over whole so `Paragraph` wraps it, keeping a mod path
+    /// or a stack frame to the end instead of cutting at an ellipsis.
+    fn paper_log_line(&self, line: &str, pal: &PaperPalette) -> Line<'static> {
         let (level, body) = split_log_level(line);
         let mut spans = Vec::with_capacity(3);
         if level == LogLevel::Error {
@@ -164,7 +161,7 @@ impl App {
             ink(pal, level.color_in(pal.dim, pal.warn, pal.accent)).add_modifier(Modifier::BOLD),
         ));
         spans.push(Span::styled(
-            palette::truncate(body, usize::from(width.saturating_sub(3))),
+            palette::one_line(body, usize::MAX),
             if level == LogLevel::Error {
                 ink(pal, pal.ink)
             } else {

@@ -1,9 +1,9 @@
-//! `shelf` detail and help: the same two overlays, on a slab of `SURFACE`.
+//! `shelf` detail and help: the same two overlays on a `SURFACE` background.
 //!
-//! Geometry is still the shared one — `chrome::popup_rect` for the detail card,
-//! `help_rect` / `help_body` for the reference — so scrolling, hit testing and
-//! the wheel all keep working. Only the frame changes: a rounded border in
-//! `FAINT`, the surface colour behind it, and an accent title.
+//! The geometry stays shared (`chrome::popup_rect` for the detail card,
+//! `help_rect` / `help_body` for the reference), so scrolling, hit testing and
+//! the wheel keep working. Only the frame changes: a rounded border in `FAINT`,
+//! the surface colour behind it, and an accent title.
 
 use ratatui::Frame;
 use ratatui::style::{Modifier, Style};
@@ -28,11 +28,12 @@ impl App {
         }
         self.hitmap
             .scroll_on(Layer::Detail, inner, ScrollTarget::DetailBody);
-        let lines = self.styled_detail_lines(self.shelf_theme());
+        let lines = self.styled_detail_lines(self.shelf_theme(), self.shelf_palette().dim);
         let max_scroll = self.detail_max_scroll();
         let scroll = self.detail_scroll.min(max_scroll);
         frame.render_widget(
             Paragraph::new(lines)
+                .style(Style::default().fg(pal.dim).bg(pal.surface))
                 .scroll((u16::try_from(scroll).unwrap_or(u16::MAX), 0))
                 .wrap(Wrap { trim: false }),
             inner,

@@ -1,14 +1,10 @@
 //! `paper` detail: the printed record of the selected row.
 //!
 //! The record is a dialog like the keyboard reference and the instance form:
-//! the shared popup rectangle, centred over the dimmed page, with the same
-//! head — one row of air, the title in the accent colour, a hairline — and the
-//! same sheet. It used to be a column down the right edge, which read as a
-//! different component than the dialog it belongs to.
-//!
-//! The rectangle lives here and is used by three callers — the painter, the
-//! scroll maximum and the overlay blocker. Deriving any of them separately is
-//! how a panel ends up unscrollable or closes when you click inside it.
+//! the shared popup rectangle over the dimmed page, with the same head and the
+//! same sheet. The rectangle is computed here for all three callers (painter,
+//! scroll maximum, overlay blocker); deriving it twice is how a panel ends up
+//! unscrollable or closes when clicked from the inside.
 
 use super::*;
 use ratatui::widgets::Clear;
@@ -17,10 +13,8 @@ impl App {
     /// Where the detail slip goes: the same popup every dialog uses.
     ///
     /// `chrome::popup_rect` keeps the card centred, no wider than 76 cells and
-    /// no taller than sixteen rows, so the record sits exactly where the help
-    /// card and the instance form sit. The right-hand column it used to occupy
-    /// was the first draft's layout, and it made one overlay look like a
-    /// different component from the rest.
+    /// no taller than sixteen rows, so the record sits where the help card and
+    /// the instance form sit.
     pub(in crate::tui::app) fn paper_detail_rect(&self, area: Rect) -> Rect {
         // Measured from the record itself, the way the help card is: a fixed
         // sixteen-row box left a three-line task record sitting in a mostly
@@ -56,14 +50,12 @@ impl App {
         self.paper_record_lines(pal, true)
     }
 
-    /// The same record, printed on the page instead of a slip.
+    /// The same record, printed on the page instead of on a slip.
     ///
-    /// The download page's right-hand column is the detail sheet without the
-    /// sheet: same `detail_lines()` source, same label/value typesetting, only
-    /// the background differs. `on_sheet` picks which — a slip one step
-    /// brighter than the page, or the page itself. Everything the column says
-    /// therefore matches what `classic` and `nightlight` print there, field for
-    /// field, without a second copy of the field list to keep in step.
+    /// Same `detail_lines()` source and the same label/value typesetting; only
+    /// the background differs. `on_sheet` picks a slip one step brighter than
+    /// the page, or the page itself, so the column matches what `classic` and
+    /// `nightlight` print without a second copy of the field list.
     pub(in crate::tui::app) fn paper_record_lines(
         &self,
         pal: &PaperPalette,

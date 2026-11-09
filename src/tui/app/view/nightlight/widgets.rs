@@ -563,9 +563,8 @@ mod tests {
         }
     }
 
-    /// The rail lives in the card's right padding, one column past the text
-    /// area, so it hugs the card edge instead of floating a cell inside it —
-    /// and the text no longer loses a column to it.
+    /// The scrollbar sits in the card's right padding, one column past the text
+    /// area, so it touches the card edge rather than taking a column of text.
     #[test]
     fn the_pane_scrollbar_sits_on_the_card_edge() {
         let pal = palette();

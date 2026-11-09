@@ -2,11 +2,11 @@
 //!
 //! Two sources, in order:
 //!
-//! 1. `<instance>/icon.png` — a cover the launcher or the user put there. A
-//!    modpack install can seed it from the project's artwork.
-//! 2. `<instance>/saves/<world>/icon.png` — the screenshot Minecraft writes
-//!    for the world list. The newest world wins, so an instance that has been
-//!    played once already has a real cover without any download.
+//! 1. `<instance>/icon.png`: a cover the launcher or the user put there. A
+//!    modpack install can set it from the project's artwork.
+//! 2. `<instance>/saves/<world>/icon.png`: the screenshot Minecraft writes for
+//!    the world list. The newest world wins, so an instance played once already
+//!    has a real cover without any download.
 //!
 //! When neither exists the caller draws a placeholder; a cover is decoration,
 //! never a reason to fail a page.
@@ -53,10 +53,10 @@ pub fn candidates(instance: &Path) -> Vec<PathBuf> {
     result
 }
 
-/// The first candidate that actually decodes.
+/// The first candidate that decodes.
 ///
-/// A corrupt `icon.png` must not hide a perfectly good world screenshot, so
-/// failures move on to the next path instead of aborting the lookup.
+/// A corrupt `icon.png` must not hide a good world screenshot, so a failure moves
+/// on to the next path instead of aborting the lookup.
 pub fn load_cover(instance: &Path) -> Option<Cover> {
     candidates(instance)
         .into_iter()

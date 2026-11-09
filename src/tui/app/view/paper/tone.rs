@@ -45,8 +45,8 @@ pub(crate) struct PaperPalette {
     /// Needs attention.
     pub warn: Color,
     /// `跟随终端`: the fills are withdrawn so the terminal's own background
-    /// shows through. The ink stays this stock's, which is why the dark stock
-    /// is still chosen in that mode.
+    /// shows through. The ink stays this stock's, so the dark stock is still
+    /// chosen in that mode.
     pub transparent: bool,
 }
 
@@ -73,12 +73,10 @@ const RULE_SOFT_MIX: f64 = 0.88;
 impl PaperTheme {
     /// The resolved palette for this stock under `mode`.
     ///
-    /// `Terminal` keeps the dark stock — a `Reset` background cannot take part
-    /// in a mix, and every rule and every blend here is a mix towards the page.
-    /// What it gives up is the paint itself: `transparent` makes `fill` return
-    /// `Reset`, and `punch_through_terminal` hands back the page and the slip
-    /// afterwards. The stock choice is locked by a test rather than left
-    /// implicit.
+    /// `Terminal` keeps the dark stock: a `Reset` background cannot take part in
+    /// a mix, and every rule and blend here is a mix towards the page. What it
+    /// gives up is the paint itself, since `transparent` makes `fill` return
+    /// `Reset` and `punch_through_terminal` hands back the page and the slip.
     pub(crate) fn palette(self, mode: ThemeMode) -> PaperPalette {
         let base = self.base(matches!(mode, ThemeMode::Dark | ThemeMode::Terminal));
         PaperPalette {
@@ -161,7 +159,16 @@ impl App {
     /// frame; a cache would outlive the config it derives from.
     pub(in crate::tui::app) fn paper_palette(&self) -> PaperPalette {
         let ui = &self.config.state.ui;
-        ui.paper_theme.palette(ui.theme_mode)
+        let mode = if self.light_terminal() {
+            ThemeMode::Light
+        } else {
+            ui.theme_mode
+        };
+        let mut palette = ui.paper_theme.palette(mode);
+        // `mode` is `Light` here when the terminal is light; the sheet still
+        // follows the terminal, so its fills stay withdrawn.
+        palette.transparent = ui.theme_mode == ThemeMode::Terminal;
+        palette
     }
 }
 

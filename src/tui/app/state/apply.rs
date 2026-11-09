@@ -1,8 +1,8 @@
 //! Mouse intent dispatch.
 //!
 //! `mouse.rs` turns a hit into an [`Action`]; this module is the only place an
-//! action changes state. Page actions land here, the dialog arms in P4 — the
-//! match below grows with them.
+//! action changes state. Page actions land here, and the dialog arms in P4, so
+//! the match below grows with them.
 
 use std::time::{Duration, Instant};
 
@@ -37,6 +37,8 @@ impl App {
             Layer::Modal
         } else if self.help_open {
             Layer::Help
+        } else if self.diagnosis_open {
+            Layer::Diagnosis
         } else if self.detail_open {
             Layer::Detail
         } else {
@@ -238,8 +240,8 @@ impl App {
         }
     }
 
-    /// The overview play card: create an instance, ask for an account, or
-    /// launch — mirroring what the card says.
+    /// The overview play card: create an instance, ask for an account, or launch,
+    /// mirroring what the card says.
     fn overview_launch(&mut self) {
         if self.instances.items.is_empty() {
             self.set_page(Page::Instances);
@@ -250,8 +252,8 @@ impl App {
         }
     }
 
-    /// Focuses the inline search field the page actually draws. A hit from a
-    /// page that has since changed never starts a search elsewhere.
+    /// Focuses the inline search field the page draws. A hit from a page that has
+    /// since changed never starts a search elsewhere.
     fn focus_search_target(&mut self, target: SearchTarget) {
         let expected = match self.page {
             Page::DownloadCenter
@@ -294,6 +296,9 @@ impl App {
             }
             ScrollTarget::Pane => self.scroll_detail_pane(rows(2)),
             ScrollTarget::DetailBody => self.move_detail_scroll(rows(2)),
+            ScrollTarget::DiagnosisBody => {
+                self.scroll_diagnosis(if up { -3 } else { 3 });
+            }
             ScrollTarget::HelpBody => {
                 // Same clamp as the arrow keys, so the wheel cannot leave the
                 // offset past the last row either.
@@ -423,6 +428,9 @@ mod tests {
 
         app.detail_open = true;
         assert_eq!(app.top_layer(), Layer::Detail);
+
+        app.diagnosis_open = true;
+        assert_eq!(app.top_layer(), Layer::Diagnosis);
 
         app.help_open = true;
         assert_eq!(app.top_layer(), Layer::Help);

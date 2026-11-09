@@ -77,7 +77,7 @@ pub fn render_layout(
 ///
 /// Kept for callers that already resolved the window themselves; the returned
 /// layout carries that offset instead of re-deriving one, so hit testing matches
-/// the rows that were actually drawn.
+/// the rows drawn.
 #[allow(clippy::too_many_arguments)]
 pub fn render_focused_with_offset(
     frame: &mut Frame<'_>,

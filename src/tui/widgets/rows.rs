@@ -81,10 +81,10 @@ impl RowWindows {
 
 /// First item a window of `visible_rows` shows.
 ///
-/// `previous` is the offset the same list used on the previous frame. The
-/// window then moves only when `selected` has left it, which is what keeps a
-/// click on a drawn row from scrolling the list. `None` — a list drawn for the
-/// first time — keeps the selection visible with the smallest scroll instead.
+/// `previous` is the offset the same list used on the previous frame. The window
+/// then moves only when `selected` has left it, which keeps a click on a drawn
+/// row from scrolling the list. `None`, a list drawn for the first time, keeps
+/// the selection visible with the smallest scroll instead.
 pub fn window_offset(
     item_count: usize,
     selected: usize,
@@ -159,8 +159,8 @@ impl RowLayout {
     ///
     /// The bordered constructors subtract a one-cell frame because callers pass
     /// the block's outer rectangle. A borderless shell passes its content
-    /// rectangle instead, so subtracting again would shift every hit box down
-    /// and right by one — the rows would look right and click wrong.
+    /// rectangle, so subtracting again would shift every hit box down and right
+    /// by one: the rows would look right and click wrong.
     pub fn table_bare(area: Rect, item_count: usize, selected: usize) -> Self {
         Self::with_inner(area, item_count, selected, 1, 1, 0)
     }

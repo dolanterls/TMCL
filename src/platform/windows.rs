@@ -33,6 +33,60 @@ pub fn open_path(path: &std::path::Path) -> Result<()> {
     }
 }
 
+/// Open a URL in the user's browser.
+///
+/// Separate from [`open_path`] because a URL is not a path: `explorer.exe`
+/// mangles query strings, and the shell's `open` verb is what handles the
+/// default-browser association.
+pub fn open_url(url: &str) -> Result<()> {
+    #[cfg(windows)]
+    {
+        use std::ffi::OsStr;
+        use std::os::windows::ffi::OsStrExt;
+
+        use windows::Win32::UI::Shell::ShellExecuteW;
+        use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+        use windows::core::PCWSTR;
+
+        let mut wide: Vec<u16> = OsStr::new(url).encode_wide().collect();
+        wide.push(0);
+        let opened =
+            unsafe { ShellExecuteW(None, None, PCWSTR(wide.as_ptr()), None, None, SW_SHOWNORMAL) };
+        // ShellExecuteW reports success as "greater than 32"; anything at or
+        // below is a documented error code, not an HRESULT.
+        if opened.0 as usize <= 32 {
+            return Err(Error::Terminal(format!(
+                "open url: Windows returned {}",
+                opened.0 as usize
+            )));
+        }
+        Ok(())
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| Error::Terminal(format!("open url: {error}")))
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map(|_| ())
+            .map_err(|error| Error::Terminal(format!("open url: {error}")))
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = url;
+        Err(Error::Terminal(
+            "opening a URL is not supported on this platform".into(),
+        ))
+    }
+}
+
 pub fn set_console_visibility(visible: bool) -> Result<()> {
     #[cfg(windows)]
     {
@@ -644,7 +698,7 @@ pub struct LocalTime {
 }
 
 impl LocalTime {
-    /// `2026-11-02 13:37` — sortable, unambiguous, and the same in every locale.
+    /// `2026-11-02 13:37`: sortable, unambiguous, and the same in every locale.
     pub fn stamp(self) -> String {
         format!(
             "{:04}-{:02}-{:02} {:02}:{:02}",
@@ -927,6 +981,30 @@ pub fn broadcast_environment_change() {
 
 #[cfg(not(windows))]
 pub fn broadcast_environment_change() {}
+
+/// Throws away input that arrived before the UI was ready to read it.
+///
+/// The console keeps input records typed while the process is still starting, such
+/// as an extra Enter after the command that opened the launcher. Once the TUI
+/// switches to raw mode those records are read as ordinary keys, and the first
+/// Enter can activate whatever is under the cursor: on the overview that means
+/// starting a game the user did not ask for. Nothing has been drawn yet when this
+/// runs, so the keys cannot have been aimed at anything.
+#[cfg(windows)]
+pub fn discard_pending_console_input() {
+    use windows::Win32::System::Console::{
+        FlushConsoleInputBuffer, GetStdHandle, STD_INPUT_HANDLE,
+    };
+
+    unsafe {
+        if let Ok(handle) = GetStdHandle(STD_INPUT_HANDLE) {
+            let _ = FlushConsoleInputBuffer(handle);
+        }
+    }
+}
+
+#[cfg(not(windows))]
+pub fn discard_pending_console_input() {}
 
 #[cfg(test)]
 mod tests {

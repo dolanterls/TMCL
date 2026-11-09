@@ -130,8 +130,7 @@ fn task_watch_explains_when_the_task_belongs_to_another_process() {
     let running = record(TaskState::Running, true, None);
     write(&sandbox, &running);
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_tmcl"))
-        .env("APPDATA", sandbox.appdata())
+    let mut child = Command::new(sandbox.launcher())
         .args(["task", "watch", &running.id.to_string()])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

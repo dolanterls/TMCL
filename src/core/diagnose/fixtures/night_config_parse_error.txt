@@ -1,0 +1,1 @@
+[stdout] com.electronwill.nightconfig.core.io.ParsingException: Not enough data available

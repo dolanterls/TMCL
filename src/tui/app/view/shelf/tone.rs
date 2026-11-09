@@ -1,17 +1,9 @@
 //! The `shelf` palette: five bindings, each with a dark and a light face.
 //!
-//! The scheme is one axis and `ThemeMode` is the other, the same split `paper`
-//! uses. `Moss` under `Dark` and `Moss` under `Light` are two legitimate
-//! sheets, so adding a binding means adding two faces here — not teaching every
-//! call site a second switch, and not letting an old config land on a sheet the
-//! user never picked. `Terminal` reuses a scheme's dark face and withdraws its
-//! fills, as it does in `nightlight` and `paper`: a terminal has no single
-//! background to derive a sheet from, and this preset's identity is its paper.
-//!
-//! The schemes stay out of `accent_color` and `high_contrast` for the same
-//! reason `creeper` does: the point is the temperature of the whole sheet, not
-//! one slot inside it. A tinted accent would leave the page, the covers and the
-//! wordmark ramp behind.
+//! The scheme is one axis and `ThemeMode` the other, the same split `paper`
+//! uses, so adding a binding means adding two faces here. `Terminal` reuses a
+//! scheme's dark face and withdraws its fills; a terminal has no single
+//! background to derive a sheet from.
 
 use ratatui::style::Color;
 
@@ -80,7 +72,7 @@ impl Ink {
     }
 }
 
-/// Lavender on indigo — the sheet shelf shipped with, and still the default.
+/// Lavender on indigo: the sheet shelf shipped with, and still the default.
 mod lavender {
     use ratatui::style::Color;
 
@@ -163,7 +155,7 @@ mod moss {
         ok: Color::Rgb(0x2E, 0x7D, 0x46),
         warn: Color::Rgb(0x8A, 0x5A, 0x16),
         error: Color::Rgb(0xB3, 0x26, 0x1E),
-        // 3.20:1 — the tightest ramp end in the preset, and the floor is 3.0.
+        // 3.20:1, the tightest ramp end in the preset; the floor is 3.0.
         wordmark_light: Color::Rgb(0x3E, 0x9A, 0x6C),
         wordmark_deep: Color::Rgb(0x1F, 0x5C, 0x3F),
     };
@@ -209,10 +201,9 @@ mod slate {
     };
 }
 
-/// Leather: a brown page with a copper accent, the closest thing here to an old
-/// reading room. `warn` had to move to a yellower amber — the stock amber and
-/// the copper accent are the same hue at the same weight, and a warning would
-/// have read as a heading.
+/// Leather: a brown page with a copper accent. `warn` is a yellower amber than
+/// the stock one because the stock amber and the copper accent share a hue at
+/// the same weight, and a warning would read as a heading.
 mod leather {
     use ratatui::style::Color;
 
@@ -251,9 +242,8 @@ mod leather {
     };
 }
 
-/// Rose: a plum page under a rose accent — cloth binding rather than leather.
-/// `error` is a full red rather than a tint of the accent, so a failed task is
-/// not mistaken for a highlighted one.
+/// Rose: a plum page under a rose accent. `error` is a full red rather than a
+/// tint of the accent, so a failed task is not mistaken for a highlighted one.
 mod rose {
     use ratatui::style::Color;
 
@@ -337,12 +327,27 @@ pub fn palette(theme: ShelfTheme, mode: ThemeMode) -> &'static Palette {
     }
 }
 
+/// The light sheet of `theme` with its fills withdrawn.
+pub fn palette_on_light_terminal(theme: ShelfTheme) -> &'static Palette {
+    &TERMINAL_LIGHT[theme_index(theme)]
+}
+
 fn theme_index(theme: ShelfTheme) -> usize {
     ShelfTheme::ALL
         .iter()
         .position(|candidate| *candidate == theme)
         .unwrap_or(0)
 }
+
+/// The light faces with their fills withdrawn, for `跟随终端` on a light
+/// terminal: the same answer the dark terminal gets, mirrored.
+const TERMINAL_LIGHT: [Palette; 5] = [
+    lavender::LIGHT.sheet(true),
+    moss::LIGHT.sheet(true),
+    slate::LIGHT.sheet(true),
+    leather::LIGHT.sheet(true),
+    rose::LIGHT.sheet(true),
+];
 
 impl Sheet for Palette {
     fn surface(&self) -> Color {
@@ -365,11 +370,11 @@ pub fn wordmark_ramp(pal: &Palette) -> (Color, Color) {
 
 /// A [`Theme`] carrying the shelf colours, for the shared overlay painters.
 ///
-/// Help and the detail popup still draw through the classic chrome; they only
-/// need the semantic slots, so mapping the palette once keeps those two
-/// overlays in shelf's colours instead of classic's amber.
-pub fn theme(theme: ShelfTheme, mode: ThemeMode) -> Theme {
-    let pal = palette(theme, mode);
+/// Help and the detail popup draw through the classic chrome and need only the
+/// semantic slots. Derived from the palette being painted rather than from
+/// `(theme, mode)`, because `跟随终端` on a light terminal swaps in
+/// [`TERMINAL_LIGHT`], which the mode alone cannot name.
+pub fn theme_of(pal: &Palette) -> Theme {
     Theme {
         bg: pal.bg,
         fg: pal.text,
@@ -386,7 +391,7 @@ pub fn theme(theme: ShelfTheme, mode: ThemeMode) -> Theme {
 
 #[cfg(test)]
 mod tests {
-    use super::{Palette, palette, theme as shared_theme, wordmark_ramp};
+    use super::{Palette, palette, theme_of, wordmark_ramp};
     use crate::core::config::models::{ShelfTheme, ThemeMode};
 
     const MODES: [(ThemeMode, &str); 2] = [(ThemeMode::Dark, "dark"), (ThemeMode::Light, "light")];
@@ -581,8 +586,8 @@ mod tests {
     fn the_shared_theme_maps_every_slot_to_the_palette() {
         for theme in ShelfTheme::ALL {
             for (mode, _) in MODES {
-                let mapped = shared_theme(theme, mode);
                 let pal = palette(theme, mode);
+                let mapped = theme_of(pal);
                 assert_eq!(mapped.bg, pal.bg);
                 assert_eq!(mapped.fg, pal.text);
                 assert_eq!(mapped.dim, pal.dim);

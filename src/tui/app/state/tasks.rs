@@ -294,10 +294,9 @@ impl App {
         }
     }
 
-    /// One row per job. Tasks that share a `job` id — the download, the loader
-    /// install and the file install of one modpack — collapse into a single row
-    /// with aggregate progress, because listing them apart read as a pile of
-    /// unrelated work.
+    /// One row per job. Tasks that share a `job` id (the download, the loader
+    /// install and the file install of one modpack) collapse into a single row
+    /// with aggregate progress; listed apart they read as unrelated work.
     pub(in crate::tui::app) fn task_rows(&self) -> Vec<TaskRow> {
         self.all_task_rows()
             .into_iter()
@@ -379,8 +378,8 @@ impl App {
         self.task_snapshots.get(row.head)
     }
 
-    /// Every task behind the selected row. Keys that act on a job — pause,
-    /// retry, delete — apply to all of them, so a job never loses a step.
+    /// Every task behind the selected row. Keys that act on a job (pause, retry,
+    /// delete) apply to all of them, so a job never loses a step.
     pub(in crate::tui::app) fn selected_job_tasks(&self) -> Vec<&TaskSnapshot> {
         self.selected_task_row()
             .map(|row| {
@@ -473,7 +472,7 @@ impl App {
 
     /// Runs one action over every step of the selected row.
     ///
-    /// A row can stand for a three-step modpack install, and pausing just the
+    /// A row can stand for a three-step modpack install, and pausing only the
     /// step that happens to be running would leave the job half stopped. Each
     /// step decides for itself what the action means (a queued step pauses, a
     /// failed one retries), and a step that cannot take it is skipped.

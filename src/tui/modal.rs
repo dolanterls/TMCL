@@ -587,9 +587,9 @@ impl Modal {
     /// Runs one structural dialog action.
     ///
     /// Text editing (characters, cursor, backspace) stays in `handle_key`; this
-    /// method covers the actions a pointer can express — focus a field, open a
-    /// list, choose an option, browse, submit, cancel — so the mouse and the
-    /// keyboard share one result vocabulary.
+    /// method covers the actions a pointer can express (focus a field, open a list,
+    /// choose an option, browse, submit, cancel), so the mouse and the keyboard
+    /// share one result vocabulary.
     pub fn apply(&mut self, act: ModalAct) -> ModalResult {
         match (self, act) {
             (
@@ -925,7 +925,16 @@ impl Modal {
     pub fn area(&self, terminal_area: Rect) -> Rect {
         match self {
             Self::Prompt { .. } => crate::tui::chrome::prompt_rect(terminal_area),
-            Self::Confirm { .. } => crate::tui::chrome::popup_rect_sized(terminal_area, 7),
+            Self::Confirm { prompt, .. } => {
+                // The prompt wraps instead of being cut, and the card has to
+                // grow with it: a destructive dialog that truncates hides the
+                // object it is about to change, which is the one thing the
+                // reader came for.
+                let width = terminal_area.width.saturating_sub(4).clamp(20, 76);
+                let rows = confirm_prompt_rows(prompt, width.saturating_sub(2));
+                let height = u16::try_from(rows).unwrap_or(1).saturating_add(6);
+                crate::tui::chrome::popup_rect_sized(terminal_area, height)
+            }
             Self::Form {
                 labels,
                 selection_picker_open,
@@ -978,6 +987,17 @@ fn keep_selection_visible(selected: usize, option_count: usize, scroll: &mut usi
     keep_index_visible(selected, option_count, PICKER_VISIBLE_ROWS, scroll);
 }
 
+/// Rows a confirm prompt takes at `width` cells.
+///
+/// Measured with the `! ` badge two presets print in front of it, so a card sized
+/// from this fits whichever renderer draws it; the plain prompt can only be
+/// shorter.
+fn confirm_prompt_rows(prompt: &str, width: u16) -> usize {
+    crate::tui::palette::wrap(&format!("! {prompt}"), usize::from(width).max(1))
+        .len()
+        .max(1)
+}
+
 fn selection_display(value: &str) -> &str {
     value.split_once('|').map_or(value, |(display, _)| display)
 }
@@ -992,6 +1012,93 @@ fn selection_picker_options(
         .map(VersionPickerState::visible_options)
         .or_else(|| selection_options.get(&field).cloned())
         .unwrap_or_default()
+}
+
+/// One cap in a picker's key row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct KeyHint {
+    /// Printed inside the cap, exactly as the keyboard spells it.
+    pub key: &'static str,
+    /// i18n key of what the cap does.
+    pub label: &'static str,
+    /// What a click on the cap does.
+    ///
+    /// `None` where the pointer has no equivalent: moving the highlight, paging,
+    /// typing. Those caps stay printed because the keyboard can do them, but they
+    /// are not drawn as buttons.
+    pub act: Option<ModalAct>,
+}
+
+impl KeyHint {
+    const fn new(key: &'static str, label: &'static str, act: Option<ModalAct>) -> Self {
+        Self { key, label, act }
+    }
+}
+
+/// The caps a picker's foot shows, for the state the list is in.
+///
+/// A sentence here is not a key row: `Esc` then closes the list from the keyboard
+/// and does nothing when clicked, while the same cap on a form row works. One
+/// builder decides which caps exist, and each preset paints the same list in its
+/// own colours.
+pub(super) fn picker_key_hints(
+    version_picker: Option<&VersionPickerState>,
+    state: Option<&SelectionState>,
+    selected: usize,
+    options_empty: bool,
+) -> Vec<KeyHint> {
+    // `Esc` here backs out of the list and keeps the form: `CloseOptions`, not the
+    // dialog's `Cancel`.
+    let back = KeyHint::new("Esc", "action.back", Some(ModalAct::CloseOptions));
+    if version_picker.is_some_and(|picker| picker.editing_search) {
+        // The query owns the keyboard: `Enter` ends typing, `Esc` clears it.
+        return vec![
+            KeyHint::new("Backspace", "hint.erase", None),
+            KeyHint::new("Enter", "hint.done", None),
+            KeyHint::new("Esc", "hint.clear", None),
+        ];
+    }
+    let has_filters = version_picker.is_some();
+    let filters = KeyHint::new("1-4", "action.filter", None);
+    let search = KeyHint::new("/", "action.search", Some(ModalAct::EditSearch));
+    let choose = KeyHint::new("Enter", "hint.confirm", Some(ModalAct::Option(selected)));
+    let retry = KeyHint::new("r", "action.retry", Some(ModalAct::RetryOptions));
+    match state {
+        Some(SelectionState::Error(_)) if has_filters => vec![retry, filters, search, back],
+        Some(SelectionState::Error(_)) => vec![retry, back],
+        // Nothing to retry into: the list is on its way in, and `Esc` is the
+        // only key that does anything.
+        Some(SelectionState::Loading | SelectionState::Unavailable(_)) => vec![back],
+        _ if has_filters => vec![
+            filters,
+            search,
+            KeyHint::new("↑/↓", "hint.move", None),
+            choose,
+            back,
+        ],
+        // Never loaded: `r` is what the keyboard handler retries on, and the
+        // label has to say so rather than promise a choice from an empty list.
+        _ if options_empty => vec![
+            KeyHint::new("r", "hint.load_retry", Some(ModalAct::RetryOptions)),
+            back,
+        ],
+        _ => vec![
+            KeyHint::new("↑/↓", "action.select", None),
+            KeyHint::new("PgUp/PgDn", "hint.page", None),
+            choose,
+            back,
+        ],
+    }
+}
+
+/// `(keys, acts)`: the pair every preset's key-row painter already takes.
+pub(super) fn picker_key_row(
+    hints: &[KeyHint],
+) -> (Vec<(&'static str, &'static str)>, Vec<Option<ModalAct>>) {
+    hints
+        .iter()
+        .map(|hint| ((hint.key, hint.label), hint.act))
+        .unzip()
 }
 
 #[cfg(test)]

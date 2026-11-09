@@ -39,7 +39,7 @@ impl App {
     }
 
     /// Put the chosen archive into the import form and fill the instance name
-    /// from it — but only when the player has not typed one.
+    /// from it, unless the player has already typed one.
     pub fn set_browsed_modpack_file(&mut self, path: PathBuf) {
         let fill_name = self.modal.as_ref().is_some_and(|modal| match modal {
             Modal::Form { values, .. } => {
@@ -65,12 +65,18 @@ impl App {
         if let Some(file) = self.pending_world_file.take() {
             self.submit_world_save(file, path);
         } else if let Some(kind) = self.pending_log_export.take() {
+            if matches!(kind, LogExportKind::Bundle) {
+                self.export_diagnosis_bundle(&path);
+                return;
+            }
             let content = match &kind {
                 LogExportKind::Launcher => {
                     Ok(self.launcher_logs.matching_lines("").join("\n") + "\n")
                 }
                 LogExportKind::Game => Ok(self.logs.matching_lines("").join("\n") + "\n"),
-                LogExportKind::CrashReport(source) => std::fs::read_to_string(source),
+                // Handled above: the bundle is a zip of several files, not one
+                // buffer written to disk.
+                LogExportKind::Bundle => Ok(String::new()),
             };
             match content.and_then(|content| std::fs::write(&path, content)) {
                 Ok(()) => {
@@ -109,6 +115,9 @@ impl App {
 
     pub fn handle(&mut self, event: AppEvent) {
         match event {
+            AppEvent::DiagnosisReady { seq, diagnosis } => {
+                self.handle_diagnosis_ready(seq, diagnosis);
+            }
             AppEvent::Key(key) => self.handle_key(key),
             AppEvent::Mouse(mouse) => self.handle_mouse(mouse),
             AppEvent::Resize(width, height) => {
@@ -371,26 +380,22 @@ impl App {
                 }
             },
             AppEvent::LaunchFinished {
-                // Only the row overlay used it; that helper now matches by
-                // itself, so the id would be a binding nothing reads.
-                instance_id: _,
+                instance_id,
                 instance_directory,
                 play_time_seconds,
                 exit_code,
                 log_path,
                 crash_report,
+                launch_command,
             } => {
                 self.active_launch = None;
-                // The crash report is relative to the game directory; that
-                // directory has one definition, in `core::instance::path`.
-                let game_directory =
-                    crate::core::instance::path::game_directory_of(&instance_directory)
-                        .unwrap_or_else(|_| instance_directory.clone());
-                self.last_crash_report = crash_report.map(|path| {
+                // A relative crash-report path is relative to `--gameDir`,
+                // which is the instance directory, not the game root.
+                let crash_report = crash_report.map(|path| {
                     if path.is_absolute() {
                         path
                     } else {
-                        game_directory.join(path)
+                        instance_directory.join(path)
                     }
                 });
                 self.record_launcher_log(&format!("Game launch completed: {exit_code:?}"));
@@ -414,32 +419,45 @@ impl App {
                         ],
                     ));
                 }
-                // A non-zero exit gets a cause and an action before the raw
-                // stack trace: the log page is where a player looks first.
-                if matches!(exit_code, Some(code) if code != 0)
-                    && let Some(finding) = crate::core::launch::crash::analyze_files(
-                        &log_path,
-                        self.last_crash_report.as_deref(),
-                    )
-                {
-                    let reason = self.i18n.text(finding.kind.message_key());
-                    self.logs.append(format!("[crash] {reason}"));
-                    self.logs.append(format!(
-                        "[crash] {}",
-                        self.i18n.text(finding.kind.advice_key())
-                    ));
-                    for line in finding.detail.iter().take(3) {
-                        self.logs.append(format!("[crash]   {line}"));
-                    }
-                    self.record_launcher_log(&format!(
-                        "crash analysis: {:?} | {}",
-                        finding.kind,
-                        finding.detail.join(" | ")
-                    ));
-                    self.status = Status::warning(
-                        self.i18n
-                            .format("status.crash_detected", &[("reason", &reason)]),
+
+                // The verdict is built off this thread: 59 rules over half a
+                // megabyte of log is not something to run between two frames.
+                let instance_name = self
+                    .instances
+                    .items
+                    .iter()
+                    .find(|item| item.id == instance_id)
+                    .map_or_else(
+                        || {
+                            instance_directory
+                                .file_name()
+                                .and_then(|name| name.to_str())
+                                .unwrap_or("instance")
+                                .to_owned()
+                        },
+                        |item| item.name.clone(),
                     );
+                let started_at_epoch = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|elapsed| elapsed.as_secs())
+                    .unwrap_or(0)
+                    .saturating_sub(play_time_seconds);
+                self.last_run = Some(crate::core::diagnose::RunRecord {
+                    instance_id,
+                    instance_name,
+                    instance_dir: instance_directory,
+                    log_path,
+                    crash_report,
+                    exit_code,
+                    duration_secs: play_time_seconds,
+                    started_at_epoch,
+                    launch_command: Some(launch_command),
+                    log_scope: crate::core::diagnose::LogScope::Run,
+                });
+                self.launch_seq += 1;
+                let seq = self.launch_seq;
+                if let Some(run) = self.last_run.clone() {
+                    self.start_diagnosis(seq, run);
                 }
                 // The process is gone: hand the row back to the disk instead of
                 // leaving `运行中` behind. The helper only rewrites rows still
@@ -451,6 +469,10 @@ impl App {
                 self.sync_launch_status();
                 self.record_launcher_log(&error);
                 self.status = Status::error(error);
+                // The launch may have retired a credential that cannot be
+                // traded again (`Error::AccountExpired`); the account page has
+                // to show `需重新登录` now, not after the next full reload.
+                let _ = self.reload_accounts();
             }
         }
     }
@@ -569,12 +591,19 @@ impl App {
                 self.help_open = true;
                 self.help_scroll = 0;
             }
+            Command::Diagnose => self.toggle_diagnosis(),
+            // `\0` is Enter: run the first remedy the rule offers.
+            Command::Remedy(cap) => self.run_remedy_cap(cap),
+            Command::ExportDiagnosis => self.begin_diagnosis_export(),
+            Command::LocateInLog => self.locate_in_log(),
             Command::Back => self.go_back(),
             Command::PrevRow => self.scroll_vertical(-1, false),
             Command::NextRow => self.scroll_vertical(1, false),
             Command::PrevPage => {
                 let rows = if self.help_open {
                     self.help_page_rows()
+                } else if self.diagnosis_open {
+                    self.diagnosis_page_rows()
                 } else {
                     8
                 };
@@ -583,6 +612,8 @@ impl App {
             Command::NextPage => {
                 let rows = if self.help_open {
                     self.help_page_rows()
+                } else if self.diagnosis_open {
+                    self.diagnosis_page_rows()
                 } else {
                     8
                 };
@@ -722,13 +753,14 @@ impl App {
 
     /// Where one vertical move goes.
     ///
-    /// The overlay wins over the page underneath it: with the help card open
-    /// the arrows scroll the reference. The workspace used to be checked first,
-    /// so `?` over the instance workspace moved the hidden list instead and the
-    /// card looked frozen.
+    /// The overlay wins over the page underneath it: with the help card open the
+    /// arrows scroll the reference. Checking the workspace first would move the
+    /// hidden list behind the card instead.
     fn scroll_vertical(&mut self, rows: isize, page: bool) {
         if self.help_open {
             self.scroll_help(rows);
+        } else if self.diagnosis_open {
+            self.scroll_diagnosis(rows);
         } else if self.workspace_is_open() {
             self.move_workspace_row(rows);
         } else if self.detail_open {
@@ -744,6 +776,8 @@ impl App {
     fn jump_vertical(&mut self, top: bool) {
         if self.help_open {
             self.help_scroll = if top { 0 } else { self.help_max_scroll() };
+        } else if self.diagnosis_open {
+            self.diagnosis_scroll = if top { 0 } else { self.diagnosis_max_scroll() };
         } else if self.workspace_is_open() {
             self.jump_workspace_edge(top);
         } else {
@@ -843,8 +877,7 @@ impl App {
                     if top {
                         self.logs.scroll(-(max as isize), max);
                     } else {
-                        let offset = self.logs.scroll_offset() as isize;
-                        self.logs.scroll(offset, max);
+                        self.logs.set_follow(true, max);
                     }
                 }
                 Page::DownloadCenter => {}
@@ -1119,10 +1152,10 @@ impl App {
 
     /// Leaving the field with the mouse commits what was typed.
     ///
-    /// `Esc` is a cancel: it throws the query away. Clicking elsewhere is not —
-    /// the pointer says "I am done here", not "forget it". Settings is the one
-    /// exception: there `Enter` jumps to the first hit, and a stray click must
-    /// not move the selection, so the field is simply dropped.
+    /// `Esc` is a cancel and throws the query away; a click elsewhere means "I
+    /// am done here", not "forget it". Settings is the exception: there `Enter`
+    /// jumps to the first hit and a stray click must not move the selection, so
+    /// the field is dropped untouched.
     pub(in crate::tui::app) fn blur_search(&mut self) {
         let Some(target) = self.search.as_ref().map(|state| state.target) else {
             return;

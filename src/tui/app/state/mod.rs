@@ -1,7 +1,7 @@
 //! Preset-agnostic state and behaviour.
 //!
-//! Nothing here draws a frame. Page actions live here too — the key map is the
-//! same for every preset, so "what a key does" cannot belong to one look.
+//! Nothing here draws a frame. Page actions live here too, because the key map
+//! is the same for every preset, so "what a key does" cannot belong to one look.
 //! Modules that draw live in [`crate::tui::app::view`].
 
 use super::*;
@@ -11,6 +11,7 @@ pub(crate) mod commands;
 pub(crate) mod covers;
 pub(crate) mod data;
 pub(crate) mod data_format;
+pub(crate) mod diagnosis;
 pub(crate) mod dispatch;
 pub(crate) mod downloads;
 pub(crate) mod downloads_categories;
