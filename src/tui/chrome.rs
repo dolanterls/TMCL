@@ -183,6 +183,30 @@ fn render_status(
     frame.render_widget(Paragraph::new(Span::styled(text, theme.dim())), area);
 }
 
+/// The hints that fit, dropping the least important ones first.
+///
+/// One policy for every footer, whatever it looks like: `classic` and `shelf`
+/// print `[key→ label]` caps, `nightlight` runs them together, `paper` sets them
+/// as a sentence. They differ in how a hint is drawn, not in which hint matters,
+/// so the choice lives here instead of three times over. `paper` used to cut at
+/// the edge instead, which quietly ate `?`, `Tab` and `q` on a 120-column page.
+///
+/// The last entry is never dropped: it is `q`, and a page with no visible way
+/// out is worse than a page showing fewer actions.
+pub fn fitted_hints<'a>(hints: &'a [Hint], fits: impl Fn(&[&'a Hint]) -> bool) -> Vec<&'a Hint> {
+    let mut items = hints.iter().collect::<Vec<_>>();
+    while items.len() > 1 && !fits(&items) {
+        // Drop the least important hint first (highest priority number).
+        // Tab uses priority 1, page actions 10.
+        let Some(index) = (0..items.len() - 1).max_by_key(|index| (items[*index].priority, *index))
+        else {
+            break;
+        };
+        items.remove(index);
+    }
+    items
+}
+
 /// Key caps, dropping the least important ones until the row fits.
 fn render_hints(
     frame: &mut Frame<'_>,
@@ -196,27 +220,13 @@ fn render_hints(
         return;
     }
     let available = area.width;
-    let mut items = hints.iter().collect::<Vec<_>>();
-    loop {
-        let line = hint_line(&items, i18n, theme);
-        if line.width() as u16 <= available || items.len() <= 1 {
-            frame.render_widget(Paragraph::new(line).alignment(alignment), area);
-            break;
-        }
-        // Drop the least important hint first (highest priority number),
-        // never the last entry (quit). Tab uses priority 1, page actions 10.
-        let removable =
-            (0..items.len().saturating_sub(1)).max_by_key(|index| (items[*index].priority, *index));
-        match removable {
-            Some(index) => {
-                items.remove(index);
-            }
-            None => {
-                frame.render_widget(Paragraph::new(line).alignment(alignment), area);
-                break;
-            }
-        }
-    }
+    let items = fitted_hints(hints, |items| {
+        hint_line(items, i18n, theme).width() as u16 <= available
+    });
+    frame.render_widget(
+        Paragraph::new(hint_line(&items, i18n, theme)).alignment(alignment),
+        area,
+    );
 }
 
 fn hint_line(hints: &[&Hint], i18n: &crate::i18n::I18n, theme: Theme) -> Line<'static> {

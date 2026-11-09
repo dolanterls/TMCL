@@ -376,7 +376,7 @@ fn classic_workspace_selection_uses_the_table_style() {
     let buffer = buffer_of(&app);
     let cell = &buffer[(selected.x + 1, selected.y)];
     // Classic tables mark a selection with green bold text, never a band.
-    assert_eq!(cell.fg, crate::tui::theme::Theme::default().selection);
+    assert_eq!(cell.fg, app.theme.selection);
     assert!(cell.modifier.contains(ratatui::style::Modifier::BOLD));
     assert_ne!(cell.bg, ratatui::style::Color::Rgb(19, 24, 36));
 }

@@ -340,7 +340,7 @@ impl App {
             for x in rect.left()..rect.right() {
                 let cell = &mut buffer[(x, y)];
                 // Presets that paint RGB surfaces shift the cell background on
-                // hover. `classic` inherits the terminal background
+                // hover. Under `跟随终端` `classic` has no cell of its own
                 // (`Color::Reset`), where there is nothing to darken; there the
                 // highlight goes to the foreground so it survives any palette.
                 if let (

@@ -1039,8 +1039,16 @@ fn the_selected_row_keeps_its_style_under_the_pointer() {
 }
 
 #[test]
-fn hover_uses_a_background_tint_on_rgb_presets_and_a_foreground_tint_on_classic() {
-    for preset in [UiPreset::Classic, UiPreset::Nightlight, UiPreset::Paper] {
+fn hover_tints_the_background_wherever_the_page_has_one() {
+    // Every preset that paints a page mixes the accent into the cell behind the
+    // text. `classic` used to keep `bg = Reset` and tint the foreground instead;
+    // it paints a page now, so it tints like the rest.
+    for preset in [
+        UiPreset::Classic,
+        UiPreset::Nightlight,
+        UiPreset::Paper,
+        UiPreset::Shelf,
+    ] {
         let mut app = instances_app(4);
         app.config.state.ui.preset = preset;
         draw_sized(&app, 120, 40);
@@ -1054,18 +1062,34 @@ fn hover_uses_a_background_tint_on_rgb_presets_and_a_foreground_tint_on_classic(
         let plain = row_colours(&app, row);
         mouse(&mut app, MouseEventKind::Moved, row.x + 1, row.y);
         let hovered = row_colours(&app, row);
-        let changed_fg = plain.iter().zip(&hovered).any(|(a, b)| a.1 != b.1);
-        let changed_bg = plain.iter().zip(&hovered).any(|(a, b)| a.0 != b.0);
-        match preset {
-            UiPreset::Classic => assert!(changed_fg, "classic tints the foreground"),
-            // Nightlight paints whole rows too, so the tint lands on the
-            // background. Paper mixes the accent into the sheet, which is also
-            // a background change.
-            UiPreset::Nightlight | UiPreset::Paper | UiPreset::Shelf => {
-                assert!(changed_bg, "{preset:?} tints the background")
-            }
-        }
+        assert!(
+            plain.iter().zip(&hovered).any(|(a, b)| a.0 != b.0),
+            "{preset:?} tints the background"
+        );
     }
+}
+
+/// `跟随终端` has no cell of its own to tint, so the highlight goes to the ink.
+#[test]
+fn hover_tints_the_foreground_when_the_page_is_the_terminal() {
+    let mut app = instances_app(4);
+    app.config.state.ui.preset = UiPreset::Classic;
+    super::set_theme_mode(&mut app, crate::core::config::models::ThemeMode::Terminal);
+    draw_sized(&app, 120, 40);
+    let row = app
+        .hitmap
+        .hitboxes()
+        .iter()
+        .find(|hitbox| hitbox.action == Action::row(Page::Instances, 2))
+        .map(|hitbox| hitbox.rect)
+        .expect("row 2");
+    let plain = row_colours(&app, row);
+    mouse(&mut app, MouseEventKind::Moved, row.x + 1, row.y);
+    let hovered = row_colours(&app, row);
+    assert!(
+        plain.iter().zip(&hovered).any(|(a, b)| a.1 != b.1),
+        "follow-terminal tints the foreground"
+    );
 }
 
 #[test]

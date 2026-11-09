@@ -20,5 +20,5 @@
 
  16:00
 ────────────────────────────────────────────────────────────────────────────────
-           Enter Details   l Launch   n New   ? Help   Tab Next page   q Quit
+                   Enter Details   l Launch   ? Help   Tab Next page   q Quit
  · Ready

@@ -7,17 +7,20 @@ impl App {
         vec![
             self.hint("Enter", "action.details"),
             self.hint("l", "action.launch"),
+            // `Space` marks the current instance; the overview and every launch
+            // without a row selection follow it. It ranks with the row actions
+            // and sits third: the presets that cut the tail instead of dropping
+            // by priority would otherwise lose it first.
+            self.hint("Space", "action.set_current"),
             self.hint("n", "action.new"),
             self.hint("i", "action.import"),
-            self.hint("I", "action.import_modpack"),
+            self.hint("I", "action.import_modpack").with_priority(11),
             self.hint("r", "action.rename"),
             self.hint("d", "action.remove"),
-            self.hint("x", "action.export_script").with_priority(11),
-            // `Space` marks the current instance; the overview and every launch
-            // without a row selection follow it. It sits after the row actions
-            // and yields first, so a narrow footer keeps `d` and `x` instead.
-            self.hint("Space", "action.set_current").with_priority(12),
-            self.hint("[ ]", "action.change_filter"),
+            // Exported as a script, then run by hand: the rarest action here,
+            // so it is the first cap a crowded footer drops.
+            self.hint("x", "action.export_script").with_priority(12),
+            self.hint("[ ]", "action.change_filter").with_priority(11),
         ]
     }
 

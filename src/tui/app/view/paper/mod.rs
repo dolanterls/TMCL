@@ -148,22 +148,35 @@ impl App {
         }
     }
 
+    /// The keys as a sentence — wrapped? no: dropped by priority, like every
+    /// other footer.
+    ///
+    /// This line used to stop at the page edge, which reads as a sentence that
+    /// simply ends: `?`, `Tab` and `q` were gone from a 120-column page and
+    /// nothing said so.
     fn paper_hint_line(&self, width: u16, pal: &PaperPalette) -> Line<'static> {
+        let hints = self.hints();
+        let fitted = crate::tui::chrome::fitted_hints(&hints, |items| {
+            self.paper_hint_spans(items, pal).width() <= usize::from(width)
+        });
+        self.paper_hint_spans(&fitted, pal)
+    }
+
+    fn paper_hint_spans(
+        &self,
+        hints: &[&crate::tui::chrome::Hint],
+        pal: &PaperPalette,
+    ) -> Line<'static> {
         let mut spans = Vec::new();
-        let mut used = 0usize;
-        for hint in self.hints() {
-            let label = self.i18n.text_or_raw(&hint.action);
-            // Key, space, label, and the three-space gutter that follows.
-            let cost = palette::width(&hint.key) + 1 + palette::width(&label) + 3;
-            if !spans.is_empty() && used + cost > usize::from(width) {
-                break;
-            }
+        for hint in hints {
             if !spans.is_empty() {
                 spans.push(Span::styled("   ", ink(pal, pal.faint)));
             }
             spans.push(Span::styled(hint.key.clone(), ink(pal, pal.accent)));
-            spans.push(Span::styled(format!(" {label}"), ink(pal, pal.dim)));
-            used += cost;
+            spans.push(Span::styled(
+                format!(" {}", self.i18n.text_or_raw(&hint.action)),
+                ink(pal, pal.dim),
+            ));
         }
         Line::from(spans)
     }

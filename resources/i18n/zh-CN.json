@@ -789,7 +789,7 @@
   "settings.desc.retry_count": "单个文件下载失败后的重试次数。",
   "settings.desc.timeout": "单次网络请求的超时时间。",
   "settings.desc.preset": "切换整体界面风格，立即生效。",
-  "settings.desc.theme": "深色 / 浅色 / 跟随终端配色。",
+  "settings.desc.theme": "深色 / 浅色 / 跟随终端配色。前两者自带底色；只有跟随终端会把窗口底色交还给终端。",
   "settings.desc.high_contrast": "增强次要文字与边框的对比度。",
   "settings.desc.accent": "选中行、标题与强调元素的颜色。",
   "settings.desc.nightlight_theme": "夜灯预设使用的配色，仅 Nightlight 预设生效。",

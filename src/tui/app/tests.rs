@@ -1320,6 +1320,18 @@ fn java_and_settings_pages_hide_windows_verbatim_path_prefixes() {
     assert!(!settings_page.contains(r"\\?\"));
 }
 
+/// Switches the theme mode the way the settings row does.
+///
+/// `App::theme` is derived state: `commit_config` rebuilds it whenever the
+/// config is written, so a test that assigns to `config.state.ui` directly has
+/// to do the same, or it renders the previous mode. It only shows now that
+/// `深色` paints a page of its own — while both modes were `Reset` a stale
+/// theme looked identical.
+fn set_theme_mode(app: &mut App, mode: crate::core::config::models::ThemeMode) {
+    app.config.state.ui.theme_mode = mode;
+    app.theme = crate::tui::theme::Theme::from_ui(&app.config.state.ui);
+}
+
 fn render_app(app: &App, width: u16, height: u16) -> String {
     let backend = TestBackend::new(width, height);
     let mut terminal = Terminal::new(backend).expect("create test terminal");

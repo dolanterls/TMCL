@@ -252,22 +252,17 @@ fn kind_color(kind: StatusKind, pal: &Palette) -> Color {
 
 /// Hints that fit in `available` cells, dropping the lowest priority first.
 fn fitted_hints(app: &App, available: u16) -> Vec<crate::tui::chrome::Hint> {
-    let mut hints = app.hints();
-    let fits = |items: &[crate::tui::chrome::Hint]| {
+    let hints = app.hints();
+    crate::tui::chrome::fitted_hints(&hints, |items| {
         items
             .iter()
             .map(|hint| hint_width(app, hint))
             .sum::<usize>()
             <= usize::from(available)
-    };
-    while hints.len() > 1 && !fits(&hints) {
-        let Some(index) = (0..hints.len() - 1).max_by_key(|index| (hints[*index].priority, *index))
-        else {
-            break;
-        };
-        hints.remove(index);
-    }
-    hints
+    })
+    .into_iter()
+    .cloned()
+    .collect()
 }
 
 fn hint_width(app: &App, hint: &crate::tui::chrome::Hint) -> usize {

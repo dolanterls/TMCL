@@ -1836,7 +1836,7 @@ fn nightlight_snapshots_match_fixtures() {
     // tint of the dark one.
     for (name, page) in [("overview", Page::Overview), ("settings", Page::Settings)] {
         let mut app = nightlight_app_at(page, 120, 40);
-        app.config.state.ui.theme_mode = ThemeMode::Light;
+        super::set_theme_mode(&mut app, ThemeMode::Light);
         if page == Page::Overview {
             nightlight_seed_overview(&mut app);
         }
@@ -2722,6 +2722,189 @@ fn the_current_account_keeps_its_whole_badge() {
             .ends_with(&app.i18n.text("account.kind.offline")),
         "the badge is clipped: {row:?}"
     );
+}
+
+/// `Space` marks the current instance, and the footer has to say so.
+///
+/// It sat last in the list with the highest drop priority, so at 120 columns
+/// every preset but `paper` had already dropped it: the action existed, `?`
+/// described it, and nothing on the page hinted it was there.
+#[test]
+fn the_instances_footer_offers_space_in_every_preset() {
+    use crate::core::config::models::UiPreset;
+
+    for preset in UiPreset::ALL {
+        let mut app = shelf_data_app(Page::Instances);
+        app.config.state.ui.preset = preset;
+        app.terminal_width = 120;
+        app.terminal_height = 40;
+
+        let text = render_text(&app, 120, 40);
+        assert!(
+            text.contains("Space") && text.contains("Set current"),
+            "{preset:?}: the footer never mentions Space:\n{text}"
+        );
+    }
+}
+
+/// No footer may drop the way out.
+///
+/// `paper` built its hint line by stopping at the page edge, so a narrow window
+/// simply ended the sentence: `? Help`, `Tab Next page` and `q Quit` were all
+/// missing, with nothing on screen to say the keys existed. Every footer now
+/// drops by priority instead, and `q` is never the one dropped.
+#[test]
+fn no_footer_drops_help_tab_or_quit() {
+    use crate::core::config::models::UiPreset;
+
+    for width in [120u16, 100, 80] {
+        for preset in UiPreset::ALL {
+            let mut app = shelf_data_app(Page::Instances);
+            app.config.state.ui.preset = preset;
+            app.terminal_width = width;
+            app.terminal_height = 40;
+
+            let text = render_text(&app, width, 40);
+            for label in ["Help", "Next page", "Quit"] {
+                assert!(
+                    text.contains(label),
+                    "{preset:?} at {width}: the footer has no {label}:\n{text}"
+                );
+            }
+        }
+    }
+}
+
+/// No glyph falls below the contrast floor on either painted page.
+///
+/// `深色` and `浅色` used to paint nothing and only swap the inks; on the
+/// wrong window that put dark text on a dark page. Both lay down their own
+/// page now, and this reads every painted cell back off the frame to prove the
+/// inks land on it. 4.5:1 is the WCAG floor for body text.
+#[test]
+fn no_classic_glyph_falls_below_the_contrast_floor() {
+    use crate::core::config::models::{ThemeMode, UiPreset};
+    use crate::tui::palette::relative_luminance;
+    use ratatui::style::Color;
+
+    fn ratio(a: Color, b: Color) -> f64 {
+        let (a, b) = (relative_luminance(a), relative_luminance(b));
+        let (light, dark) = if a > b { (a, b) } else { (b, a) };
+        (light + 0.05) / (dark + 0.05)
+    }
+
+    let pages = [
+        Page::Overview,
+        Page::Instances,
+        Page::Accounts,
+        Page::DownloadCenter,
+        Page::Tasks,
+        Page::Logs,
+        Page::Settings,
+    ];
+    for mode in [ThemeMode::Dark, ThemeMode::Light] {
+        for page in pages {
+            let mut app = shelf_data_app(page);
+            app.config.state.ui.preset = UiPreset::Classic;
+            app.config.state.ui.theme_mode = mode;
+            app.theme = crate::tui::theme::Theme::from_ui(&app.config.state.ui);
+            app.terminal_width = 120;
+            app.terminal_height = 35;
+
+            let buffer = render_buffer(&app, 120, 35);
+            for y in 0..35u16 {
+                for x in 0..120u16 {
+                    let cell = &buffer[(x, y)];
+                    if cell.symbol().trim().is_empty() {
+                        continue;
+                    }
+                    let against = ratio(cell.fg, cell.bg);
+                    assert!(
+                        against >= 4.5,
+                        "{mode:?}/{page:?}: {:?} at ({x},{y}) is {against:.2}:1 on {:?}",
+                        cell.symbol(),
+                        cell.bg
+                    );
+                }
+            }
+        }
+    }
+}
+
+/// A dialog pushes the page back without inverting it.
+///
+/// The scrim scaled every channel by 0.55, which is how a dark page recedes:
+/// the ink and the paper both lose brightness and stay in ratio. On cream the
+/// same arithmetic lands on mid grey with near black text on top — 2.6:1, and
+/// the window looks like the lights went out. A paper page keeps its colour and
+/// only loses its ink, and the dialog drawn over it is crisp.
+#[test]
+fn a_dialog_pushes_the_page_back_without_inverting_it() {
+    use crate::core::config::models::{ThemeMode, UiPreset};
+    use crate::tui::modal::{ConfirmAction, Modal};
+    use crate::tui::palette::relative_luminance;
+    use ratatui::style::Color;
+
+    fn ratio(a: Color, b: Color) -> f64 {
+        let (a, b) = (relative_luminance(a), relative_luminance(b));
+        let (light, dark) = if a > b { (a, b) } else { (b, a) };
+        (light + 0.05) / (dark + 0.05)
+    }
+
+    let area = Rect::new(0, 0, 120, 35);
+    let prompt = "Clear the download cache?";
+    let card = Modal::confirm(prompt, ConfirmAction::ClearDownloadCache).area(area);
+
+    for mode in [ThemeMode::Dark, ThemeMode::Light] {
+        let mut app = shelf_data_app(Page::Instances);
+        app.config.state.ui.preset = UiPreset::Classic;
+        app.config.state.ui.theme_mode = mode;
+        app.theme = crate::tui::theme::Theme::from_ui(&app.config.state.ui);
+        app.terminal_width = 120;
+        app.terminal_height = 35;
+        app.modal = Some(Modal::confirm(prompt, ConfirmAction::ClearDownloadCache));
+
+        let buffer = render_buffer(&app, 120, 35);
+        let mut behind = 0;
+        for y in 0..35u16 {
+            for x in 0..120u16 {
+                let cell = &buffer[(x, y)];
+                let inside = card.contains(ratatui::layout::Position::new(x, y));
+                if inside {
+                    if cell.symbol().trim().is_empty() {
+                        continue;
+                    }
+                    let against = ratio(cell.fg, cell.bg);
+                    assert!(
+                        against >= 4.5,
+                        "{mode:?} dialog: {:?} at ({x},{y}) is {against:.2}:1",
+                        cell.symbol()
+                    );
+                    continue;
+                }
+                // Behind the scrim the page keeps its own side of the scale:
+                // light stays light, dark stays dark. Never a mid-grey slab.
+                let page = relative_luminance(cell.bg);
+                match mode {
+                    ThemeMode::Light => assert!(
+                        page > 0.5,
+                        "the light page went dark behind the dialog at ({x},{y}): {:?}",
+                        cell.bg
+                    ),
+                    _ => assert!(
+                        page < 0.05,
+                        "the dark page went pale behind the dialog at ({x},{y}): {:?}",
+                        cell.bg
+                    ),
+                }
+                behind += 1;
+            }
+        }
+        assert!(
+            behind > 1000,
+            "{mode:?}: the page was never drawn: {behind}"
+        );
+    }
 }
 
 /// The two sheet presets wrap a long log line instead of cutting it.
@@ -4307,7 +4490,7 @@ fn shelf_light_mode_paints_the_light_sheet() {
     use crate::tui::app::view::shelf::tone;
 
     let mut app = shelf_app(Page::Instances);
-    app.config.state.ui.theme_mode = ThemeMode::Light;
+    super::set_theme_mode(&mut app, ThemeMode::Light);
     let buffer = render_buffer(&app, 120, 40);
     let light = tone::palette(
         crate::core::config::models::ShelfTheme::Lavender,
@@ -4341,7 +4524,7 @@ fn shelf_schemes_repaint_the_page_and_the_covers() {
     let mut app = shelf_data_app(Page::Instances);
     for theme in ShelfTheme::ALL {
         app.config.state.ui.shelf_theme = theme;
-        app.config.state.ui.theme_mode = ThemeMode::Dark;
+        super::set_theme_mode(&mut app, ThemeMode::Dark);
         let buffer = render_buffer(&app, 120, 40);
         let pal = tone::palette(theme, ThemeMode::Dark);
 
@@ -4381,7 +4564,7 @@ fn shelf_schemes_repaint_the_page_and_the_covers() {
 
     // `跟随终端` is not tied to the shipped sheet: every binding hands the page
     // back, and keeps its own ink while doing it.
-    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    super::set_theme_mode(&mut app, ThemeMode::Terminal);
     for theme in ShelfTheme::ALL {
         app.config.state.ui.shelf_theme = theme;
         let buffer = render_buffer(&app, 120, 40);
@@ -4637,7 +4820,7 @@ fn following_the_terminal_hands_the_page_back_in_every_preset() {
     for preset in UiPreset::ALL {
         let mut app = App::new();
         app.config.state.ui.preset = preset;
-        app.config.state.ui.theme_mode = ThemeMode::Terminal;
+        super::set_theme_mode(&mut app, ThemeMode::Terminal);
         app.terminal_width = 120;
         app.terminal_height = 40;
         let buffer = render_buffer(&app, 120, 40);
@@ -4678,7 +4861,7 @@ fn every_preset_hands_back_every_container_fill() {
     for preset in UiPreset::ALL {
         let mut app = shelf_data_app(Page::Instances);
         app.config.state.ui.preset = preset;
-        app.config.state.ui.theme_mode = ThemeMode::Terminal;
+        super::set_theme_mode(&mut app, ThemeMode::Terminal);
         seed_instances(&mut app);
         let buffer = render_buffer(&app, 120, 40);
 
@@ -4730,7 +4913,7 @@ fn every_preset_hands_back_its_list_rows() {
     for preset in UiPreset::ALL {
         let mut app = shelf_data_app(Page::Instances);
         app.config.state.ui.preset = preset;
-        app.config.state.ui.theme_mode = ThemeMode::Terminal;
+        super::set_theme_mode(&mut app, ThemeMode::Terminal);
         seed_instances(&mut app);
         let buffer = render_buffer(&app, 120, 40);
         let reset = buffer
@@ -4754,7 +4937,7 @@ fn lifting_dim_text_skips_glyphs_that_sit_on_a_pill() {
 
     let mut app = shelf_data_app(Page::Instances);
     app.config.state.ui.preset = UiPreset::Nightlight;
-    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    super::set_theme_mode(&mut app, ThemeMode::Terminal);
     seed_instances(&mut app);
 
     // The other switch off, so the only difference between the two frames is
@@ -4806,7 +4989,7 @@ fn a_dialog_keeps_the_page_transparent_under_follow_terminal() {
     for preset in [UiPreset::Nightlight, UiPreset::Paper, UiPreset::Shelf] {
         let mut app = App::new();
         app.config.state.ui.preset = preset;
-        app.config.state.ui.theme_mode = ThemeMode::Terminal;
+        super::set_theme_mode(&mut app, ThemeMode::Terminal);
         app.terminal_width = 120;
         app.terminal_height = 40;
 
@@ -4911,7 +5094,7 @@ fn the_shelf_theme_follows_the_sheet_being_painted() {
     use crate::core::config::models::ThemeMode;
 
     let mut app = shelf_app(Page::Instances);
-    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    super::set_theme_mode(&mut app, ThemeMode::Terminal);
     app.set_terminal_background(Some(true));
     let light = app.shelf_palette();
     assert_eq!(app.shelf_theme().fg, light.text, "light terminal ink");
@@ -4940,7 +5123,7 @@ fn the_terminal_readability_rows_appear_only_under_the_terminal_mode() {
             .collect::<Vec<_>>()
     };
 
-    app.config.state.ui.theme_mode = ThemeMode::Dark;
+    super::set_theme_mode(&mut app, ThemeMode::Dark);
     let dark = ids(&app);
     for id in [SettingId::LiftDimText, SettingId::DetectTerminal] {
         assert!(
@@ -4949,7 +5132,7 @@ fn the_terminal_readability_rows_appear_only_under_the_terminal_mode() {
         );
     }
 
-    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    super::set_theme_mode(&mut app, ThemeMode::Terminal);
     let terminal = ids(&app);
     for id in [SettingId::LiftDimText, SettingId::DetectTerminal] {
         assert!(terminal.contains(&id), "{id:?} is missing under 跟随终端");
@@ -4964,7 +5147,7 @@ fn the_terminal_readability_switches_toggle_and_persist() {
     use crate::tui::pages::settings::SettingId;
 
     let mut app = shelf_app(Page::Settings);
-    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    super::set_theme_mode(&mut app, ThemeMode::Terminal);
 
     for (id, read) in [
         (
@@ -4991,7 +5174,7 @@ fn classic_ignores_the_lift_switch() {
 
     let mut app = shelf_app(Page::Instances);
     app.config.state.ui.preset = UiPreset::Classic;
-    app.config.state.ui.theme_mode = ThemeMode::Terminal;
+    super::set_theme_mode(&mut app, ThemeMode::Terminal);
 
     app.config.state.ui.lift_dim_text = false;
     let plain = render_buffer(&app, 120, 40);
@@ -5237,7 +5420,7 @@ fn the_card_title_keeps_the_stage_and_the_facts_whole() {
     let row = text
         .lines()
         .find(|row| row.contains(&title))
-        .unwrap_or_else(|| panic!("no title row in://n{text}"));
+        .unwrap_or_else(|| panic!("no title row in:\n{text}"));
     let context = app.diagnosis_context();
     assert!(
         row.contains(&context),

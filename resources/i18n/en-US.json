@@ -789,7 +789,7 @@
   "settings.desc.retry_count": "How many times a failed file download is retried.",
   "settings.desc.timeout": "Timeout for a single network request.",
   "settings.desc.preset": "Switch the overall interface style; applies immediately.",
-  "settings.desc.theme": "Dark / light / follow the terminal palette.",
+  "settings.desc.theme": "Dark / light / follow the terminal palette. The first two paint their own page; only follow-the-terminal hands the window fill back.",
   "settings.desc.high_contrast": "Increase contrast for secondary text and borders.",
   "settings.desc.accent": "Colour used for selections, titles and accents.",
   "settings.desc.nightlight_theme": "Palette worn by the Nightlight preset; ignored by the other presets.",
