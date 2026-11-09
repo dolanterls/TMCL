@@ -266,9 +266,6 @@ fn page_app(preset: UiPreset, page: Page, width: u16, height: u16) -> App {
     app.terminal_height = height;
     app.instances.apply(instances());
     app.versions = versions();
-    if preset == UiPreset::Creeper {
-        app.settings.select_category(SettingsCategory::Appearance);
-    }
     app
 }
 
@@ -699,7 +696,8 @@ fn every_keyboard_only_command_is_explicitly_listed() {
 
 #[test]
 fn the_inline_settings_search_field_is_clickable() {
-    let mut app = page_app(UiPreset::Creeper, Page::Settings, 120, 40);
+    let mut app = page_app(UiPreset::Nightlight, Page::Settings, 120, 40);
+    app.settings.select_category(SettingsCategory::Appearance);
     app.settings_search = Some(String::new());
     draw(&app, 120, 40);
     let field = app

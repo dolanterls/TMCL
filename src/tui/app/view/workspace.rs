@@ -1,9 +1,9 @@
 //! Instance workspace rendering.
 //!
 //! The body is shared: label/value rows, launch editors and content lists are
-//! drawn once and coloured per preset. Only the frame differs: `creeper` puts a
-//! category rail beside a rounded card, `classic` a tab row above a plain panel,
-//! matching how each preset renders its settings pages.
+//! drawn once and coloured per preset. Only the frame differs: `classic` puts a
+//! tab row above a plain panel, `paper` a chapter directory beside it, matching
+//! how each preset renders its settings pages.
 
 use super::*;
 use crate::core::instance::overrides::{EffectiveLaunch, JavaChoice};
@@ -38,7 +38,6 @@ pub(in crate::tui::app) struct LaunchRow {
 }
 
 const LABEL_WIDTH: usize = 16;
-const RAIL_WIDTH: u16 = 22;
 
 impl App {
     /// Rows of the current category as `(label, value)`.
@@ -476,12 +475,7 @@ impl App {
         .collect()
     }
 
-    pub(in crate::tui::app) fn draw_workspace_page(
-        &self,
-        frame: &mut Frame<'_>,
-        area: Rect,
-        t: f64,
-    ) {
+    pub(in crate::tui::app) fn draw_workspace_page(&self, frame: &mut Frame<'_>, area: Rect) {
         let Some(workspace) = self.workspace.as_ref() else {
             return;
         };
@@ -489,7 +483,6 @@ impl App {
             return;
         }
         match self.preset() {
-            UiPreset::Creeper => self.draw_creeper_workspace(frame, area, workspace, t),
             UiPreset::Classic => self.draw_classic_workspace(frame, area, workspace),
             // `nightlight` draws this page from its own shell, where the
             // derived palette is already in hand; re-deriving it here would be
@@ -500,51 +493,11 @@ impl App {
         }
     }
 
-    /// `creeper`: a category rail beside a card, the same shape as its settings
-    /// page. The accent is the Instances page accent, not the settings blue, so
-    /// the workspace belongs to the screen it was opened from.
-    fn draw_creeper_workspace(
-        &self,
-        frame: &mut Frame<'_>,
-        area: Rect,
-        workspace: &Workspace,
-        t: f64,
-    ) {
-        let ws = WsSkin::Creeper.frame(self);
-        // The workspace folds its rail when the body would be too narrow to
-        // read; the exact threshold is the workspace's own, not the shell's.
-        let narrow = area.width < RAIL_WIDTH + 60;
-        let (rail, body) = if narrow {
-            (
-                Rect::new(area.x, area.y, area.width, 1),
-                Rect::new(
-                    area.x,
-                    area.y.saturating_add(1),
-                    area.width,
-                    area.height.saturating_sub(1),
-                ),
-            )
-        } else {
-            let width = RAIL_WIDTH.min(area.width / 3);
-            (
-                Rect::new(area.x, area.y, width, area.height),
-                Rect::new(
-                    area.x.saturating_add(width),
-                    area.y,
-                    area.width.saturating_sub(width),
-                    area.height,
-                ),
-            )
-        };
-        self.draw_workspace_rail(frame, rail, workspace, &ws, narrow, t);
-        self.draw_workspace_body(frame, body, workspace, &ws, t);
-    }
-
     /// `paper`: a chapter directory beside the shared body.
     ///
-    /// The body is the one classic and creeper use; only the frame changes: no
-    /// cards, no tabs, a margin bar for the selection and a counter printed on
-    /// the bottom edge of the page block.
+    /// The body is the one classic uses; only the frame changes: no cards, no
+    /// tabs, a margin bar for the selection and a counter printed on the bottom
+    /// edge of the page block.
     pub(in crate::tui::app) fn draw_paper_workspace(&self, frame: &mut Frame<'_>, area: Rect) {
         let Some(workspace) = self.workspace.as_ref() else {
             return;
@@ -849,7 +802,7 @@ impl App {
         let tabs = crate::tui::widgets::tabs::TabBar::new(labels);
         let rects = tabs.rects(area);
         // Eight categories do not fit an 80-column terminal in English; fall
-        // back to the same folded rail the creeper preset uses.
+        // back to a single folded line.
         if rects.last().is_none_or(|rect| rect.right() > area.right()) {
             self.draw_folded_workspace_category(frame, area, workspace, colors);
             return;
@@ -866,8 +819,8 @@ impl App {
         }
     }
 
-    /// One line `‹ Category ›  n/m` with both arrows clickable. Used by the
-    /// creeper rail when it folds and by classic tabs when they would overflow.
+    /// One line `‹ Category ›  n/m` with both arrows clickable, used when the
+    /// tab row would overflow.
     fn draw_folded_workspace_category(
         &self,
         frame: &mut Frame<'_>,
@@ -896,70 +849,6 @@ impl App {
         );
     }
 
-    fn draw_workspace_rail(
-        &self,
-        frame: &mut Frame<'_>,
-        area: Rect,
-        workspace: &Workspace,
-        ws: &WsFrame,
-        narrow: bool,
-        t: f64,
-    ) {
-        let colors = &ws.colors;
-        if narrow {
-            self.draw_folded_workspace_category(frame, area, workspace, colors);
-            return;
-        }
-        let block = ws.card(self, &self.i18n.text("workspace.title"), false, t);
-        let inner = block.inner(area);
-        frame.render_widget(block, area);
-        if inner.is_empty() {
-            return;
-        }
-        for (index, category) in WorkspaceCategory::ALL.iter().enumerate() {
-            let y = inner.y.saturating_add(index as u16);
-            if y >= inner.bottom() {
-                break;
-            }
-            let active = *category == workspace.category;
-            let bg = colors.row_bg(active);
-            let count = category
-                .content_kind()
-                .map(|kind| workspace.content.count(kind))
-                .filter(|count| *count > 0);
-            let count = count.map(|count| count.to_string()).unwrap_or_default();
-            let count_width = palette::width(&count);
-            let label_width = usize::from(inner.width)
-                .saturating_sub(count_width + 4)
-                .max(4);
-            let label = palette::truncate(&self.i18n.text(category.title_key()), label_width);
-            let pad = " ".repeat(label_width.saturating_sub(palette::width(&label)));
-            let row = Rect::new(inner.x, y, inner.width, 1);
-            self.hitmap.add(row, Action::workspace_category(index));
-            frame.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::styled(
-                        if active { "▌ " } else { "  " },
-                        Style::default()
-                            .fg(colors.accent)
-                            .bg(bg)
-                            .add_modifier(Modifier::BOLD),
-                    ),
-                    Span::styled(
-                        format!("{label}{pad} "),
-                        Style::default()
-                            .fg(colors.row_fg(active, colors.dim))
-                            .bg(bg)
-                            .add_modifier(colors.row_modifier(active)),
-                    ),
-                    Span::styled(count, Style::default().fg(colors.faint).bg(bg)),
-                ]))
-                .style(Style::default().bg(bg)),
-                row,
-            );
-        }
-    }
-
     /// `⌕ <query>` in a card of its own, mirroring the download page's search
     /// box: the field is always visible, `/` only puts the cursor in it.
     fn draw_workspace_search(
@@ -985,7 +874,7 @@ impl App {
         let target = SearchTarget::Workspace;
         self.hitmap.add(area, Action::search(target));
         let focused = matches!(self.search.as_ref(), Some(state) if state.target == target);
-        let block = ws.card(self, &self.i18n.text("action.search"), focused, t);
+        let block = ws.card(self, &self.i18n.text("action.search"), focused);
         let inner = block.inner(area);
         frame.render_widget(block, area);
         if inner.is_empty() {
@@ -1118,14 +1007,13 @@ impl App {
                     message: &message,
                     hint: &hint,
                 },
-                t,
             );
             self.hitmap
                 .scroll(area, crate::tui::action::ScrollTarget::WorkspaceRows);
             return;
         }
         let count = workspace.row_count();
-        let mut block = ws.card(self, &title, true, t);
+        let mut block = ws.card(self, &title, true);
         if count > 0 {
             let position = workspace.selected.min(count - 1) + 1;
             block = block.title_bottom(ws.counter(self, position, count).right_aligned());
@@ -1829,9 +1717,9 @@ fn launch_kind_hint(kind: LaunchFieldKind) -> &'static str {
 
 /// Colours one workspace surface draws with.
 ///
-/// The two presets differ only here: `creeper` paints a `SURFACE` card with the
-/// fixed palette, `classic` follows the terminal theme. Row semantics (marks,
-/// warnings, selection) stay shared, so neither preset can drift in content.
+/// The presets differ only here: each answers from its own palette. Row
+/// semantics (marks, warnings, selection) stay shared, so no preset can drift
+/// in content.
 #[derive(Clone, Copy)]
 struct WsColors {
     bg: ratatui::style::Color,
@@ -1866,7 +1754,7 @@ impl WsColors {
         if active { self.selection_fg } else { resting }
     }
 
-    /// Bold carries the selection in every preset: `creeper` pairs it with a
+    /// Bold carries the selection in every preset: `shelf` pairs it with a
     /// tinted row, `classic` with the terminal green selection colour, `paper`
     /// with an underline and a margin bar.
     fn row_modifier(&self, active: bool) -> ratatui::style::Modifier {
@@ -1900,12 +1788,10 @@ impl WsColors {
 
 /// The frame vocabulary of the workspace page.
 ///
-/// The body — rows, editors, content lists, notes — is the same for `classic`
-/// and `creeper`; only four things differ: the palette, the card border, the
-/// empty state and the counter style. Funnelling them through one value keeps
-/// the body from asking "am I creeper?" in four places, and a fourth preset
-/// reuses this page by answering these four questions instead of adding a
-/// fifth branch.
+/// The body — rows, editors, content lists, notes — is the same for every
+/// preset that embeds it; only four things differ: the palette, the card
+/// border, the empty state and the counter style. Funnelling them through one
+/// value keeps the body from asking "which preset am I?" in four places.
 ///
 /// `nightlight` does not use it: its workspace has a different structure
 /// (numbered rail, banner line, right-aligned value column), so it draws its
@@ -1913,7 +1799,6 @@ impl WsColors {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WsSkin {
     Classic,
-    Creeper,
     Paper,
     Shelf,
 }
@@ -1927,27 +1812,7 @@ impl WsSkin {
     }
 
     fn colors(self, app: &App) -> WsColors {
-        use crate::tui::palette;
         match self {
-            // The workspace is a second-level screen of Instances, so it takes
-            // that page's accent (green), not the settings page's blue. Fills
-            // come from creeper's own sheet; the module constants would leave a
-            // dark panel on a light page.
-            Self::Creeper => {
-                let pal = app.creeper_palette();
-                WsColors {
-                    bg: pal.surface,
-                    dim: pal.text_dim,
-                    faint: pal.text_faint,
-                    accent: app.page_accent(),
-                    selection_bg: Some(palette::mix(pal.surface, app.page_accent(), 0.2)),
-                    selection_fg: pal.text,
-                    selection_bar: false,
-                    underline: false,
-                    warn: pal.gold,
-                    ok: pal.green,
-                }
-            }
             Self::Paper => {
                 let pal = app.paper_palette();
                 WsColors {
@@ -2031,17 +1896,10 @@ struct WsEmpty<'a> {
 }
 
 impl WsFrame {
-    /// Rounded and palette-driven under `creeper`, the straight single-line box
-    /// under `classic`, the same split every other page makes.
-    fn card(&self, app: &App, title: &str, focused: bool, t: f64) -> Block<'static> {
+    /// The straight single-line box under `classic`, and the rounded slab the
+    /// other sheets carry.
+    fn card(&self, app: &App, title: &str, focused: bool) -> Block<'static> {
         match self.skin {
-            WsSkin::Creeper => crate::tui::widgets::kit::card(
-                title,
-                self.colors.accent,
-                focused,
-                t,
-                self.colors.bg,
-            ),
             WsSkin::Classic => crate::tui::chrome::panel(title, focused, app.theme),
             WsSkin::Shelf => {
                 // The same rounded slab the instance page puts around the
@@ -2080,19 +1938,10 @@ impl WsFrame {
         }
     }
 
-    /// An empty category: a card that says why under `creeper`, a plain panel
-    /// with the reason and the hint on one line under `classic`.
-    fn empty(&self, app: &App, frame: &mut Frame<'_>, area: Rect, content: WsEmpty<'_>, t: f64) {
+    /// An empty category: a plain panel with the reason and the hint on one
+    /// line under `classic`, a full paragraph under the page-like sheets.
+    fn empty(&self, app: &App, frame: &mut Frame<'_>, area: Rect, content: WsEmpty<'_>) {
         match self.skin {
-            WsSkin::Creeper => crate::tui::widgets::kit::empty_card_with_hint(
-                frame,
-                area,
-                content.title,
-                content.message,
-                content.hint,
-                self.colors.accent,
-                t,
-            ),
             WsSkin::Classic => crate::tui::widgets::empty::render(
                 frame,
                 area,
@@ -2157,11 +2006,10 @@ impl WsFrame {
         }
     }
 
-    /// The `n/m` counter on the card border: bare under `creeper`, wrapped in
-    /// accent pipes under `classic`, whose tables always have them.
+    /// The `n/m` counter on the card border: wrapped in accent pipes under
+    /// `classic`, whose tables always have them, and bare otherwise.
     fn counter(&self, app: &App, position: usize, total: usize) -> Line<'static> {
         match self.skin {
-            WsSkin::Creeper => Line::from(format!("{position}/{total}")),
             WsSkin::Classic => Line::from(vec![
                 Span::styled("|", app.theme.dim()),
                 Span::styled(format!("{position}/{total}"), app.theme.accent_style()),

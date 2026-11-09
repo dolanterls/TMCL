@@ -7,7 +7,6 @@
 //! fields directly instead of threading a view model through.
 
 pub(crate) mod classic;
-pub(crate) mod creeper;
 /// Per-page dispatch, the shared layout geometry it needs, and the `classic`
 /// frame skeleton that sits between them.
 mod diagnosis;
@@ -22,18 +21,13 @@ pub(crate) mod paper;
 pub(crate) mod sheet;
 /// Shelf: a cover-led library. Deep indigo, one lavender accent, no cards.
 pub(crate) mod shelf;
-/// The instance workspace page, shared by `classic` and `creeper`. Splitting
-/// the few `creeper` branches out of it is the one known leftover.
+/// The instance workspace page, shared by every preset that draws one.
 pub(in crate::tui::app) mod workspace;
 
 use ratatui::style::Color;
 
 use super::*;
 use crate::tui::palette::{BLUE, CYAN, GOLD, GREEN, LIME, PINK, PURPLE};
-
-/// Width of the footer key row, measured before anything is drawn so the
-/// layout can reserve the rows it needs.
-pub(in crate::tui::app) use creeper::hints_width;
 
 const PARAGRAPH_MARK: char = '\u{200b}';
 
@@ -428,14 +422,9 @@ impl App {
         self.config.state.ui.preset
     }
 
-    /// Refresh period for the event loop: the animated preset needs a faster
-    /// clock than the static one.
+    /// Refresh period for the event loop.
     pub(crate) fn refresh_millis(&self) -> u64 {
-        if self.preset() == UiPreset::Creeper && self.motion {
-            50
-        } else {
-            250
-        }
+        250
     }
 
     /// Seconds since launch, or a frozen 0 when motion is disabled.
@@ -449,7 +438,7 @@ impl App {
 
     pub(in crate::tui::app) fn page_accent(&self) -> Color {
         match self.preset() {
-            UiPreset::Classic | UiPreset::Creeper => page_accent(self.page),
+            UiPreset::Classic => page_accent(self.page),
             UiPreset::Nightlight => self.nightlight_palette().accent,
             UiPreset::Paper => self.paper_palette().accent,
             UiPreset::Shelf => self.shelf_palette().accent,
@@ -497,8 +486,8 @@ impl App {
     ) -> String {
         use crate::core::account::models::AccountKind;
         self.i18n.text(match kind {
-            AccountKind::Microsoft => "creeper.account.microsoft",
-            AccountKind::Offline => "creeper.account.offline",
+            AccountKind::Microsoft => "account.kind.microsoft",
+            AccountKind::Offline => "account.kind.offline",
         })
     }
 

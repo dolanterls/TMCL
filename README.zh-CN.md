@@ -54,7 +54,6 @@ tmcl install AANobbMI --instance @last --with-deps
 | 预设 | 样子 |
 | --- | --- |
 | Classic | 带框外壳、顶部标签页、带边框面板（默认） |
-| Creeper | 卡片、侧边栏、渐变分隔线、浮动状态 |
 | Nightlight | 单一强调色、八套主题、无动画 |
 | Paper | 纸面排版，象牙 / 灰白 / 牛皮，白天纸或夜间印张 |
 | Shelf | 封面驱动、56/44 分栏、固定配色 |
@@ -77,4 +76,4 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ## 第三方声明
 
-TUI 的部分布局取自 [binsider](https://github.com/orhun/binsider)（MIT OR Apache-2.0）。`creeper`、`nightlight`、`shelf` 三套预设研究过其他终端界面，但未复制代码、常量或素材。参考版本、许可证与确切边界见 [`NOTICE`](NOTICE)。
+TUI 的部分布局取自 [binsider](https://github.com/orhun/binsider)（MIT OR Apache-2.0）。`nightlight`、`shelf` 两套预设研究过其他终端界面，但未复制代码、常量或素材。参考版本、许可证与确切边界见 [`NOTICE`](NOTICE)。

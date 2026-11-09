@@ -151,8 +151,7 @@ impl App {
             self.search = None;
             self.search_backup = None;
             self.settings_search = None;
-            // Hints differ per page and the creeper footer may need another
-            // row for them, so the cached chrome no longer applies.
+            // Hints differ per page, so the cached chrome no longer applies.
             self.regions_size.set((0, 0));
             // The workspace is a second-level screen of the instances page; it
             // must not keep answering keys once another page is showing.

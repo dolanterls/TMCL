@@ -91,7 +91,7 @@ impl App {
             Page::Overview => self.draw_overview_page(frame, regions.main),
             Page::Instances => {
                 if self.workspace_is_open() {
-                    self.draw_workspace_page(frame, regions.main, 0.0);
+                    self.draw_workspace_page(frame, regions.main);
                 } else {
                     self.draw_instances_page(frame, regions.main);
                 }

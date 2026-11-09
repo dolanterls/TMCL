@@ -191,19 +191,6 @@ fn overview_setup_fields_share_one_separator_column() {
     }
 }
 
-// ── creeper preset ────────────────────────────────────────────────
-
-fn creeper_app(page: Page) -> App {
-    let mut app = App::new();
-    app.page = page;
-    app.config.state.ui.preset = crate::core::config::models::UiPreset::Creeper;
-    // Snapshot text must not depend on wall-clock motion.
-    app.motion = false;
-    app.terminal_width = 120;
-    app.terminal_height = 40;
-    app
-}
-
 #[test]
 fn shelf_draws_its_own_shell_instead_of_the_classic_frame() {
     use crate::core::config::models::UiPreset;
@@ -944,75 +931,6 @@ fn shelf_workspace_snapshots() {
     }
 }
 
-#[test]
-fn creeper_snapshots_match_fixtures() {
-    let cases = [
-        ("overview", Page::Overview),
-        ("instances", Page::Instances),
-        ("download", Page::DownloadCenter),
-        ("tasks", Page::Tasks),
-        ("accounts", Page::Accounts),
-        ("logs", Page::Logs),
-        ("settings", Page::Settings),
-    ];
-    let sizes = [(120u16, 40u16), (80, 24)];
-    for (name, page) in cases {
-        for (width, height) in sizes {
-            let mut app = creeper_app(page);
-            app.terminal_width = width;
-            app.terminal_height = height;
-            let actual = render_text(&app, width, height);
-            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/tui");
-            let path = dir.join(format!("creeper-{name}-{width}x{height}.txt"));
-            if std::env::var("UPDATE_FIXTURES").is_ok() {
-                std::fs::create_dir_all(&dir).expect("create fixture dir");
-                std::fs::write(&path, &actual).expect("write fixture");
-                continue;
-            }
-            let expected = read_snapshot(&path);
-            assert_eq!(
-                actual, expected,
-                "snapshot mismatch for creeper {name} at {width}x{height}"
-            );
-        }
-    }
-}
-
-#[test]
-fn creeper_renders_every_page_at_every_size() {
-    // Full sweep of the documented size classes: five widths by five heights.
-    for width in [60u16, 80, 100, 120, 160] {
-        for height in [18u16, 24, 30, 40, 50] {
-            for page in Page::ALL {
-                let mut app = creeper_app(page);
-                app.terminal_width = width;
-                app.terminal_height = height;
-                if page == Page::Logs {
-                    app.logs.append("[stdout] creeper matrix");
-                }
-                let rendered = render_app(&app, width, height);
-                // Count buffer cells, not scalar values: a text-presentation
-                // selector adds a second `char` to a single one-cell glyph.
-                let cells = rendered
-                    .chars()
-                    .filter(|ch| !matches!(*ch, '\u{fe0e}' | '\u{fe0f}'))
-                    .count();
-                assert_eq!(
-                    cells,
-                    usize::from(width) * usize::from(height),
-                    "{page:?} at {width}x{height} did not fill the frame"
-                );
-                if width >= 60 && height >= 18 {
-                    assert!(
-                        rendered.contains("TMCL"),
-                        "{page:?} at {width}x{height} has no brand row"
-                    );
-                }
-            }
-        }
-    }
-}
-
 #[tokio::test]
 async fn all_presets_share_state_for_random_keys() {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -1162,23 +1080,14 @@ fn appearance_rows_are_scoped_to_the_presets_that_read_them() {
 
     // Only the skins that read a value offer its row. Classic paints with
     // `Theme::from_ui`, which reads the mode, the accent and the contrast flag,
-    // so all three stay; creeper paints from its own `tone::Palette` and gets only
-    // the day / night mode. Nightlight owns its own theme and the live accent; paper
-    // owns the stock and inherits only the day / night mode.
+    // so all three stay. Nightlight owns its own theme and the live accent;
+    // paper owns the stock and inherits only the day / night mode.
     let expected = |preset: UiPreset| match preset {
         UiPreset::Classic => vec![
             SettingId::UiPreset,
             SettingId::ThemeMode,
             SettingId::HighContrast,
             SettingId::AccentColor,
-            SettingId::Language,
-            SettingId::Mouse,
-        ],
-        // Creeper paints its own two sheets now, so day / night is offered; the
-        // accent and the contrast flag stay out.
-        UiPreset::Creeper => vec![
-            SettingId::UiPreset,
-            SettingId::ThemeMode,
             SettingId::Language,
             SettingId::Mouse,
         ],
@@ -1223,7 +1132,6 @@ fn appearance_rows_are_scoped_to_the_presets_that_read_them() {
     let accent = app.i18n.text("settings.accent");
     app.settings_search = Some(accent.clone());
     for (preset, hits) in [
-        (UiPreset::Creeper, 0),
         (UiPreset::Paper, 0),
         (UiPreset::Classic, 1),
         (UiPreset::Nightlight, 1),
@@ -1258,13 +1166,11 @@ fn appearance_rows_are_scoped_to_the_presets_that_read_them() {
 /// The three shared rows are not decoration on `classic`.
 ///
 /// `classic` paints every frame with `Theme::from_ui`, so the accent, the
-/// contrast flag and the day / night mode each change what is on screen;
-/// `creeper` paints from fixed `palette` constants and the same three changes
-/// leave its frame cell-for-cell identical. That difference is the whole reason
-/// the rows are scoped the way they are, so it is asserted rather than assumed:
-/// moving one of these rows must fail here first.
+/// contrast flag and the day / night mode each change what is on screen. That
+/// is the whole reason the rows are scoped where they are, so it is asserted
+/// rather than assumed: moving one of these rows must fail here first.
 #[test]
-fn the_shared_appearance_rows_repaint_classic_and_the_creeper_theme() {
+fn the_shared_appearance_rows_repaint_classic() {
     use crate::core::config::models::UiPreset;
     use crate::tui::pages::settings::{SettingId, SettingsCategory};
 
@@ -1288,49 +1194,34 @@ fn the_shared_appearance_rows_repaint_classic_and_the_creeper_theme() {
             .collect()
     }
 
-    // Creeper reads the mode but not the accent or the contrast flag: those
-    // still belong to the presets whose `Theme` carries them.
-    for (preset, accent_repaints, contrast_repaints, mode_repaints) in [
-        (UiPreset::Classic, true, true, true),
-        (UiPreset::Creeper, false, false, true),
-    ] {
-        let mut app = App::new();
-        app.paths = crate::core::config::DataPaths::from_appdata(
-            std::env::temp_dir().join(format!("tmcl-repaint-{}", Uuid::new_v4())),
-        );
-        app.paths.ensure_dirs().expect("create data dirs");
-        // Creeper's shell breathes with `anim_time()`; two frames a moment
-        // apart differ by a unit of RGB on their own.
-        app.motion = false;
-        app.config.state.ui.preset = preset;
-        app.page = Page::Settings;
-        // A category without appearance values on screen: the change has to
-        // show up in the skin, not in a `< value >` cell this test wrote.
-        app.settings.select_category(SettingsCategory::General);
-        app.terminal_width = 120;
-        app.terminal_height = 40;
+    // Classic reads the accent, the contrast flag and the mode: those belong to
+    // the preset whose `Theme` carries them.
+    let mut app = App::new();
+    app.paths = crate::core::config::DataPaths::from_appdata(
+        std::env::temp_dir().join(format!("tmcl-repaint-{}", Uuid::new_v4())),
+    );
+    app.paths.ensure_dirs().expect("create data dirs");
+    app.config.state.ui.preset = UiPreset::Classic;
+    app.page = Page::Settings;
+    // A category without appearance values on screen: the change has to show up
+    // in the skin, not in a `< value >` cell this test wrote.
+    app.settings.select_category(SettingsCategory::General);
+    app.terminal_width = 120;
+    app.terminal_height = 40;
 
-        let base = frame(&mut app);
-        app.cycle_setting(SettingId::AccentColor, 1);
-        let accent_changed = frame(&mut app) != base;
-        app.toggle_setting(SettingId::HighContrast);
-        let contrast_changed = frame(&mut app) != base;
-        app.cycle_setting(SettingId::ThemeMode, 1);
-        let mode_changed = frame(&mut app) != base;
-
-        for (flag, changed, repaints) in [
-            ("accent_color", accent_changed, accent_repaints),
-            ("high_contrast", contrast_changed, contrast_repaints),
-            ("theme_mode", mode_changed, mode_repaints),
-        ] {
-            assert_eq!(
-                changed,
-                repaints,
-                "{preset:?}: {flag} {} repaint the frame",
-                if repaints { "must" } else { "must not" }
-            );
-        }
-    }
+    let base = frame(&mut app);
+    app.cycle_setting(SettingId::AccentColor, 1);
+    assert!(
+        frame(&mut app) != base,
+        "accent_color must repaint the frame"
+    );
+    app.toggle_setting(SettingId::HighContrast);
+    assert!(
+        frame(&mut app) != base,
+        "high_contrast must repaint the frame"
+    );
+    app.cycle_setting(SettingId::ThemeMode, 1);
+    assert!(frame(&mut app) != base, "theme_mode must repaint the frame");
 }
 
 /// Switching preset can shorten the appearance list under the cursor: the
@@ -1384,7 +1275,6 @@ fn preset_setting_cycles_through_all_presets() {
 
     app.settings.selected = index;
     for (expected, label) in [
-        (UiPreset::Creeper, "settings.preset.creeper"),
         (UiPreset::Nightlight, "settings.preset.nightlight"),
         (UiPreset::Paper, "settings.preset.paper"),
         (UiPreset::Shelf, "settings.preset.shelf"),
@@ -1401,122 +1291,8 @@ fn preset_setting_cycles_through_all_presets() {
 }
 
 #[test]
-fn creeper_regions_stay_inside_the_frame() {
-    use crate::tui::shell::{creeper_sidebar_width, layout_chrome_creeper, layout_mode_creeper};
-
-    for (width, height) in [(160, 50), (120, 40), (100, 30), (80, 24), (60, 18)] {
-        let area = Rect::new(0, 0, width, height);
-        let regions = layout_chrome_creeper(area);
-        let mode = layout_mode_creeper(area);
-        assert_eq!(regions.mode, mode);
-        let expected_footer = if mode == crate::tui::shell::LayoutMode::TooSmall {
-            1
-        } else {
-            2
-        };
-        assert_eq!(regions.footer.height, expected_footer, "{width}x{height}");
-        assert!(regions.footer.y + expected_footer == height);
-        assert_eq!(regions.header.height, 1);
-        assert!(regions.body.y > regions.header.y);
-        assert_eq!(regions.main, regions.content);
-        assert!(regions.main.right() <= area.right());
-        assert!(regions.main.bottom() <= regions.body.bottom());
-        if mode != crate::tui::shell::LayoutMode::TooSmall {
-            assert_eq!(regions.tabs.width, creeper_sidebar_width(mode));
-            assert!(
-                regions.tabs.right() < regions.content.x,
-                "sidebar and content must not overlap at {width}x{height}"
-            );
-        }
-    }
-}
-
-#[test]
-fn creeper_settings_lists_the_preset_row() {
-    use crate::tui::pages::settings::SettingsCategory;
-
-    let mut app = creeper_app(Page::Settings);
-    app.settings.select_category(SettingsCategory::Appearance);
-    let text = render_text(&app, 120, 40);
-    assert!(text.contains(&app.i18n.text("settings.preset")), "{text}");
-    assert!(
-        text.contains(&app.i18n.text("settings.preset.creeper")),
-        "preset value should be visible: {text}"
-    );
-}
-
-#[test]
-fn creeper_settings_rail_clicks_change_the_category() {
-    use crate::tui::pages::settings::SettingsCategory;
-    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-
-    let mut app = creeper_app(Page::Settings);
-    // A draw pass stores the regions that mouse routing reads back.
-    let _ = render_text(&app, 120, 40);
-    let regions = app.current_regions();
-    let (rail, _) = app.creeper_settings_areas(regions.main);
-    assert!(rail.width > 0);
-
-    let row = rail.y + 1 + SettingsCategory::Appearance.index() as u16;
-    app.handle_mouse(MouseEvent {
-        kind: MouseEventKind::Down(MouseButton::Left),
-        column: rail.x + 2,
-        row,
-        modifiers: KeyModifiers::NONE,
-    });
-    assert_eq!(app.settings.category, SettingsCategory::Appearance);
-}
-
-#[test]
-fn creeper_draws_every_overlay_without_panicking() {
-    use crate::tui::modal::{ConfirmAction, FormAction, Modal};
-
-    let mut app = creeper_app(Page::Instances);
-
-    app.modal = Some(Modal::form(
-        "Create instance",
-        &["Game directory", "Instance name", "Minecraft version"],
-        &[
-            "D:/games/.minecraft".to_string(),
-            "My world".to_string(),
-            "1.21.1".to_string(),
-        ],
-        FormAction::CreateInstance,
-    ));
-    let text = render_text(&app, 120, 40);
-    assert!(text.contains("CREATE INSTANCE"), "{text}");
-
-    app.modal = Some(Modal::confirm(
-        "Delete instance \"My world\"?",
-        ConfirmAction::RemoveInstance(uuid::Uuid::nil()),
-    ));
-    let text = render_text(&app, 120, 40);
-    assert!(text.contains("CONFIRM"), "{text}");
-
-    app.modal = Some(Modal::prompt(
-        "Search logs",
-        "Query",
-        "Type to filter, Enter to apply",
-        "",
-        FormAction::SearchLogs,
-    ));
-    let text = render_text(&app, 80, 24);
-    assert!(text.contains("SEARCH LOGS"), "{text}");
-    app.modal = None;
-
-    app.detail_open = true;
-    let text = render_text(&app, 120, 40);
-    assert!(text.contains("DETAILS"), "{text}");
-    app.detail_open = false;
-
-    app.help_open = true;
-    let text = render_text(&app, 120, 40);
-    assert!(text.contains("KEYBOARD HELP"), "{text}");
-}
-
-#[test]
 fn toast_stack_keeps_at_most_three_messages() {
-    let mut app = creeper_app(Page::Overview);
+    let mut app = nightlight_app_at(Page::Overview, 120, 40);
     app.motion = true;
     for text in ["ready", "downloading", "installing", "finished"] {
         app.status = crate::tui::app::state::status::Status::success(text);
@@ -1535,31 +1311,8 @@ fn toast_stack_keeps_at_most_three_messages() {
 }
 
 #[test]
-fn creeper_row_cards_show_a_position_counter() {
-    let mut app = creeper_app(Page::Instances);
-    app.instances.apply(
-        (0..3)
-            .map(|index| InstanceSummary {
-                id: Uuid::new_v4(),
-                name: format!("instance-{index}"),
-                version: "1.21.1".into(),
-                loader: "Vanilla".into(),
-                loader_version: None,
-                status: "ready".into(),
-                path: PathBuf::from(format!("instances/{index}")),
-                launch_count: 0,
-                play_time_seconds: 0,
-            })
-            .collect(),
-    );
-    let text = render_text(&app, 120, 40);
-    assert!(text.contains("instance-0"), "cards missing: {text}");
-    assert!(text.contains("1/3"), "counter missing: {text}");
-}
-
-#[test]
 fn toast_does_not_return_after_it_expires() {
-    let mut app = creeper_app(Page::Overview);
+    let mut app = nightlight_app_at(Page::Overview, 120, 40);
     app.motion = true;
     app.status = crate::tui::app::state::status::Status::success("ZZTOAST 921 versions loaded");
 
@@ -1602,7 +1355,7 @@ fn toast_does_not_return_after_it_expires() {
 fn routine_info_status_stays_in_the_footer() {
     // Opening the download page sets an info status. It must not pop a toast,
     // and it must not reappear every time the previous one expires.
-    let mut app = creeper_app(Page::DownloadCenter);
+    let mut app = nightlight_app_at(Page::DownloadCenter, 120, 40);
     app.motion = true;
     app.status = crate::tui::app::state::status::Status::info("ZZINFO 921 versions loaded");
 
@@ -1615,268 +1368,7 @@ fn routine_info_status_stays_in_the_footer() {
     assert!(app.status_toasts.borrow().is_empty());
 }
 
-#[test]
-fn creeper_every_list_surface_shows_a_position_counter() {
-    use crate::core::account::models::{Account, AccountKind};
-    use crate::core::task::{TaskOperationType, TaskSnapshot, TaskState};
-    use crate::core::version::models::VersionSummary;
-
-    let mut app = creeper_app(Page::Instances);
-    app.instances.apply(vec![
-        InstanceSummary {
-            id: Uuid::new_v4(),
-            name: "alpha".into(),
-            version: "1.21.1".into(),
-            loader: "Vanilla".into(),
-            loader_version: None,
-            status: "ready".into(),
-            path: PathBuf::from("instances/alpha"),
-            launch_count: 0,
-            play_time_seconds: 0,
-        },
-        InstanceSummary {
-            id: Uuid::new_v4(),
-            name: "beta".into(),
-            version: "1.20.4".into(),
-            loader: "Fabric".into(),
-            loader_version: Some("0.15.11".into()),
-            status: "ready".into(),
-            path: PathBuf::from("instances/beta"),
-            launch_count: 0,
-            play_time_seconds: 0,
-        },
-    ]);
-    assert!(
-        render_text(&app, 120, 40).contains("1/2"),
-        "instances counter"
-    );
-
-    app.accounts.accounts = (0..2)
-        .map(|index| Account {
-            id: Uuid::new_v4(),
-            kind: AccountKind::Offline,
-            username: format!("player-{index}"),
-            uuid: Uuid::new_v4(),
-            skin: None,
-            secret_ref: None,
-            access_expires_at: None,
-        })
-        .collect();
-    app.page = Page::Accounts;
-    assert!(
-        render_text(&app, 120, 40).contains("1/2"),
-        "accounts counter"
-    );
-
-    app.task_snapshots = (0..2)
-        .map(|index| TaskSnapshot {
-            job: None,
-            created_seq: 0,
-            id: Uuid::new_v4(),
-            label: format!("task-{index}"),
-            operation_type: TaskOperationType::InstanceInstall,
-            state: TaskState::Running,
-            retryable: false,
-            attempt: 0,
-            completed: 1,
-            total: Some(2),
-            failure: None,
-        })
-        .collect();
-    app.page = Page::Tasks;
-    assert!(render_text(&app, 120, 40).contains("1/2"), "tasks counter");
-
-    app.versions = (0..3)
-        .map(|index| VersionSummary {
-            id: format!("1.21.{index}"),
-            kind: "release".into(),
-            url: String::new(),
-            time: "2026-08-08T12:00:00+00:00".into(),
-            release_time: format!("2026-08-{:02}T12:00:00+00:00", index + 1),
-            sha1: None,
-            compliance_level: None,
-        })
-        .collect();
-    app.page = Page::DownloadCenter;
-    assert!(
-        render_text(&app, 120, 40).contains("1/3"),
-        "download counter"
-    );
-
-    app.page = Page::Settings;
-    assert!(
-        render_text(&app, 120, 40).contains("1/6"),
-        "settings counter"
-    );
-}
-
 // ── overview interaction ──────────────────────────────────────────
-
-#[test]
-fn creeper_overview_layout_keeps_cards_separate() {
-    use crate::tui::app::view::creeper::overview_layout;
-
-    let area = Rect::new(20, 3, 90, 32);
-    let layout = overview_layout(area);
-    assert!(layout.play.width > 0, "play card missing");
-    assert!(layout.hero.contains(layout.play.as_position()));
-    assert!(
-        layout.hero_left.right() < layout.play.left(),
-        "hero text and play card must not overlap"
-    );
-    for (index, tile) in layout.stats.iter().enumerate() {
-        assert!(tile.width > 0, "stat {index} collapsed");
-        assert!(area.contains(tile.as_position()));
-        if index > 0 {
-            assert!(layout.stats[index - 1].right() < tile.left());
-        }
-    }
-    assert!(layout.activity.width > 0);
-    assert!(layout.activity.y > layout.stats[0].bottom());
-}
-
-#[test]
-fn creeper_overview_clicks_route_to_pages() {
-    use crate::tui::app::view::creeper::overview_layout;
-    use crate::tui::pages::settings::SettingsCategory;
-    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-
-    let mut app = creeper_app(Page::Overview);
-    let _ = render_text(&app, 120, 40);
-    let layout = overview_layout(app.current_regions().main);
-    let click = |app: &mut App, rect: Rect| {
-        app.handle_mouse(MouseEvent {
-            kind: MouseEventKind::Down(MouseButton::Left),
-            column: rect.x + 2,
-            row: rect.y + 1,
-            modifiers: KeyModifiers::NONE,
-        });
-    };
-
-    click(&mut app, layout.stats[0]);
-    assert_eq!(app.page, Page::Instances, "instances tile");
-
-    app.set_page(Page::Overview);
-    click(&mut app, layout.stats[1]);
-    assert_eq!(app.page, Page::Tasks, "running tile");
-
-    app.set_page(Page::Overview);
-    click(&mut app, layout.stats[2]);
-    assert_eq!(app.page, Page::Accounts, "accounts tile");
-
-    app.set_page(Page::Overview);
-    click(&mut app, layout.stats[3]);
-    assert_eq!(app.page, Page::Settings, "java tile");
-    assert_eq!(app.settings.category, SettingsCategory::Java);
-}
-
-#[test]
-fn creeper_play_card_routes_by_state() {
-    use crate::tui::app::view::creeper::overview_layout;
-    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-
-    let mut app = creeper_app(Page::Overview);
-    let _ = render_text(&app, 120, 40);
-    let layout = overview_layout(app.current_regions().main);
-    let click_play = |app: &mut App| {
-        app.handle_mouse(MouseEvent {
-            kind: MouseEventKind::Down(MouseButton::Left),
-            column: layout.play.x + 2,
-            row: layout.play.y + 1,
-            modifiers: KeyModifiers::NONE,
-        });
-    };
-
-    // No instance: the card offers "new", so it opens the instance list.
-    click_play(&mut app);
-    assert_eq!(app.page, Page::Instances);
-
-    // An instance without an account: the card offers "add account".
-    let id = Uuid::new_v4();
-    app.instances.apply(vec![InstanceSummary {
-        id,
-        name: "alpha".into(),
-        version: "1.21.1".into(),
-        loader: "Vanilla".into(),
-        loader_version: None,
-        status: "ready".into(),
-        path: PathBuf::from("instances/alpha"),
-        launch_count: 0,
-        play_time_seconds: 0,
-    }]);
-    app.instances.set_current(Some(id));
-    app.config.state.current_instance_id = Some(id.to_string());
-    app.accounts.accounts.clear();
-    app.accounts.current = None;
-    app.config.state.current_account_id = None;
-
-    app.set_page(Page::Overview);
-    click_play(&mut app);
-    assert_eq!(app.page, Page::Accounts);
-}
-
-#[test]
-fn creeper_page_icons_all_occupy_one_cell() {
-    use crate::tui::app::view::page_icon;
-    use crate::tui::palette;
-
-    for page in Page::ALL {
-        let icon = page_icon(page);
-        assert_eq!(
-            palette::width(icon),
-            1,
-            "{page:?} icon {icon:?} is not a single cell"
-        );
-    }
-}
-
-#[test]
-fn creeper_activity_lists_the_running_game() {
-    use crate::core::launch::process::GameEvent;
-    use crate::tui::event::AppEvent;
-
-    let mut app = creeper_app(Page::Overview);
-    app.active_launch = Some(crate::tui::app::ActiveLaunch::starting(
-        Uuid::new_v4(),
-        "NeoForge Test".into(),
-    ));
-    let text = render_text(&app, 120, 40);
-    assert!(text.contains("NeoForge Test"), "launch row missing: {text}");
-    assert!(
-        text.contains(&app.i18n.text("overview.launching")),
-        "launch phase missing: {text}"
-    );
-
-    app.handle(AppEvent::Game(GameEvent::GameStarted { pid: 4242 }));
-    let text = render_text(&app, 120, 40);
-    assert!(
-        text.contains(&app.i18n.text("task.running")),
-        "phase did not switch to running: {text}"
-    );
-    assert!(
-        text.contains("NeoForge Test"),
-        "launch row vanished while running: {text}"
-    );
-
-    app.handle(AppEvent::LaunchFinished {
-        instance_id: Uuid::new_v4(),
-        instance_directory: std::env::temp_dir().join("tmcl-activity-test"),
-        play_time_seconds: 12,
-        exit_code: Some(0),
-        log_path: std::env::temp_dir().join("tmcl-activity-test.log"),
-        crash_report: None,
-        launch_command: String::new(),
-    });
-    assert!(
-        app.active_launch.is_none(),
-        "finished launch was not cleared"
-    );
-    let text = render_text(&app, 120, 40);
-    assert!(
-        !text.contains("NeoForge Test"),
-        "stale launch row after exit: {text}"
-    );
-}
 
 #[test]
 fn a_failed_launch_leaves_a_verdict_instead_of_crash_lines() {
@@ -1923,103 +1415,11 @@ fn a_failed_launch_leaves_a_verdict_instead_of_crash_lines() {
     std::fs::remove_dir_all(root).expect("clean");
 }
 
-#[test]
-fn creeper_activity_clears_a_failed_launch() {
-    use crate::tui::event::AppEvent;
-
-    let mut app = creeper_app(Page::Overview);
-    app.active_launch = Some(crate::tui::app::ActiveLaunch::starting(
-        Uuid::new_v4(),
-        "Broken".into(),
-    ));
-    app.handle(AppEvent::LaunchAborted {
-        error: "java not found".into(),
-    });
-    assert!(
-        app.active_launch.is_none(),
-        "aborted launch was not cleared"
-    );
-    let text = render_text(&app, 120, 40);
-    assert!(
-        text.contains(&app.i18n.text("overview.no_active_tasks")),
-        "empty activity state missing: {text}"
-    );
-}
-
-#[test]
-fn creeper_overview_shows_the_loader_below_java() {
-    let mut app = creeper_app(Page::Overview);
-    let id = Uuid::new_v4();
-    app.instances.apply(vec![InstanceSummary {
-        id,
-        name: "alpha".into(),
-        version: "1.21.1".into(),
-        loader: "NeoForge".into(),
-        loader_version: Some("21.1.247".into()),
-        status: "ready".into(),
-        path: PathBuf::from("instances/alpha"),
-        launch_count: 0,
-        play_time_seconds: 0,
-    }]);
-    app.instances.set_current(Some(id));
-    app.config.state.current_instance_id = Some(id.to_string());
-
-    let text = render_text(&app, 120, 40);
-    assert!(
-        text.contains("NeoForge 21.1.247"),
-        "loader row missing: {text}"
-    );
-    let java_line = text
-        .lines()
-        .position(|line| line.contains("Java"))
-        .expect("java row");
-    let loader_line = text
-        .lines()
-        .position(|line| line.contains("NeoForge 21.1.247"))
-        .expect("loader row");
-    assert!(loader_line > java_line, "loader must sit below Java");
-}
-
-#[test]
-fn creeper_play_card_is_compact_and_inside_the_hero() {
-    use crate::tui::app::view::creeper::overview_layout;
-
-    let layout = overview_layout(Rect::new(0, 0, 120, 30));
-    assert!(layout.play.width > 0);
-    assert!(layout.play.width <= 26, "play card too wide");
-    assert!(layout.play.height <= 7, "play card too tall");
-    assert!(layout.hero.contains(layout.play.as_position()));
-}
-
-#[test]
-fn creeper_instance_card_keeps_the_full_version_and_aligned_loader() {
-    let mut app = creeper_app(Page::Instances);
-    app.instances.apply(vec![InstanceSummary {
-        id: Uuid::new_v4(),
-        name: "alpha".into(),
-        version: "1.21.11-NeoForge".into(),
-        loader: "NeoForge".into(),
-        loader_version: Some("21.1.247".into()),
-        status: "ready".into(),
-        path: PathBuf::from("instances/alpha"),
-        launch_count: 0,
-        play_time_seconds: 0,
-    }]);
-    app.instances.focused = 0;
-
-    let text = render_text(&app, 120, 40);
-    assert!(
-        text.contains("1.21.11-NeoForge"),
-        "version was truncated: {text}"
-    );
-    assert!(
-        text.contains("NeoForge 21.1.247"),
-        "loader row missing: {text}"
-    );
-}
-
 fn workspace_app(category: crate::tui::pages::workspace::WorkspaceCategory) -> App {
-    let mut app = creeper_app(Page::Instances);
+    let mut app = App::new();
+    app.page = Page::Instances;
+    app.terminal_width = 120;
+    app.terminal_height = 40;
     app.instances
         .apply(vec![crate::tui::pages::instances::InstanceSummary {
             id: uuid::Uuid::new_v4(),
@@ -2167,42 +1567,6 @@ fn classic_workspace_snapshots() {
     }
 }
 
-#[test]
-fn creeper_workspace_snapshots() {
-    use crate::tui::pages::workspace::WorkspaceCategory;
-    let cases = [
-        ("overview", WorkspaceCategory::Overview),
-        ("launch", WorkspaceCategory::Launch),
-        ("install", WorkspaceCategory::Install),
-        ("mods", WorkspaceCategory::Mods),
-        ("packs", WorkspaceCategory::ResourcePacks),
-        ("shaders", WorkspaceCategory::Shaders),
-        ("worlds", WorkspaceCategory::Worlds),
-        ("manage", WorkspaceCategory::Manage),
-    ];
-    let sizes = [(120u16, 40u16), (80, 24)];
-    for (name, category) in cases {
-        for (width, height) in sizes {
-            let mut app = workspace_app(category);
-            app.terminal_width = width;
-            app.terminal_height = height;
-            let actual = render_text(&app, width, height);
-            let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/tui");
-            let path = dir.join(format!("workspace-{name}-{width}x{height}.txt"));
-            if std::env::var("UPDATE_FIXTURES").is_ok() {
-                std::fs::create_dir_all(&dir).expect("create fixture dir");
-                std::fs::write(&path, &actual).expect("write fixture");
-                continue;
-            }
-            let expected = read_snapshot(&path);
-            assert_eq!(
-                actual, expected,
-                "snapshot mismatch for workspace {name} at {width}x{height}"
-            );
-        }
-    }
-}
-
 fn workspace_content_app() -> App {
     use crate::core::content::{ContentEntry, ContentKind, ContentMeta};
     let mut app = workspace_app(crate::tui::pages::workspace::WorkspaceCategory::Mods);
@@ -2255,23 +1619,6 @@ fn workspace_content_list_shows_marks_and_warnings() {
     assert!(rendered.contains("OPack2Reload"), "{rendered}");
     assert!(rendered.contains("2.3 MB"), "{rendered}");
     assert!(rendered.contains("duplicate of"), "{rendered}");
-}
-
-#[test]
-fn creeper_workspace_content_snapshot() {
-    let mut app = workspace_content_app();
-    app.terminal_width = 120;
-    app.terminal_height = 40;
-    let actual = render_text(&app, 120, 40);
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/tui");
-    let path = dir.join("workspace-mods-list-120x40.txt");
-    if std::env::var("UPDATE_FIXTURES").is_ok() {
-        std::fs::create_dir_all(&dir).expect("create fixture dir");
-        std::fs::write(&path, &actual).expect("write fixture");
-        return;
-    }
-    let expected = read_snapshot(&path);
-    assert_eq!(actual, expected, "workspace content snapshot mismatch");
 }
 
 #[test]
@@ -3014,7 +2361,7 @@ fn downloads_without_a_target_show_neither_target_nor_compatibility() {
         (ResourceKind::Modpack, "download.creates_instance"),
         (ResourceKind::World, "download.saves_to_path"),
     ] {
-        for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+        for preset in [UiPreset::Classic, UiPreset::Nightlight] {
             let mut app = App::new();
             app.page = Page::DownloadCenter;
             app.config.state.ui.preset = preset;
@@ -3043,7 +2390,7 @@ fn downloads_without_a_target_show_neither_target_nor_compatibility() {
                 text.contains("pack-1.0.mrpack"),
                 "{preset:?} lost the file row for {kind:?}:\n{text}"
             );
-            // `classic`/`creeper` put the note in the page caption; `nightlight`
+            // `classic` puts the note in the page caption; `nightlight`
             // keeps it in the one-line summary above the results.
             let summary = app.i18n.text(summary_key);
             let info = app.i18n.text(app.download_info_key());
@@ -3372,7 +2719,7 @@ fn the_current_account_keeps_its_whole_badge() {
         .expect("the account row");
     assert!(
         row.trim_end()
-            .ends_with(&app.i18n.text("creeper.account.offline")),
+            .ends_with(&app.i18n.text("account.kind.offline")),
         "the badge is clipped: {row:?}"
     );
 }
@@ -3734,104 +3081,6 @@ fn task_rows_align_their_sizes_bars_and_percents() {
     assert!(
         rows.iter().any(|row| row.trim_end().ends_with('—')),
         "unknown total:\n{text}"
-    );
-}
-
-#[test]
-fn creeper_task_states_share_one_right_edge() {
-    use crate::core::task::{TaskOperationType, TaskSnapshot, TaskState};
-
-    let mut app = creeper_app(Page::Tasks);
-    let snapshot =
-        |job: Option<Uuid>, seq: u64, label: &str, state, completed, total| TaskSnapshot {
-            job,
-            created_seq: seq,
-            id: Uuid::new_v4(),
-            label: label.to_owned(),
-            operation_type: TaskOperationType::InstanceInstall,
-            state,
-            retryable: false,
-            attempt: 0,
-            completed,
-            total,
-            failure: None,
-        };
-    // Three names of different lengths. A pill placed right after the name puts
-    // the same state on three different columns. The first row is a three-step
-    // job, which also carries `3/3` in that column.
-    let job = Some(Uuid::new_v4());
-    app.apply_task_snapshots(vec![
-        snapshot(job, 0, "short", TaskState::Succeeded, 34, Some(34)),
-        snapshot(job, 1, "short", TaskState::Succeeded, 33, Some(33)),
-        snapshot(job, 2, "short", TaskState::Succeeded, 33, Some(33)),
-        snapshot(
-            None,
-            3,
-            "a much longer instance name that runs to the edge",
-            TaskState::Failed,
-            50,
-            Some(100),
-        ),
-        snapshot(None, 4, "mid length", TaskState::Succeeded, 100, Some(100)),
-    ]);
-
-    let text = render_text(&app, 120, 40);
-    let completed = app.i18n.text("task.completed");
-    let failed = app.i18n.text("task.failed");
-    // The filter row also says `Failed`; only the pill carries the glyph.
-    let completed_pill = format!(
-        "{} {completed}",
-        crate::tui::widgets::kit::status_glyph(crate::tui::widgets::status::StatusKind::Completed)
-    );
-    let failed_pill = format!(
-        "{} {failed}",
-        crate::tui::widgets::kit::status_glyph(crate::tui::widgets::status::StatusKind::Failed)
-    );
-    // The card border closes every line, so measure the end of the label
-    // rather than the end of the line.
-    let label_end = |line: &str, word: &str| -> Option<usize> {
-        line.find(word)
-            .map(|index| line[..index].chars().count() + word.chars().count())
-    };
-    let ends: Vec<usize> = text
-        .lines()
-        .filter_map(|line| {
-            label_end(line, &completed_pill).or_else(|| label_end(line, &failed_pill))
-        })
-        .collect();
-    assert_eq!(ends.len(), 3, "three task rows on screen:\n{text}");
-    assert!(
-        ends.windows(2).all(|pair| pair[0] == pair[1]),
-        "the state labels do not share a right edge: {ends:?}\n{text}"
-    );
-
-    // The pill's edge is also the progress bar's edge: one card, one column.
-    // The label sits one cell inside the pill's own right padding, so its text
-    // ends one column before `100%` while the two blocks end together.
-    let bar_tail = text
-        .lines()
-        .filter_map(|line| label_end(line, "%"))
-        .max()
-        .expect("a bar row");
-    assert_eq!(
-        ends[0] + 1,
-        bar_tail,
-        "the state pill does not end on the bar's column:\n{text}"
-    );
-
-    // `3/3` sits in the right-hand column next to the pill, not on the name's
-    // tail; on the tail it makes the row ragged.
-    let first = text
-        .lines()
-        .find(|line| line.contains("short"))
-        .expect("the short row");
-    let step_at = first
-        .find("3/3")
-        .map(|index| first[..index].chars().count())
-        .expect("the step count left the row");
-    assert!(
-        step_at > 60,
-        "the step count still trails the name at column {step_at}: {first:?}"
     );
 }
 
@@ -5412,97 +4661,9 @@ fn following_the_terminal_hands_the_page_back_in_every_preset() {
     }
 }
 
-/// Creeper's light sheet is a real second palette, not a tint: the page, the
-/// cards (shared `kit` primitives included) and the lime all move together.
-#[test]
-fn creeper_light_mode_leaves_no_dark_panels() {
-    use crate::core::config::models::ThemeMode;
-    use crate::tui::app::view::creeper::tone;
-
-    for page in Page::ALL {
-        let mut app = shelf_data_app(page);
-        app.config.state.ui.preset = crate::core::config::models::UiPreset::Creeper;
-        app.config.state.ui.theme_mode = ThemeMode::Light;
-        seed_instances(&mut app);
-        let buffer = render_buffer(&app, 120, 40);
-
-        assert_eq!(
-            buffer[(0, 0)].bg,
-            tone::LIGHT.bg,
-            "{page:?}: the page stayed dark"
-        );
-        // A single dark panel on a white page is what "浅色没覆盖全" means: a
-        // `kit` primitive read the module constants instead of the skin.
-        let dark = buffer
-            .content
-            .iter()
-            .filter(|cell| {
-                cell.bg == tone::DARK.bg
-                    || cell.bg == tone::DARK.surface
-                    || cell.bg == tone::DARK.surface_alt
-            })
-            .count();
-        assert_eq!(dark, 0, "{page:?}: {dark} cells still paint a dark tone");
-    }
-
-    // The workspace is a second-level screen of Instances; it reads the same
-    // sheet, so it must not fall back to the shared constants either.
-    let mut workspace = nightlight_workspace_app();
-    workspace.config.state.ui.preset = crate::core::config::models::UiPreset::Creeper;
-    workspace.config.state.ui.theme_mode = ThemeMode::Light;
-    let buffer = render_buffer(&workspace, 120, 40);
-    let dark = buffer
-        .content
-        .iter()
-        .filter(|cell| {
-            cell.bg == tone::DARK.bg
-                || cell.bg == tone::DARK.surface
-                || cell.bg == tone::DARK.surface_alt
-        })
-        .count();
-    assert_eq!(dark, 0, "workspace: {dark} cells still paint a dark tone");
-}
-
 /// A row is the bulk of a list page: handing back only the page and the panel
 /// tones left every row band opaque. The rows go; the pills and the key caps
 /// stay, because a status pill carries a label that has to be read.
-#[test]
-fn creeper_following_the_terminal_hands_back_the_list_rows() {
-    use crate::core::config::models::{ThemeMode, UiPreset};
-
-    let mut app = shelf_data_app(Page::Instances);
-    app.config.state.ui.preset = UiPreset::Creeper;
-    app.config.state.ui.theme_mode = ThemeMode::Terminal;
-    seed_instances(&mut app);
-    let buffer = render_buffer(&app, 120, 40);
-    let reset = buffer
-        .content
-        .iter()
-        .filter(|cell| cell.bg == ratatui::style::Color::Reset)
-        .count();
-    assert!(
-        reset * 100 >= buffer.content.len() * 95,
-        "only {reset} of {} cells came back",
-        buffer.content.len()
-    );
-
-    // The key caps must stay solid: they carry the key names in the sheet's own
-    // ink, which is unreadable on whatever the terminal happens to show.
-    let caps = buffer
-        .content
-        .iter()
-        .filter(|cell| {
-            cell.bg
-                == crate::tui::palette::mix(
-                    crate::tui::app::view::creeper::tone::TERMINAL.text_dim,
-                    crate::tui::app::view::creeper::tone::TERMINAL.text,
-                    0.18,
-                )
-        })
-        .count();
-    assert!(caps > 20, "the key caps lost their fill: {caps} cells");
-}
-
 /// The contract itself, not a proportion: after a frame, **no cell may still
 /// be painted with any colour the preset declared as a container fill**.
 ///
@@ -5523,7 +4684,6 @@ fn every_preset_hands_back_every_container_fill() {
 
         let fills = match preset {
             UiPreset::Classic => [None; 4],
-            UiPreset::Creeper => app.creeper_palette().fills(),
             UiPreset::Nightlight => app.nightlight_palette().fills(),
             UiPreset::Paper => app.paper_palette().fills(),
             UiPreset::Shelf => app.shelf_palette().fills(),
@@ -5534,7 +4694,6 @@ fn every_preset_hands_back_every_container_fill() {
         // is the point: it is a contract, not a tautology.
         let expected = match preset {
             UiPreset::Classic => 0,
-            UiPreset::Creeper => 3,
             UiPreset::Nightlight => 4,
             UiPreset::Paper => 2,
             UiPreset::Shelf => 2,
@@ -5594,7 +4753,7 @@ fn lifting_dim_text_skips_glyphs_that_sit_on_a_pill() {
     use crate::core::config::models::{ThemeMode, UiPreset};
 
     let mut app = shelf_data_app(Page::Instances);
-    app.config.state.ui.preset = UiPreset::Creeper;
+    app.config.state.ui.preset = UiPreset::Nightlight;
     app.config.state.ui.theme_mode = ThemeMode::Terminal;
     seed_instances(&mut app);
 
@@ -5644,12 +4803,7 @@ fn a_dialog_keeps_the_page_transparent_under_follow_terminal() {
     let prompt = "Clear the download cache?";
     let card = Modal::confirm(prompt, ConfirmAction::ClearDownloadCache).area(area);
 
-    for preset in [
-        UiPreset::Creeper,
-        UiPreset::Nightlight,
-        UiPreset::Paper,
-        UiPreset::Shelf,
-    ] {
+    for preset in [UiPreset::Nightlight, UiPreset::Paper, UiPreset::Shelf] {
         let mut app = App::new();
         app.config.state.ui.preset = preset;
         app.config.state.ui.theme_mode = ThemeMode::Terminal;
@@ -5695,40 +4849,6 @@ fn see_through(buffer: &ratatui::buffer::Buffer, area: Rect, card: Rect) -> usiz
 
 /// A light terminal gets the light sheet and still gives its fills up, which is
 /// the difference between `Terminal + light` and plain `Light`.
-#[test]
-fn a_light_terminal_flips_the_sheet_and_keeps_it_following() {
-    use crate::core::config::models::{ThemeMode, UiPreset};
-    use crate::tui::app::view::creeper::tone;
-    use crate::tui::app::view::sheet::Sheet;
-
-    let mut app = shelf_data_app(Page::Instances);
-    app.config.state.ui.preset = UiPreset::Creeper;
-    app.config.state.ui.theme_mode = ThemeMode::Terminal;
-
-    app.set_terminal_background(Some(true));
-    assert_eq!(app.creeper_palette().bg, tone::LIGHT.bg, "light terminal");
-    assert!(
-        app.creeper_palette().follows_terminal(),
-        "a light terminal still follows: the fills must stay withdrawn"
-    );
-
-    app.set_terminal_background(Some(false));
-    assert_eq!(app.creeper_palette().bg, tone::DARK.bg, "dark terminal");
-
-    // The switch is part of the answer: with detection off, the reply is
-    // ignored even if one arrived.
-    app.config.state.ui.detect_terminal = false;
-    app.set_terminal_background(Some(true));
-    assert_eq!(app.creeper_palette().bg, tone::DARK.bg, "detection is off");
-
-    // Outside `跟随终端` the sheet is whatever the mode names.
-    app.config.state.ui.detect_terminal = true;
-    app.config.state.ui.theme_mode = ThemeMode::Light;
-    assert_eq!(app.creeper_palette().bg, tone::LIGHT.bg);
-    app.config.state.ui.theme_mode = ThemeMode::Dark;
-    assert_eq!(app.creeper_palette().bg, tone::DARK.bg);
-}
-
 /// The record column prints in the same ink as the list beside it.
 ///
 /// `styled_detail_lines` takes the ink the preset paints a list row with. Handing
@@ -6133,7 +5253,6 @@ fn every_preset_draws_the_diagnosis_card_inside_the_screen() {
 
     for preset in [
         UiPreset::Classic,
-        UiPreset::Creeper,
         UiPreset::Nightlight,
         UiPreset::Paper,
         UiPreset::Shelf,
@@ -6429,7 +5548,6 @@ fn the_log_page_badge_appears_only_with_a_verdict() {
 
     for preset in [
         UiPreset::Classic,
-        UiPreset::Creeper,
         UiPreset::Nightlight,
         UiPreset::Paper,
         UiPreset::Shelf,

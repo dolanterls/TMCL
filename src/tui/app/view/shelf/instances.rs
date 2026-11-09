@@ -158,8 +158,8 @@ impl App {
         let room = usize::from(text_width).saturating_sub(1);
         // The launcher marks the instance `Enter` will start. Without the word
         // the row still reads `Ready` after the key is pressed and nothing on
-        // the page says it took: classic, creeper, nightlight and paper all
-        // swap the status for `当前`, and shelf was the one that did not.
+        // the page says it took: classic, nightlight and paper all swap the
+        // status for `当前`, and shelf was the one that did not.
         let is_current = self.shelf_marks_current(item);
         let status = if is_current {
             self.i18n.text("common.current")

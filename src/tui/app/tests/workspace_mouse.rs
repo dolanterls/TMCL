@@ -231,7 +231,7 @@ fn clicking_a_drawn_content_row_keeps_the_workspace_list_still() {
 
 #[tokio::test]
 async fn clicking_the_mark_toggles_a_mod_without_selecting_it() {
-    let (mut app, _root) = workspace_app(UiPreset::Creeper);
+    let (mut app, _root) = workspace_app(UiPreset::Classic);
     let root = std::env::temp_dir().join(format!("tmcl-ws-click-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir_all(root.join("mods")).expect("create mods dir");
     let jar = root.join("mods/alpha.jar");
@@ -255,7 +255,7 @@ async fn clicking_the_mark_toggles_a_mod_without_selecting_it() {
 
 #[test]
 fn clicking_the_step_arrows_changes_the_value() {
-    let (mut app, _root) = workspace_app(UiPreset::Creeper);
+    let (mut app, _root) = workspace_app(UiPreset::Classic);
     if let Some(workspace) = app.workspace.as_mut() {
         workspace.category = crate::tui::pages::workspace::WorkspaceCategory::Launch;
         workspace.selected = crate::tui::pages::workspace::LaunchField::MemoryMax.index();
@@ -354,7 +354,7 @@ fn workspace_rows_span_the_panel_and_hover_covers_the_whole_row() {
 }
 
 #[test]
-fn classic_workspace_uses_top_tabs_while_creeper_keeps_a_rail() {
+fn classic_workspace_uses_top_tabs() {
     let (classic, _classic_root) = workspace_app(UiPreset::Classic);
     draw(&classic);
     let first = rect_of(&classic, Action::workspace_category(0));
@@ -365,46 +365,6 @@ fn classic_workspace_uses_top_tabs_while_creeper_keeps_a_rail() {
     assert!(
         first.y < rect_of(&classic, Action::workspace_row(0)).y,
         "classic tabs sit above the body, not beside it"
-    );
-
-    let (creeper, _creeper_root) = workspace_app(UiPreset::Creeper);
-    draw(&creeper);
-    let first = rect_of(&creeper, Action::workspace_category(0));
-    let second = rect_of(&creeper, Action::workspace_category(1));
-    assert_eq!(first.x, second.x, "creeper categories share one column");
-    assert!(second.y > first.y, "creeper categories run top to bottom");
-}
-
-#[test]
-fn creeper_workspace_selection_uses_the_instances_accent() {
-    use crate::tui::palette::{BLUE, GREEN, SURFACE, TEXT, TEXT_DIM, mix};
-
-    let (app, _root) = workspace_app(UiPreset::Creeper);
-    draw(&app);
-    let selected = rect_of(&app, Action::workspace_row(0));
-    let unselected = rect_of(&app, Action::workspace_row(1));
-    let buffer = buffer_of(&app);
-    let cell = &buffer[(selected.right().saturating_sub(2), selected.y)];
-    assert_eq!(
-        cell.bg,
-        mix(SURFACE, GREEN, 0.2),
-        "the selected row uses the Instances accent, edge to edge"
-    );
-    assert_ne!(
-        cell.bg,
-        mix(SURFACE, BLUE, 0.2),
-        "the workspace must not borrow the settings page blue"
-    );
-    // Resting text is dim; the selection is bright and bold, like the settings
-    // page this screen mirrors.
-    assert_eq!(buffer[(unselected.x + 1, unselected.y)].fg, TEXT_DIM);
-    let selected_label = &buffer[(selected.x + 1, selected.y)];
-    assert_eq!(selected_label.fg, TEXT);
-    assert!(
-        selected_label
-            .modifier
-            .contains(ratatui::style::Modifier::BOLD),
-        "the selected label must be bold"
     );
 }
 
@@ -423,7 +383,7 @@ fn classic_workspace_selection_uses_the_table_style() {
 
 #[test]
 fn folded_rail_arrows_step_the_category() {
-    let (mut app, _root) = workspace_app(UiPreset::Creeper);
+    let (mut app, _root) = workspace_app(UiPreset::Classic);
     draw_sized(&app, 80, 24);
     assert_eq!(
         app.workspace.as_ref().expect("workspace").category,

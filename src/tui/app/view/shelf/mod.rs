@@ -96,7 +96,7 @@ impl App {
         // The workspace replaces the instance list, not the whole screen: the
         // shell, the tabs and the footer stay, exactly as in `classic`.
         if self.page == Page::Instances && self.workspace_is_open() {
-            self.draw_workspace_page(frame, regions.main, self.anim_time());
+            self.draw_workspace_page(frame, regions.main);
             self.shelf_footer(frame, &regions, pal);
             return;
         }

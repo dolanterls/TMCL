@@ -1,7 +1,7 @@
 //! Palette, colour maths and text helpers shared by all three presets.
 //!
-//! The named colours are the `creeper` ladder, but the maths (`mix`, `dim`, `pulse`)
-//! and the text helpers (`width`, `truncate`, `fit`, `wrap`) are what every preset
+//! The named colours form one fixed ladder, and the maths (`mix`, `dim`, `pulse`)
+//! plus the text helpers (`width`, `truncate`, `fit`, `wrap`) are what every preset
 //! measures with, so this lives at `tui/` rather than inside one preset's folder.
 //!
 //! Everything is expressed in RGB. Terminals without truecolour let crossterm

@@ -28,28 +28,6 @@ source revision.
 
 ---
 
-Separate note on the `creeper` TUI preset (MIT, no derived code)
-
-The `creeper` preset studies the *interface language* of a third-party terminal
-launcher (sidebar navigation, rounded card grid, gradient rule, status pills,
-floating toast). That project is distributed under GPL-3.0-only, which is not
-compatible with this MIT-licensed crate, so no source file, constant table,
-string, glyph bitmap or asset was copied from it.
-
-What was taken: the general layout vocabulary and the palette direction
-(dark navy surface, neon green/cyan/purple accents).
-
-What was written for TMCL: every module under `src/tui/preset/`,
-`src/tui/app/preset/` and `src/tui/modal/render_creeper.rs`, including the
-colour maths, card/pill/progress primitives, page compositions, modal rendering
-and the block logo.
-
-The reference project is therefore not a dependency, not a vendored subtree and
-not a source of copied code; it is a design reference only.
-
-
----
-
 Separate note on the instance-workspace feature (MIT, no derived code)
 
 The instance-management feature (per-instance launch overrides, loader install,

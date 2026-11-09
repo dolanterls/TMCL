@@ -251,7 +251,6 @@ pub enum ModalResult {
 }
 
 mod classic;
-mod creeper;
 mod keys;
 mod nightlight;
 mod paper;

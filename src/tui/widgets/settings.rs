@@ -164,9 +164,9 @@ pub fn render(
         .style(Style::default().add_modifier(Modifier::BOLD));
     let body = rows.iter().map(|row| {
         let mut cells = row.cells();
-        // `‹ ›` advertise the step controls, exactly like the creeper and
-        // nightlight rows: a value that answers to `←/→` should say so, or the
-        // column reads as plain text.
+        // `‹ ›` advertise the step controls, exactly like the nightlight rows:
+        // a value that answers to `←/→` should say so, or the column reads as
+        // plain text.
         if let Some(cell) = step_cell(row)
             && let Some(value) = cells.get_mut(1)
         {

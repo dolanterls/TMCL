@@ -54,7 +54,6 @@ The two are separate: launcher data is per-user, the game directory can be anywh
 | Preset | Look |
 | --- | --- |
 | Classic | framed shell, top tabs, bordered panels (default) |
-| Creeper | cards, sidebar, gradient rules, floating status |
 | Nightlight | one accent colour, eight themes, no animation |
 | Paper | printed page, ivory / ash / kraft stock, day or night |
 | Shelf | cover art, 56/44 split, one fixed palette |
@@ -77,4 +76,4 @@ Network tests are `#[ignore]`d by default: `cargo test --test cli_network -- --i
 
 ## Third-party notices
 
-Parts of the TUI layout come from [binsider](https://github.com/orhun/binsider) (MIT OR Apache-2.0). The `creeper`, `nightlight` and `shelf` presets study other terminal UIs without copying code, constants or assets. Revisions, licences and the exact boundary are in [`NOTICE`](NOTICE).
+Parts of the TUI layout come from [binsider](https://github.com/orhun/binsider) (MIT OR Apache-2.0). The `nightlight` and `shelf` presets study other terminal UIs without copying code, constants or assets. Revisions, licences and the exact boundary are in [`NOTICE`](NOTICE).

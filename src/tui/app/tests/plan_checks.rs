@@ -1219,7 +1219,7 @@ fn a_description_does_not_swallow_the_workspace_key_line() {
     std::fs::create_dir_all(root.join("mods")).expect("create mods");
     let mut app = App::new();
     app.page = Page::Instances;
-    app.config.state.ui.preset = crate::core::config::models::UiPreset::Creeper;
+    app.config.state.ui.preset = crate::core::config::models::UiPreset::Classic;
     app.motion = false;
     app.instances.apply(vec![InstanceSummary {
         id: uuid::Uuid::new_v4(),
@@ -1274,7 +1274,7 @@ fn a_description_does_not_swallow_the_workspace_key_line() {
 }
 
 /// The classic dialog printed the raw i18n keys (`hint.browse`) instead of the
-/// translated labels; only the creeper renderer went through `i18n`.
+/// translated labels.
 #[test]
 fn classic_form_key_hints_are_translated() {
     let mut app = App::new();
@@ -1370,8 +1370,8 @@ fn the_clock_and_accent_rows_are_disabled_under_a_fixed_nightlight_theme() {
             .enabled
     );
 
-    // Classic and creeper read the accent colour from their own theme, so the
-    // nightlight theme must not take the row away from them.
+    // Classic reads the accent colour from its own theme, so the nightlight
+    // theme must not take the row away from it.
     app.config.state.ui.preset = UiPreset::Classic;
     app.config.state.ui.nightlight_theme = NightlightTheme::Ember;
     assert!(

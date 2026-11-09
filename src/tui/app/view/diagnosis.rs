@@ -40,23 +40,10 @@ impl App {
     /// The card's theme, borrowed from the preset on screen.
     ///
     /// A shared painter cannot use `self.theme` for every preset: on `paper`
-    /// that is the terminal's own ink on a sheet that is nearly white, and on
-    /// `creeper` it is the wrong accent entirely.
+    /// that is the terminal's own ink on a sheet that is nearly white.
     pub(in crate::tui::app) fn diagnosis_theme(&self) -> Theme {
         match self.preset() {
             UiPreset::Classic => self.theme,
-            UiPreset::Creeper => {
-                let pal = self.creeper_palette();
-                Theme {
-                    bg: pal.bg,
-                    fg: pal.text,
-                    dim: pal.text_dim,
-                    accent: pal.gold,
-                    label: pal.cyan,
-                    key: pal.lime,
-                    ..Theme::default()
-                }
-            }
             UiPreset::Nightlight => {
                 let pal = self.nightlight_palette();
                 Theme {

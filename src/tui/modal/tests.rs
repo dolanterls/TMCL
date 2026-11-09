@@ -687,7 +687,7 @@ fn checklist_reset_cursor_and_keys_share_the_same_actions() {
 }
 
 #[test]
-fn checklist_renders_markers_in_both_presets() {
+fn checklist_renders_markers_in_every_preset() {
     use crate::core::config::models::Language;
     use crate::tui::hit::Hitmap;
     use crate::tui::theme::Theme;
@@ -725,18 +725,19 @@ fn checklist_renders_markers_in_both_presets() {
                     0.0,
                     &hits,
                 ),
-                // Nightlight borrows the creeper dialog until P6 ships its own.
-                crate::core::config::models::UiPreset::Creeper
-                | crate::core::config::models::UiPreset::Nightlight => {
+                crate::core::config::models::UiPreset::Nightlight => {
                     let area = modal.area(frame.area());
-                    modal.draw_creeper(
+                    modal.draw_nightlight(
                         frame,
                         &crate::i18n::I18n::new(Language::English),
-                        crate::tui::app::view::creeper::tone::palette(
-                            crate::core::config::models::ThemeMode::Dark,
-                        ),
                         area,
                         0.0,
+                        &crate::tui::app::view::nightlight::tone::palette(
+                            crate::core::config::models::NightlightTheme::Live,
+                            crate::core::config::models::ThemeMode::Dark,
+                            None,
+                            false,
+                        ),
                         &hits,
                     )
                 }
@@ -749,8 +750,10 @@ fn checklist_renders_markers_in_both_presets() {
             .iter()
             .map(|cell| cell.symbol())
             .collect::<String>();
-        assert!(text.contains("[x]"), "{preset:?}: {text}");
-        assert!(text.contains("[ ]"), "{preset:?}: {text}");
+        let marked = text.contains("[x]") || text.contains('●');
+        let unmarked = text.contains("[ ]") || text.contains('○');
+        assert!(marked, "{preset:?}: {text}");
+        assert!(unmarked, "{preset:?}: {text}");
         assert!(text.contains("Adventure"), "{preset:?}: {text}");
     }
 }
@@ -772,21 +775,17 @@ fn checklist_retry_row_asks_the_caller_to_reload() {
 
 // ── shared text field ─────────────────────────────────────────────
 
-fn creeper_buffer(modal: &Modal, t: f64) -> ratatui::buffer::Buffer {
+fn classic_buffer(modal: &Modal, t: f64) -> ratatui::buffer::Buffer {
     let backend = TestBackend::new(64, 18);
     let mut terminal = Terminal::new(backend).expect("terminal");
     let hits = crate::tui::hit::Hitmap::default();
     terminal
         .draw(|frame| {
-            let area = modal.area(frame.area());
             frame.render_widget(ratatui::widgets::Clear, frame.area());
-            modal.draw_creeper(
+            modal.draw(
                 frame,
+                crate::tui::theme::Theme::default(),
                 &crate::i18n::I18n::new(crate::core::config::models::Language::English),
-                crate::tui::app::view::creeper::tone::palette(
-                    crate::core::config::models::ThemeMode::Dark,
-                ),
-                area,
                 t,
                 &hits,
             );
@@ -846,16 +845,17 @@ fn form_cursor_block_sits_on_the_insertion_point() {
     modal.handle_key(key(KeyCode::Char('X')));
 
     // Blink on: the character after the cursor is drawn as the block.
-    let on = creeper_buffer(&modal, 0.0);
-    let block = cells_with_bg(&on, crate::tui::palette::GREEN);
+    let cursor = crate::tui::theme::Theme::default().accent;
+    let on = classic_buffer(&modal, 0.0);
+    let block = cells_with_bg(&on, cursor);
     assert!(
         block.iter().any(|(symbol, _)| symbol == "a"),
         "cursor block missing: {block:?}"
     );
 
     // Blink off: the same cell goes back to plain text.
-    let off = creeper_buffer(&modal, 0.4);
-    let block = cells_with_bg(&off, crate::tui::palette::GREEN);
+    let off = classic_buffer(&modal, 0.4);
+    let block = cells_with_bg(&off, cursor);
     assert!(
         !block.iter().any(|(symbol, _)| symbol == "a"),
         "cursor did not blink: {block:?}"
@@ -872,15 +872,15 @@ fn prompt_cursor_blinks_with_the_shared_clock() {
         FormAction::SettingValue(crate::tui::pages::settings::SettingId::WindowWidth),
     );
 
-    let on = creeper_buffer(&modal, 0.0);
-    let off = creeper_buffer(&modal, 0.4);
-    let cyan = crate::tui::palette::CYAN;
+    let on = classic_buffer(&modal, 0.0);
+    let off = classic_buffer(&modal, 0.4);
+    let cursor = crate::tui::theme::Theme::default().accent;
     assert!(
-        !cells_with_bg(&on, cyan).is_empty(),
+        !cells_with_bg(&on, cursor).is_empty(),
         "prompt cursor missing while lit"
     );
     assert!(
-        cells_with_bg(&off, cyan).is_empty(),
+        cells_with_bg(&off, cursor).is_empty(),
         "prompt cursor did not blink"
     );
 }
@@ -894,8 +894,8 @@ fn form_option_fields_keep_no_typed_cursor() {
         FormAction::CreateInstance,
     );
     modal = modal.with_selection_picker(0, vec!["vanilla".to_string(), "fabric".to_string()]);
-    let buffer = creeper_buffer(&modal, 0.0);
-    let block = cells_with_bg(&buffer, crate::tui::palette::GREEN);
+    let buffer = classic_buffer(&modal, 0.0);
+    let block = cells_with_bg(&buffer, crate::tui::theme::Theme::default().accent);
     assert!(
         !block.iter().any(|(symbol, _)| symbol == "v"),
         "a picker field must not draw a text cursor: {block:?}"

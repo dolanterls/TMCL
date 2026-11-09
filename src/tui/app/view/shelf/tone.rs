@@ -350,16 +350,8 @@ const TERMINAL_LIGHT: [Palette; 5] = [
 ];
 
 impl Sheet for Palette {
-    fn surface(&self) -> Color {
-        self.surface
-    }
-
     fn fills(&self) -> [Option<Color>; 4] {
         [Some(self.bg), Some(self.surface), None, None]
-    }
-
-    fn follows_terminal(&self) -> bool {
-        self.transparent
     }
 }
 

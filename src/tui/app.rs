@@ -371,8 +371,7 @@ pub struct App {
         std::cell::RefCell<std::collections::VecDeque<(String, StatusKind, std::time::Instant)>>,
 }
 
-/// A game process the launcher is waiting on. `creeper` lists it in the
-/// activity feed so a launch is visible while no install task is running.
+/// A game process the launcher is waiting on.
 #[derive(Debug, Clone)]
 pub(in crate::tui::app) struct ActiveLaunch {
     /// Which instance the process belongs to. The name alone is not enough:
@@ -381,7 +380,6 @@ pub(in crate::tui::app) struct ActiveLaunch {
     pub instance_id: Uuid,
     pub instance_name: String,
     pub phase: LaunchPhase,
-    pub started: std::time::Instant,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -396,7 +394,6 @@ impl ActiveLaunch {
             instance_id,
             instance_name,
             phase: LaunchPhase::Starting,
-            started: std::time::Instant::now(),
         }
     }
 }

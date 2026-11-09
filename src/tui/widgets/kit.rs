@@ -1,9 +1,8 @@
 //! Card-and-pill primitives: framed cards, status pills, key caps, progress
 //! bars and the decorated row list.
 //!
-//! Written for `creeper` first, but `classic` and `nightlight` draw with the
-//! same pieces, so this lives in the shared `widgets` module instead of inside
-//! one preset's folder.
+//! Every preset draws with these pieces, so this lives in the shared `widgets`
+//! module instead of inside one preset's folder.
 
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Constraint, Rect};
@@ -14,80 +13,19 @@ use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 use crate::tui::palette;
 use crate::tui::widgets::status::StatusKind;
 
-/// The colours the shared primitives paint with.
-///
-/// `creeper` carries two sheets (`tone::DARK` / `tone::LIGHT`), so the
-/// primitives ask for the sheet in force instead of hard-coding the dark one.
-/// [`use_skin`] is called once per frame by `App::draw`; every other preset
-/// leaves [`Skin::DEFAULT`] in place, which is the dark sheet.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub struct Skin {
-    pub bg: Color,
-    pub surface: Color,
-    pub surface_alt: Color,
-    pub border: Color,
-    pub border_hi: Color,
-    pub text: Color,
-    pub text_dim: Color,
-    pub text_faint: Color,
-    pub green: Color,
-    pub lime: Color,
-    pub cyan: Color,
-    pub gold: Color,
-    pub red: Color,
-    /// `跟随终端`: the sheet has been withdrawn, so container fills drop to
-    /// `Reset` instead of painting a band the terminal cannot see through.
-    pub transparent: bool,
-}
-
-impl Skin {
-    /// The shared palette's constants: what every non-`creeper` preset gets.
-    pub const DEFAULT: Skin = Skin {
-        bg: crate::tui::palette::BG,
-        surface: crate::tui::palette::SURFACE,
-        surface_alt: crate::tui::palette::SURFACE_ALT,
-        border: crate::tui::palette::BORDER,
-        border_hi: crate::tui::palette::BORDER_HI,
-        text: crate::tui::palette::TEXT,
-        text_dim: crate::tui::palette::TEXT_DIM,
-        text_faint: crate::tui::palette::TEXT_FAINT,
-        green: crate::tui::palette::GREEN,
-        lime: crate::tui::palette::LIME,
-        cyan: crate::tui::palette::CYAN,
-        gold: crate::tui::palette::GOLD,
-        red: crate::tui::palette::RED,
-        transparent: false,
-    };
-}
-
-thread_local! {
-    static SKIN: std::cell::Cell<Skin> = const { std::cell::Cell::new(Skin::DEFAULT) };
-}
-
-/// Picks the sheet the primitives paint with for the rest of this thread's
-/// frame. Cheap (a `Copy` struct in a `Cell`) and reset by every `App::draw`, so
-/// a test that draws several presets cannot carry one preset's sheet into the
-/// next.
-pub fn use_skin(skin: Skin) {
-    SKIN.with(|current| current.set(skin));
-}
-
-fn current_skin() -> Skin {
-    SKIN.with(std::cell::Cell::get)
-}
-
 /// Attach an `n/m` counter to the bottom-right border of a card. Painting it on
 /// the border keeps the content rows intact, so row-to-click mapping is
 /// unaffected.
 pub fn with_counter(block: Block<'static>, position: usize, total: usize) -> Block<'static> {
-    let skin = current_skin();
     if total == 0 {
         return block;
     }
     block.title_bottom(
         Line::from(Span::styled(
             format!(" {position}/{total} "),
-            Style::default().fg(skin.text_faint).bg(skin.surface),
+            Style::default()
+                .fg(palette::TEXT_FAINT)
+                .bg(palette::SURFACE),
         ))
         .alignment(Alignment::Right),
     )
@@ -98,17 +36,20 @@ pub fn with_counter(block: Block<'static>, position: usize, total: usize) -> Blo
 /// The focus ring breathes between `border` and `accent`, which gives the
 /// layout a heartbeat without moving any glyphs.
 pub fn card(title: &str, accent: Color, focused: bool, t: f64, bg: Color) -> Block<'static> {
-    let skin = current_skin();
     let title = title.to_uppercase();
     let border = if focused {
-        palette::mix(accent, skin.border_hi, 0.25 + palette::pulse(t, 2.2) * 0.35)
+        palette::mix(
+            accent,
+            palette::BORDER_HI,
+            0.25 + palette::pulse(t, 2.2) * 0.35,
+        )
     } else {
-        skin.border
+        palette::BORDER
     };
     let title_color = if focused {
-        palette::mix(accent, skin.text, 0.2)
+        palette::mix(accent, palette::TEXT, 0.2)
     } else {
-        skin.text_dim
+        palette::TEXT_DIM
     };
     Block::default()
         .borders(Borders::ALL)
@@ -124,65 +65,70 @@ pub fn card(title: &str, accent: Color, focused: bool, t: f64, bg: Color) -> Blo
             ),
             Span::styled(
                 "─",
-                Style::default().fg(palette::dim(skin.border, 0.25)).bg(bg),
+                Style::default()
+                    .fg(palette::dim(palette::BORDER, 0.25))
+                    .bg(bg),
             ),
         ]))
-        .style(Style::default().fg(skin.text).bg(bg))
+        .style(Style::default().fg(palette::TEXT).bg(bg))
 }
 
 /// Card without a heading, used for purely decorative frames.
 pub fn frame_card(accent: Color, focused: bool, t: f64, bg: Color) -> Block<'static> {
-    let skin = current_skin();
     let border = if focused {
-        palette::mix(accent, skin.border_hi, 0.25 + palette::pulse(t, 2.2) * 0.35)
+        palette::mix(
+            accent,
+            palette::BORDER_HI,
+            0.25 + palette::pulse(t, 2.2) * 0.35,
+        )
     } else {
-        skin.border
+        palette::BORDER
     };
     Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(Style::default().fg(border).bg(bg))
-        .style(Style::default().fg(skin.text).bg(bg))
+        .style(Style::default().fg(palette::TEXT).bg(bg))
 }
 
 /// Card with a steady accent border: the page colour at rest, without the
 /// focus pulse. Used by the side detail pane so it reads as part of the same
 /// page as the focused list instead of falling back to the neutral border.
 pub fn accent_card(title: &str, accent: Color, bg: Color) -> Block<'static> {
-    let skin = current_skin();
     let title = title.to_uppercase();
     Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
         .border_style(
             Style::default()
-                .fg(palette::mix(accent, skin.border_hi, 0.35))
+                .fg(palette::mix(accent, palette::BORDER_HI, 0.35))
                 .bg(bg),
         )
         .title(Line::from(vec![
             Span::styled(
                 format!("─ {title} "),
                 Style::default()
-                    .fg(palette::mix(accent, skin.text, 0.25))
+                    .fg(palette::mix(accent, palette::TEXT, 0.25))
                     .bg(bg)
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 "─",
-                Style::default().fg(palette::dim(skin.border, 0.25)).bg(bg),
+                Style::default()
+                    .fg(palette::dim(palette::BORDER, 0.25))
+                    .bg(bg),
             ),
         ]))
-        .style(Style::default().fg(skin.text).bg(bg))
+        .style(Style::default().fg(palette::TEXT).bg(bg))
 }
 
 /// Coloured ` label ` pill; the background is a light tint of the same hue so
 /// the chip reads as a solid badge instead of coloured text.
 pub fn pill(label: impl Into<String>, color: Color, bg: Color) -> Span<'static> {
-    let skin = current_skin();
     Span::styled(
         format!(" {} ", label.into()),
         Style::default()
-            .fg(palette::mix(color, skin.text, 0.12))
+            .fg(palette::mix(color, palette::TEXT, 0.12))
             .bg(palette::mix(bg, color, 0.22))
             .add_modifier(Modifier::BOLD),
     )
@@ -190,11 +136,10 @@ pub fn pill(label: impl Into<String>, color: Color, bg: Color) -> Span<'static> 
 
 /// Muted pill on the surface colour, for secondary metadata.
 pub fn soft_pill(label: impl Into<String>, color: Color, bg: Color) -> Span<'static> {
-    let skin = current_skin();
     Span::styled(
         format!(" {} ", label.into()),
         Style::default()
-            .fg(palette::mix(color, skin.text, 0.15))
+            .fg(palette::mix(color, palette::TEXT, 0.15))
             .bg(bg)
             .add_modifier(Modifier::BOLD),
     )
@@ -216,7 +161,6 @@ pub fn pill_row(
     accent: Color,
     bg: Color,
 ) -> Vec<Span<'static>> {
-    let skin = current_skin();
     let mut spans = Vec::new();
     for (index, label) in labels.iter().enumerate() {
         if index > 0 {
@@ -225,13 +169,13 @@ pub fn pill_row(
         if selected == Some(index) {
             spans.push(pill(
                 label.clone(),
-                palette::mix(accent, skin.text, 0.1),
+                palette::mix(accent, palette::TEXT, 0.1),
                 bg,
             ));
         } else {
             spans.push(Span::styled(
                 format!(" {label} "),
-                Style::default().fg(skin.text_faint).bg(bg),
+                Style::default().fg(palette::TEXT_FAINT).bg(bg),
             ));
         }
     }
@@ -262,38 +206,35 @@ pub fn pill_rects(labels: &[String], area: Rect) -> Vec<Rect> {
 
 /// Key cap used in the footer and in modal buttons.
 pub fn key_cap(key: &str) -> Span<'static> {
-    let skin = current_skin();
     Span::styled(
         format!(" {key} "),
         Style::default()
-            .fg(skin.bg)
-            .bg(palette::mix(skin.text_dim, skin.text, 0.18))
+            .fg(palette::BG)
+            .bg(palette::mix(palette::TEXT_DIM, palette::TEXT, 0.18))
             .add_modifier(Modifier::BOLD),
     )
 }
 
 /// Inline hint: `[Enter] 启动`.
 pub fn hint(key: &str, label: &str, bg: Color) -> Vec<Span<'static>> {
-    let skin = current_skin();
     vec![
         key_cap(key),
         Span::styled(
             format!(" {label} "),
-            Style::default().fg(skin.text_faint).bg(bg),
+            Style::default().fg(palette::TEXT_FAINT).bg(bg),
         ),
     ]
 }
 
 pub fn status_color(kind: StatusKind) -> Color {
-    let skin = current_skin();
     match kind {
-        StatusKind::Ready | StatusKind::Completed => skin.green,
-        StatusKind::Current | StatusKind::Running => skin.lime,
-        StatusKind::Queued => skin.gold,
-        StatusKind::Warning => skin.gold,
-        StatusKind::Failed => skin.red,
-        StatusKind::Missing => skin.text_faint,
-        StatusKind::Info => skin.cyan,
+        StatusKind::Ready | StatusKind::Completed => palette::GREEN,
+        StatusKind::Current | StatusKind::Running => palette::LIME,
+        StatusKind::Queued => palette::GOLD,
+        StatusKind::Warning => palette::GOLD,
+        StatusKind::Failed => palette::RED,
+        StatusKind::Missing => palette::TEXT_FAINT,
+        StatusKind::Info => palette::CYAN,
     }
 }
 
@@ -313,12 +254,11 @@ pub fn status_glyph(kind: StatusKind) -> &'static str {
 
 /// Status pill with glyph, label and tinted background.
 pub fn status_pill(kind: StatusKind, label: impl Into<String>, bg: Color) -> Span<'static> {
-    let skin = current_skin();
     let color = status_color(kind);
     Span::styled(
         format!(" {} {} ", status_glyph(kind), label.into()),
         Style::default()
-            .fg(palette::mix(color, skin.text, 0.15))
+            .fg(palette::mix(color, palette::TEXT, 0.15))
             .bg(palette::mix(bg, color, 0.2))
             .add_modifier(Modifier::BOLD),
     )
@@ -334,7 +274,6 @@ pub fn progress_spans(
     t: f64,
     bg: Color,
 ) -> Vec<Span<'static>> {
-    let skin = current_skin();
     if width == 0 {
         return Vec::new();
     }
@@ -359,7 +298,9 @@ pub fn progress_spans(
                 } else {
                     spans.push(Span::styled(
                         "░",
-                        Style::default().fg(palette::dim(skin.border, 0.35)).bg(bg),
+                        Style::default()
+                            .fg(palette::dim(palette::BORDER, 0.35))
+                            .bg(bg),
                     ));
                 }
             }
@@ -376,7 +317,7 @@ pub fn progress_spans(
                 spans.push(Span::styled(
                     if distance < 3.0 { "█" } else { "░" },
                     Style::default()
-                        .fg(palette::mix(skin.border, to, 0.35 + color * 0.65))
+                        .fg(palette::mix(palette::BORDER, to, 0.35 + color * 0.65))
                         .bg(bg),
                 ));
             }
@@ -394,11 +335,10 @@ pub fn stat_tile(
     color: Color,
     t: f64,
 ) {
-    let skin = current_skin();
     if area.width < 6 || area.height < 3 {
         return;
     }
-    let block = frame_card(color, true, t, skin.surface);
+    let block = frame_card(color, true, t, palette::SURFACE);
     let inner = block.inner(area);
     frame.render_widget(block, area);
     if inner.height == 0 {
@@ -409,13 +349,15 @@ pub fn stat_tile(
             Line::from(Span::styled(
                 palette::truncate(value, usize::from(inner.width)),
                 Style::default()
-                    .fg(palette::mix(color, skin.text, 0.25))
-                    .bg(skin.surface)
+                    .fg(palette::mix(color, palette::TEXT, 0.25))
+                    .bg(palette::SURFACE)
                     .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
                 palette::truncate(caption, usize::from(inner.width)),
-                Style::default().fg(skin.text_faint).bg(skin.surface),
+                Style::default()
+                    .fg(palette::TEXT_FAINT)
+                    .bg(palette::SURFACE),
             )),
         ]
     } else {
@@ -423,8 +365,8 @@ pub fn stat_tile(
             Span::styled(
                 palette::truncate(value, usize::from(inner.width)),
                 Style::default()
-                    .fg(palette::mix(color, skin.text, 0.25))
-                    .bg(skin.surface)
+                    .fg(palette::mix(color, palette::TEXT, 0.25))
+                    .bg(palette::SURFACE)
                     .add_modifier(Modifier::BOLD),
             ),
             Span::styled(
@@ -432,7 +374,9 @@ pub fn stat_tile(
                     " {}",
                     palette::truncate(caption, usize::from(inner.width.saturating_sub(3)))
                 ),
-                Style::default().fg(skin.text_faint).bg(skin.surface),
+                Style::default()
+                    .fg(palette::TEXT_FAINT)
+                    .bg(palette::SURFACE),
             ),
         ])]
     };
@@ -440,7 +384,7 @@ pub fn stat_tile(
     frame.render_widget(
         Paragraph::new(lines)
             .alignment(Alignment::Center)
-            .style(Style::default().bg(skin.surface)),
+            .style(Style::default().bg(palette::SURFACE)),
         inner,
     );
 }
@@ -543,11 +487,10 @@ pub fn render_rows(
     offset: usize,
     counter: Option<(usize, usize)>,
 ) {
-    let skin = current_skin();
     if area.width < 8 || area.height < 3 {
         return;
     }
-    let mut block = card(title, accent, true, t, skin.surface);
+    let mut block = card(title, accent, true, t, palette::SURFACE);
     if let Some((position, total)) = counter {
         block = with_counter(block, position, total);
     }
@@ -569,16 +512,16 @@ pub fn render_rows(
         header_spans.push(Span::styled(
             palette::fit(header, width),
             Style::default()
-                .fg(skin.text_faint)
-                .bg(skin.surface)
+                .fg(palette::TEXT_FAINT)
+                .bg(palette::SURFACE)
                 .add_modifier(Modifier::BOLD),
         ));
         if index + 1 < headers.len() {
-            header_spans.push(Span::styled(" ", Style::default().bg(skin.surface)));
+            header_spans.push(Span::styled(" ", Style::default().bg(palette::SURFACE)));
         }
     }
     frame.render_widget(
-        Paragraph::new(Line::from(header_spans)).style(Style::default().bg(skin.surface)),
+        Paragraph::new(Line::from(header_spans)).style(Style::default().bg(palette::SURFACE)),
         Rect::new(inner.x, inner.y, inner.width, 1),
     );
 
@@ -599,14 +542,12 @@ pub fn render_rows(
         let active = selected == Some(index);
         // A row is the bulk of a list page: leaving the band painted would
         // show the terminal's own background only in the gaps between rows.
-        let bg = if skin.transparent {
-            Color::Reset
-        } else if active {
-            palette::mix(skin.surface, accent, 0.2)
+        let bg = if active {
+            palette::mix(palette::SURFACE, accent, 0.2)
         } else if visual % 2 == 1 {
-            palette::mix(skin.surface, skin.surface_alt, 0.55)
+            palette::mix(palette::SURFACE, palette::SURFACE_ALT, 0.55)
         } else {
-            skin.surface
+            palette::SURFACE
         };
         frame.render_widget(
             Block::default().style(Style::default().bg(bg)),
@@ -615,7 +556,7 @@ pub fn render_rows(
         let mut spans = vec![Span::styled(
             if active { "▌ " } else { "  " }.to_owned(),
             Style::default()
-                .fg(palette::mix(accent, skin.text, 0.15))
+                .fg(palette::mix(accent, palette::TEXT, 0.15))
                 .bg(bg)
                 .add_modifier(Modifier::BOLD),
         )];
@@ -630,9 +571,9 @@ pub fn render_rows(
                     .fg(color)
                     .bg(bg)
                     .add_modifier(Modifier::BOLD),
-                None if active => Style::default().fg(skin.text).bg(bg),
+                None if active => Style::default().fg(palette::TEXT).bg(bg),
                 None => Style::default()
-                    .fg(palette::mix(skin.text, skin.text_dim, 0.35))
+                    .fg(palette::mix(palette::TEXT, palette::TEXT_DIM, 0.35))
                     .bg(bg),
             };
             spans.push(Span::styled(palette::fit(&text, width), style));
@@ -669,11 +610,10 @@ pub fn empty_card_with_hint(
     accent: Color,
     t: f64,
 ) {
-    let skin = current_skin();
     if area.width < 8 || area.height < 3 {
         return;
     }
-    let block = card(title, accent, false, t, skin.surface);
+    let block = card(title, accent, false, t, palette::SURFACE);
     let inner = block.inner(area);
     frame.render_widget(block, area);
     if inner.height == 0 {
@@ -688,49 +628,50 @@ pub fn empty_card_with_hint(
         Style::default()
             .fg(palette::mix(
                 accent,
-                skin.text,
+                palette::TEXT,
                 palette::pulse(t, 1.5) * 0.25,
             ))
-            .bg(skin.surface),
+            .bg(palette::SURFACE),
     )]));
     lines.push(Line::from(Span::styled(
         palette::truncate(message, usize::from(inner.width)),
-        Style::default().fg(skin.text_dim).bg(skin.surface),
+        Style::default().fg(palette::TEXT_DIM).bg(palette::SURFACE),
     )));
     if !hint.is_empty() {
         lines.push(Line::from(Span::styled(
             palette::truncate(hint, usize::from(inner.width)),
-            Style::default().fg(skin.text_faint).bg(skin.surface),
+            Style::default()
+                .fg(palette::TEXT_FAINT)
+                .bg(palette::SURFACE),
         )));
     }
     frame.render_widget(
         Paragraph::new(lines)
             .alignment(Alignment::Center)
-            .style(Style::default().bg(skin.surface)),
+            .style(Style::default().bg(palette::SURFACE)),
         inner,
     );
 }
 
 /// Horizontal gradient rule with a travelling highlight.
 pub fn rule_spans(width: u16, t: f64) -> Vec<Span<'static>> {
-    let skin = current_skin();
     let total = usize::from(width);
     let mut spans = Vec::with_capacity(total);
     for index in 0..total {
         let position = index as f64 / total.max(1) as f64;
         let base = if position < 0.34 {
-            palette::mix(skin.green, skin.cyan, position / 0.34)
+            palette::mix(palette::GREEN, palette::CYAN, position / 0.34)
         } else if position < 0.67 {
-            palette::mix(skin.cyan, palette::PURPLE, (position - 0.34) / 0.33)
+            palette::mix(palette::CYAN, palette::PURPLE, (position - 0.34) / 0.33)
         } else {
-            palette::mix(palette::PURPLE, skin.gold, (position - 0.67) / 0.33)
+            palette::mix(palette::PURPLE, palette::GOLD, (position - 0.67) / 0.33)
         };
         let shimmer = ((position * 9.0 - t * 1.4).sin() * 0.5 + 0.5).powf(9.0);
         spans.push(Span::styled(
             "─",
             Style::default()
-                .fg(palette::mix(skin.bg, base, 0.28 + shimmer * 0.5))
-                .bg(skin.bg),
+                .fg(palette::mix(palette::BG, base, 0.28 + shimmer * 0.5))
+                .bg(palette::BG),
         ));
     }
     spans
@@ -738,7 +679,6 @@ pub fn rule_spans(width: u16, t: f64) -> Vec<Span<'static>> {
 
 /// Uppercase section label with a trailing dim rule, e.g. `ACTIVITY ────────`.
 pub fn section_label(text: &str, width: usize, accent: Color, bg: Color) -> Line<'static> {
-    let skin = current_skin();
     let label = format!(" {} ", text.to_uppercase());
     let used = palette::width(&label) + 2;
     let rule = "─".repeat(width.saturating_sub(used));
@@ -753,13 +693,15 @@ pub fn section_label(text: &str, width: usize, accent: Color, bg: Color) -> Line
         Span::styled(
             label,
             Style::default()
-                .fg(palette::mix(accent, skin.text, 0.2))
+                .fg(palette::mix(accent, palette::TEXT, 0.2))
                 .bg(bg)
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
             rule,
-            Style::default().fg(palette::dim(skin.border, 0.35)).bg(bg),
+            Style::default()
+                .fg(palette::dim(palette::BORDER, 0.35))
+                .bg(bg),
         ),
     ])
 }
@@ -788,13 +730,12 @@ mod tests {
 
     #[test]
     fn card_titles_render_inside_the_border() {
-        let skin = current_skin();
         let backend = TestBackend::new(30, 5);
         let mut terminal = Terminal::new(backend).expect("terminal");
         terminal
             .draw(|frame| {
                 frame.render_widget(
-                    card("INSTANCE", skin.green, true, 0.0, skin.surface),
+                    card("INSTANCE", palette::GREEN, true, 0.0, palette::SURFACE),
                     frame.area(),
                 );
             })
@@ -811,11 +752,10 @@ mod tests {
 
     #[test]
     fn rows_render_values_and_highlight_the_selection() {
-        let skin = current_skin();
         let backend = TestBackend::new(40, 6);
         let mut terminal = Terminal::new(backend).expect("terminal");
         let rows = vec![
-            RowData::new(["alpha", "1"]).mark(1, skin.green),
+            RowData::new(["alpha", "1"]).mark(1, palette::GREEN),
             RowData::new(["beta", "2"]),
         ];
         terminal
@@ -824,7 +764,7 @@ mod tests {
                     frame,
                     frame.area(),
                     "ITEMS",
-                    skin.green,
+                    palette::GREEN,
                     &["NAME".into(), "N".into()],
                     &rows,
                     Some(0),
@@ -839,8 +779,8 @@ mod tests {
         let text: String = buffer.content.iter().map(|cell| cell.symbol()).collect();
         assert!(text.contains("alpha"), "{text}");
         assert!(text.contains("beta"), "{text}");
-        let painted =
-            (0..40).any(|x| buffer[(x, 2)].bg == palette::mix(skin.surface, skin.green, 0.2));
+        let painted = (0..40)
+            .any(|x| buffer[(x, 2)].bg == palette::mix(palette::SURFACE, palette::GREEN, 0.2));
         assert!(painted, "selected row should be tinted");
         assert!(
             text.contains("1/2"),
@@ -850,9 +790,22 @@ mod tests {
 
     #[test]
     fn progress_bars_fill_and_leave_a_track() {
-        let skin = current_skin();
-        let full = progress_spans(Some(1.0), 10, skin.green, skin.cyan, 0.0, skin.surface);
-        let half = progress_spans(Some(0.5), 10, skin.green, skin.cyan, 0.0, skin.surface);
+        let full = progress_spans(
+            Some(1.0),
+            10,
+            palette::GREEN,
+            palette::CYAN,
+            0.0,
+            palette::SURFACE,
+        );
+        let half = progress_spans(
+            Some(0.5),
+            10,
+            palette::GREEN,
+            palette::CYAN,
+            0.0,
+            palette::SURFACE,
+        );
         assert_eq!(full.len(), 10);
         assert_eq!(half.len(), 10);
         assert_eq!(full.iter().filter(|span| span.content == "█").count(), 10);

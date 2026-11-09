@@ -994,7 +994,7 @@ mod tests {
             "the instance name is what has to survive: {line}"
         );
         // The head of the path is the part the reader already knows.
-        assert!(!line.contains(r"D:\000"), "{line}");
+        assert!(!line.contains(r"D:\game"), "{line}");
     }
 
     #[test]

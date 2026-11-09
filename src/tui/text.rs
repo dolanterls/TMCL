@@ -11,8 +11,8 @@ use ratatui::text::{Line, Span};
 
 use crate::tui::input;
 
-/// Colours one field needs. Callers pass their preset's tokens, so `classic`
-/// and `creeper` share the same renderer instead of growing their own.
+/// Colours one field needs. Callers pass their preset's tokens, so every preset
+/// shares the same renderer instead of growing its own.
 #[derive(Debug, Clone, Copy)]
 pub struct FieldStyle {
     pub text: Color,

@@ -235,10 +235,6 @@ pub fn palette(
 }
 
 impl Sheet for Palette {
-    fn surface(&self) -> Color {
-        self.surface
-    }
-
     fn fills(&self) -> [Option<Color>; 4] {
         [
             Some(self.bg),
@@ -246,10 +242,6 @@ impl Sheet for Palette {
             Some(self.raised),
             Some(self.selection),
         ]
-    }
-
-    fn follows_terminal(&self) -> bool {
-        self.transparent
     }
 }
 

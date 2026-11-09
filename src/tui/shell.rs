@@ -39,128 +39,22 @@ pub fn layout_mode(area: Rect) -> LayoutMode {
     }
 }
 
-/// Preset-aware geometry. `classic` keeps the binsider frame; `creeper` uses a
-/// brand row, a gradient rule and a sidebar, and reuses the same
-/// [`ChromeRegions`] fields so mouse handling and paging stay preset-agnostic.
+/// Preset-aware geometry. `classic` keeps the binsider frame; each preset
+/// reuses the same [`ChromeRegions`] fields so mouse handling and paging stay
+/// preset-agnostic.
 pub fn layout_chrome_for(area: Rect, preset: UiPreset) -> ChromeRegions {
     match preset {
         UiPreset::Classic => layout_chrome(area),
-        UiPreset::Creeper => layout_chrome_creeper(area),
         UiPreset::Nightlight => layout_chrome_nightlight(area),
         UiPreset::Paper => layout_chrome_paper(area),
         UiPreset::Shelf => layout_chrome_shelf(area),
     }
 }
 
-/// Size class for the `creeper` preset. It needs a little less room than the
-/// framed shell because the sidebar doubles as navigation.
-pub fn layout_mode_creeper(area: Rect) -> LayoutMode {
-    if area.width < 60 || area.height < 18 {
-        LayoutMode::TooSmall
-    } else if area.width < 90 || area.height < 30 {
-        LayoutMode::Narrow
-    } else if area.width < 120 || area.height < 40 {
-        LayoutMode::Compact
-    } else {
-        LayoutMode::Full
-    }
-}
-
-/// Width of the sidebar navigation column, in terminal cells.
-pub fn creeper_sidebar_width(mode: LayoutMode) -> u16 {
-    match mode {
-        LayoutMode::Full => 22,
-        LayoutMode::Compact => 20,
-        LayoutMode::Narrow => 6,
-        LayoutMode::TooSmall => 0,
-    }
-}
-
-pub fn layout_chrome_creeper(area: Rect) -> ChromeRegions {
-    // The preset always shows a hints row above a status band; callers that
-    // know the page hints ask for more rows through the `_with_footer` form.
-    layout_chrome_creeper_with_footer(area, 2)
-}
-
-/// Same layout with a footer that may span several rows.
-///
-/// The preset wraps its key hints instead of dropping them on a narrow
-/// terminal, so the body shrinks by the extra footer rows.
-pub fn layout_chrome_creeper_with_footer(area: Rect, footer_rows: u16) -> ChromeRegions {
-    let mode = layout_mode_creeper(area);
-    if mode == LayoutMode::TooSmall {
-        let footer = Rect::new(
-            area.x,
-            area.y + area.height.saturating_sub(1),
-            area.width,
-            1,
-        );
-        return ChromeRegions {
-            mode,
-            header: Rect::new(area.x, area.y, area.width, 1),
-            tabs: Rect::default(),
-            context: Rect::default(),
-            body: area,
-            content: area,
-            main: area,
-            footer,
-            modal: None,
-        };
-    }
-
-    let footer_rows = footer_rows.max(1).min(area.height.saturating_sub(2).max(1));
-    let inner_width = area.width.saturating_sub(2);
-    let header = Rect::new(area.x + 1, area.y, inner_width, 1);
-    let body = Rect::new(
-        area.x + 1,
-        area.y.saturating_add(2),
-        inner_width,
-        area.height.saturating_sub(2 + footer_rows),
-    );
-    let footer = Rect::new(
-        area.x + 1,
-        area.y + area.height.saturating_sub(footer_rows),
-        inner_width,
-        footer_rows,
-    );
-    let sidebar_width = creeper_sidebar_width(mode);
-    let sidebar = Rect::new(body.x, body.y, sidebar_width.min(body.width), body.height);
-    let content_x = sidebar.right().saturating_add(1);
-    let content = Rect::new(
-        content_x,
-        body.y,
-        body.right().saturating_sub(content_x),
-        body.height,
-    );
-    let context_width = if mode == LayoutMode::Full {
-        46.min(header.width / 2)
-    } else {
-        0
-    };
-    let context = Rect::new(
-        header.right().saturating_sub(context_width),
-        header.y,
-        context_width,
-        header.height,
-    );
-
-    ChromeRegions {
-        mode,
-        header,
-        tabs: sidebar,
-        context,
-        body,
-        content,
-        main: content,
-        footer,
-        modal: None,
-    }
-}
-
 /// Size class for the `nightlight` preset.
 ///
-/// Every threshold sits above `creeper` except `Full`: 120×40 stays the
-/// reference canvas for all three presets, so the sidebar gets its full 26
+/// Every threshold sits above `classic` except `Full`: 120×40 stays the
+/// reference canvas for every preset, so the sidebar gets its full 26
 /// columns there instead of being demoted to `Compact`.
 pub fn layout_mode_nightlight(area: Rect) -> LayoutMode {
     if area.width < 64 || area.height < 18 {
@@ -268,8 +162,8 @@ pub fn sidebar_nav_rect(sidebar: Rect) -> Rect {
 }
 
 /// The framed shell. The footer is a two-band block: key hints on top, the status
-/// line underneath, the same rhythm `creeper` and `nightlight` use, so switching
-/// presets does not move the status bar.
+/// line underneath, the same rhythm `nightlight` uses, so switching presets does
+/// not move the status bar.
 pub fn layout_chrome(area: Rect) -> ChromeRegions {
     layout_chrome_with_footer(area, 2)
 }

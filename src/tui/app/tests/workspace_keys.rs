@@ -145,7 +145,7 @@ fn advertised(keys: &str) -> Vec<(String, String)> {
 
 #[test]
 fn every_advertised_workspace_key_is_bound() {
-    let (mut app, _root) = app_with_content(UiPreset::Creeper);
+    let (mut app, _root) = app_with_content(UiPreset::Classic);
     for category in WorkspaceCategory::ALL {
         app.workspace.as_mut().expect("workspace").category = category;
         let workspace = app.workspace.as_ref().expect("workspace");
@@ -242,7 +242,7 @@ fn the_refresh_key_is_not_shared_with_rename() {
 fn the_launch_key_reaches_the_workspace_instance() {
     // Driven through the real key, so the binding is what gets tested rather
     // than the helper behind it.
-    let (mut app, _root) = app_with_content(UiPreset::Creeper);
+    let (mut app, _root) = app_with_content(UiPreset::Classic);
     let mut other = app.instances.items[0].clone();
     other.id = uuid::Uuid::new_v4();
     other.name = "other".into();
@@ -261,7 +261,7 @@ fn the_launch_key_reaches_the_workspace_instance() {
 fn the_launch_category_labels_every_field() {
     // The renderer and the actions share this label table; a field without a
     // label would render an empty first column.
-    let (app, _root) = app_with_content(UiPreset::Creeper);
+    let (app, _root) = app_with_content(UiPreset::Classic);
     for field in LaunchField::ALL {
         assert!(
             !app.i18n.text(field.label_key()).is_empty(),

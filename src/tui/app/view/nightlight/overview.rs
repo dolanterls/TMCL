@@ -322,9 +322,9 @@ impl App {
                 account.username.clone(),
                 self.i18n.text(
                     if account.kind == crate::core::account::models::AccountKind::Microsoft {
-                        "creeper.account.microsoft"
+                        "account.kind.microsoft"
                     } else {
-                        "creeper.account.offline"
+                        "account.kind.offline"
                     },
                 ),
                 self.account_expiry_label(account),

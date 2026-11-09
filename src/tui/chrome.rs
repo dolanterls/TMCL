@@ -127,7 +127,7 @@ pub fn render_footer(
     }
 
     // Two bands whenever there is room: key hints on top, the status line on the
-    // bottom row. This is the same shape `creeper` and `nightlight` draw, so the
+    // bottom row. This is the same shape `nightlight` draws, so the
     // status bar does not jump when the preset changes, and the status stops sharing
     // a line with the hints, where it gets a third of the width at most.
     if area.height >= 2 {
@@ -330,8 +330,8 @@ pub fn popup_sized(
 /// term, short enough to read as a small form instead of a full page.
 pub fn prompt_rect(area: Rect) -> Rect {
     let width = area.width.saturating_sub(8).clamp(24, 60);
-    // Title + field + spacer + help = four inner rows; five total would clip
-    // the help line in the creeper preset.
+    // Title + field + spacer + help = four inner rows; a fifth would clip the
+    // help line.
     let height = 6.min(area.height);
     let x = area.x + area.width.saturating_sub(width) / 2;
     let y = area.y + area.height.saturating_sub(height) / 2;

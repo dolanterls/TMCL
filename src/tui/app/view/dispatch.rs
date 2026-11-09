@@ -12,10 +12,6 @@ use crate::tui::palette;
 impl App {
     pub(in crate::tui::app) fn layout_chrome(&self, area: Rect) -> ChromeRegions {
         let mut regions = match self.preset() {
-            UiPreset::Creeper => crate::tui::shell::layout_chrome_creeper_with_footer(
-                area,
-                self.preset_footer_rows(area.width),
-            ),
             UiPreset::Nightlight => crate::tui::shell::layout_chrome_nightlight_with_footer(
                 area,
                 self.preset_footer_rows(area.width),
@@ -40,18 +36,11 @@ impl App {
     /// Rows the footer needs at `width`, per preset.
     ///
     /// `classic`, `nightlight` and `shelf` return 2, so neither a long status
-    /// message nor a narrow hint row can change the page height. `creeper`
-    /// wraps its hints and may return 3; `paper` adds one for its rule. Counted
-    /// from the page hints, not the active mode, so a dialog cannot resize the
-    /// page.
-    fn preset_footer_rows(&self, width: u16) -> u16 {
+    /// message nor a narrow hint row can change the page height. `paper` adds
+    /// one for its rule. Counted from the page hints, not the active mode, so a
+    /// dialog cannot resize the page.
+    fn preset_footer_rows(&self, _width: u16) -> u16 {
         match self.preset() {
-            UiPreset::Creeper => {
-                let available = width.saturating_sub(2).max(1);
-                let needed = crate::tui::app::view::hints_width(self, &self.page_hints());
-                let hint_rows = needed.div_ceil(usize::from(available)).clamp(1, 2) as u16;
-                hint_rows + 1
-            }
             UiPreset::Nightlight => 2,
             // Paper spends one row on the rule above its footer, so the two
             // bands the other presets draw need three.
@@ -67,8 +56,8 @@ impl App {
 
     /// Where the download page's list body starts, per preset.
     ///
-    /// `classic` and `creeper` lay the page out in five sections; `shelf` puts
-    /// the categories, a rule, the search and a second rule above the list. The
+    /// `classic` lays the page out in five sections; `shelf` puts the
+    /// categories, a rule, the search and a second rule above the list. The
     /// painter, the wheel window and the tests all read this one rectangle, so
     /// a preset cannot scroll one area while drawing another.
     pub(in crate::tui::app) fn download_list_area(&self, area: Rect) -> Rect {
@@ -112,14 +101,10 @@ impl App {
         }
     }
 
-    /// Card height used by the `creeper` preset for list pages; narrow layouts
-    /// drop the third detail line so two rows per card are enough.
-    pub(in crate::tui::app) fn creeper_card_height(&self) -> u16 {
-        if self.is_narrow() { 2 } else { 3 }
-    }
-
-    /// Shared geometry for a rendered collection: cards in `creeper`, a table
-    /// or a plain list in `classic`.
+    /// Shared geometry for a rendered collection: a table or a plain list.
+    ///
+    /// `nightlight` and `shelf` answer for themselves; every other preset takes
+    /// a table in the full size classes and a list when narrow.
     pub(in crate::tui::app) fn list_layout(
         &self,
         area: Rect,
@@ -139,28 +124,6 @@ impl App {
             };
             return if stride > 1 {
                 RowLayout::cards_with_gap(area, item_count, selected, stride, 1)
-            } else {
-                RowLayout::table(area, item_count, selected)
-            };
-        }
-        if self.preset() == UiPreset::Creeper {
-            // Resource projects are a dense one-line index; their metadata lives
-            // in the detail card. Versions and project files stay tables.
-            if self.page == Page::DownloadCenter
-                && self.download_center.category != DownloadCategory::GameVersions
-                && self.resource_detail.is_none()
-            {
-                return RowLayout::list(area, item_count, selected);
-            }
-            let stride = match self.page {
-                Page::Instances | Page::Accounts | Page::Tasks => self.creeper_card_height(),
-                _ => 1,
-            };
-            return if stride > 1 {
-                // Instance cards get one blank row between them; the shared
-                // layout keeps that gap click-through (no accidental select).
-                let gap = if self.page == Page::Instances { 1 } else { 0 };
-                RowLayout::cards_with_gap(area, item_count, selected, stride, gap)
             } else {
                 RowLayout::table(area, item_count, selected)
             };
@@ -190,16 +153,8 @@ impl App {
         // not clickable, so the map can never describe a stale screen.
         self.hitmap
             .begin((area.width, area.height), self.resize_gen);
-        // The shared `kit` primitives paint from the sheet in force; every
-        // frame sets it before anything is drawn, so a preset switch or a mode
-        // change cannot leave the previous sheet behind.
-        crate::tui::widgets::kit::use_skin(match self.preset() {
-            UiPreset::Creeper => crate::tui::app::view::creeper::tone::skin(self.creeper_palette()),
-            _ => crate::tui::widgets::kit::Skin::DEFAULT,
-        });
         match self.preset() {
             UiPreset::Classic => self.draw_classic(frame, area),
-            UiPreset::Creeper => self.draw_creeper(frame),
             UiPreset::Nightlight => self.draw_nightlight(frame),
             UiPreset::Paper => self.draw_paper(frame, area),
             UiPreset::Shelf => self.draw_shelf(frame, area),
@@ -223,7 +178,6 @@ impl App {
     fn draw_overlays(&self, frame: &mut Frame<'_>, area: Rect) {
         match self.preset() {
             UiPreset::Classic => self.classic_overlays(frame, area),
-            UiPreset::Creeper => self.creeper_overlays(frame, area),
             UiPreset::Nightlight => self.nightlight_overlays(frame, area),
             UiPreset::Paper => self.paper_overlays(frame, area),
             UiPreset::Shelf => self.shelf_overlays(frame, area),
@@ -319,14 +273,12 @@ impl App {
     /// The fills each preset lays under its content, lowest first.
     ///
     /// Each palette answers for itself through [`Sheet`]: a preset that keeps
-    /// its selected-row band in a slot (`nightlight`'s `selection`) or derives
-    /// its rows from the page hue (`creeper`) has to say so next to its
-    /// colours, not here.
+    /// its selected-row band in a slot (`nightlight`'s `selection`) has to say
+    /// so next to its colours, not here.
     fn terminal_fills(&self) -> [Option<Color>; 4] {
         match self.preset() {
             // Classic paints no background at all; its `Theme` keeps `Reset`.
             UiPreset::Classic => [None; 4],
-            UiPreset::Creeper => self.creeper_palette().fills(),
             UiPreset::Nightlight => self.nightlight_palette().fills(),
             UiPreset::Paper => self.paper_palette().fills(),
             UiPreset::Shelf => self.shelf_palette().fills(),
@@ -387,8 +339,8 @@ impl App {
         for y in rect.top()..rect.bottom() {
             for x in rect.left()..rect.right() {
                 let cell = &mut buffer[(x, y)];
-                // `creeper` paints RGB surfaces, so hover shifts the cell
-                // background. `classic` inherits the terminal background
+                // Presets that paint RGB surfaces shift the cell background on
+                // hover. `classic` inherits the terminal background
                 // (`Color::Reset`), where there is nothing to darken; there the
                 // highlight goes to the foreground so it survives any palette.
                 if let (

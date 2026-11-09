@@ -2,8 +2,8 @@
 //!
 //! No cards and no filled rows: sections are separated by hairline rules and the
 //! selection is a margin bar plus an underline, distinct from `classic`'s framed
-//! tables and `creeper`'s rounded cards. Pages are drawn here; the instance
-//! workspace lives in `view/workspace.rs` for classic and creeper.
+//! tables and `shelf`'s rounded covers. Pages are drawn here; the instance
+//! workspace lives in `view/workspace.rs` for classic, paper and shelf.
 
 use super::*;
 use crate::tui::action::Action;

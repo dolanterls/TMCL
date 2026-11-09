@@ -20,8 +20,7 @@ impl App {
         hints
     }
 
-    /// Focuses the inline search bar drawn above the category pills. Only the
-    /// `creeper` preset has one; `classic` keeps the prompt dialog.
+    /// Focuses the inline search bar drawn above the category pills.
     pub(in crate::tui::app) fn focus_download_search(&mut self) {
         // A click on an already focused field must not snapshot the half-typed
         // text as the query Esc would restore.
@@ -54,31 +53,19 @@ impl App {
         &self,
         area: Rect,
     ) -> Option<[Rect; 5]> {
-        let creeper = self.preset() == UiPreset::Creeper;
-        let narrow = self.is_narrow();
-        // Resource pages keep one row for the info/category line in both
-        // presets; the versions page stays exactly as it was.
-        let info_rows = u16::from(
-            (creeper && !narrow) || self.download_center.category != DownloadCategory::GameVersions,
-        );
-        Self::download_page_sections_with_filter_rows(
-            area,
-            if creeper && !narrow {
-                3
-            } else {
-                u16::from(creeper)
-            },
-            info_rows,
-        )
+        // Resource pages keep one row for the info/category line; the versions
+        // page has no such line.
+        let info_rows = u16::from(self.download_center.category != DownloadCategory::GameVersions);
+        // `classic` keeps its prompt dialog, so there is no inline search row.
+        Self::download_page_sections_with_filter_rows(area, 0, info_rows)
     }
 
     /// `[search, category tabs, (unused), result info, result list]`.
     ///
-    /// The search panel and the result-info line are `creeper` affordances;
-    /// `classic` keeps its prompt dialog, so both rows collapse to zero height
-    /// and every caller (render, mouse, detail geometry) shares the offsets.
-    /// The third slot keeps its place so existing indices stay valid; the
-    /// version chips it held are gone from both presets.
+    /// The search panel is not drawn by `classic`; the result-info line holds
+    /// the source and total. Every caller (render, mouse, detail geometry)
+    /// shares the offsets. The third slot keeps its place so existing indices
+    /// stay valid; the version chips it held are gone.
     pub(in crate::tui::app) fn download_page_sections_with_filter_rows(
         area: Rect,
         search_rows: u16,
@@ -188,22 +175,12 @@ impl App {
         fields
     }
 
-    /// Category chip labels shared by the `creeper` renderer and its hit test.
+    /// Category chip labels, shared by the renderer and its hit test.
     pub(in crate::tui::app) fn download_pill_labels(&self) -> Vec<String> {
         DownloadCategory::ALL
             .iter()
             .map(|category| self.i18n.text(category.label_key()))
             .collect()
-    }
-
-    /// Terminal width the category tabs need on one row.
-    pub(in crate::tui::app) fn download_tabs_width(&self) -> usize {
-        let labels = self.download_pill_labels();
-        labels
-            .iter()
-            .map(|label| crate::tui::widgets::kit::pill_width(label))
-            .sum::<usize>()
-            + labels.len().saturating_sub(1)
     }
 
     /// Text of the right-hand filter entry on the category row: the resource

@@ -173,16 +173,8 @@ impl App {
 }
 
 impl Sheet for PaperPalette {
-    fn surface(&self) -> Color {
-        self.sheet
-    }
-
     fn fills(&self) -> [Option<Color>; 4] {
         [Some(self.bg), Some(self.sheet), None, None]
-    }
-
-    fn follows_terminal(&self) -> bool {
-        self.transparent
     }
 }
 

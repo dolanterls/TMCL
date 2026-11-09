@@ -1842,7 +1842,7 @@ mod tests {
             play_time_seconds: 3_600,
         });
         app.instances.focused = 0;
-        app.config.state.ui.preset = UiPreset::Creeper;
+        app.config.state.ui.preset = UiPreset::Classic;
         app
     }
 

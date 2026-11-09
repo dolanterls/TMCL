@@ -45,8 +45,6 @@ const fn spec(
 // * paper (`view/paper/tone.rs`): `paper_theme` and `theme_mode` only.
 // * nightlight (`view/nightlight/tone.rs`): `nightlight_theme`, `theme_mode`,
 //   `high_contrast`, and a seed from `accent_color` / `live_accent`.
-// * creeper (`view/creeper/*`): the `palette` constants; `self.theme` never
-//   enters its frame.
 // * shelf (`view/shelf/tone.rs`): fixed palette plus its own `shelf_theme`
 //   axis; `theme_mode` and the scheme row, never `accent_color`.
 //
@@ -63,15 +61,13 @@ const SHELF: &[UiPreset] = &[UiPreset::Shelf];
 /// accent and the contrast flag.
 const THEMED: &[UiPreset] = &[UiPreset::Classic, UiPreset::Nightlight];
 /// Day / night reaches every preset: classic's `Theme`, nightlight's ladder,
-/// paper's six sheets, shelf's five bindings × two faces and creeper's lime
-/// pair. Only the accent and the contrast flag stay on the presets whose
-/// `Theme` carries them.
+/// paper's six sheets and shelf's five bindings × two faces. Only the accent
+/// and the contrast flag stay on the presets whose `Theme` carries them.
 const THEME_AWARE: &[UiPreset] = &[
     UiPreset::Classic,
     UiPreset::Nightlight,
     UiPreset::Paper,
     UiPreset::Shelf,
-    UiPreset::Creeper,
 ];
 
 const fn spec_for(
@@ -434,6 +430,19 @@ impl App {
             .iter()
             .map(|spec| self.setting_row(spec))
             .collect()
+    }
+
+    /// Rows a category holds, for the sidebar counter.
+    ///
+    /// Counted through the same filtered list the page draws, so a row hidden
+    /// from this preset cannot leave the rail claiming one more item than the
+    /// list shows.
+    pub(in crate::tui::app) fn settings_category_count(&self, category: SettingsCategory) -> usize {
+        match category {
+            SettingsCategory::Java => self.java.len(),
+            SettingsCategory::GameDirectories => self.config.game_directories.len(),
+            _ => self.settings_rows_for(category).len(),
+        }
     }
 
     /// The rows of `category` that this preset can use.

@@ -50,12 +50,6 @@ fn classic_tab(app: &App, index: usize) -> Rect {
     crate::tui::chrome::tab_rects(regions.tabs, &labels)[index]
 }
 
-fn creeper_nav(app: &App, index: usize) -> Rect {
-    let regions = app.layout_chrome(Rect::new(0, 0, WIDTH, HEIGHT));
-    let layout = crate::tui::app::view::creeper::sidebar::nav_layout(regions.tabs);
-    crate::tui::app::view::creeper::sidebar::nav_rects(&layout, crate::tui::app::PAGES.len())[index]
-}
-
 #[test]
 fn classic_tabs_are_clickable_through_the_hit_map() {
     let mut app = App::new();
@@ -68,24 +62,6 @@ fn classic_tabs_are_clickable_through_the_hit_map() {
             .map(|hit| hit.action),
         Some(Action::Nav(Page::Tasks)),
         "the drawn tab must be registered at its own coordinates"
-    );
-
-    click(&mut app, rect.x, rect.y);
-    assert_eq!(app.page, Page::Tasks);
-}
-
-#[test]
-fn creeper_sidebar_rows_are_clickable_through_the_hit_map() {
-    let mut app = App::new();
-    app.config.state.ui.preset = UiPreset::Creeper;
-    draw(&app);
-
-    let rect = creeper_nav(&app, 3);
-    assert_eq!(
-        app.hitmap
-            .at(rect.x, rect.y, app.top_layer())
-            .map(|hit| hit.action),
-        Some(Action::Nav(Page::Tasks))
     );
 
     click(&mut app, rect.x, rect.y);
@@ -110,20 +86,6 @@ fn the_help_overlay_blocks_the_page_behind_it() {
         !app.help_open,
         "a click outside the help card closes the overlay"
     );
-}
-
-#[test]
-fn the_help_overlay_is_blocking_in_the_creeper_preset_too() {
-    let mut app = App::new();
-    app.config.state.ui.preset = UiPreset::Creeper;
-    app.help_open = true;
-    draw(&app);
-
-    let rect = creeper_nav(&app, 3);
-    click(&mut app, rect.x, rect.y);
-
-    assert_eq!(app.page, Page::Overview);
-    assert!(!app.help_open);
 }
 
 #[test]
@@ -207,7 +169,7 @@ fn page_frame(
 #[test]
 fn every_registered_box_is_reachable_and_inside_the_frame() {
     let sizes = [(120, 40), (100, 30), (80, 24)];
-    for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight] {
         for page in Page::ALL {
             for (width, height) in sizes {
                 let (app, boxes) = page_frame(preset, page, width, height);
@@ -241,7 +203,7 @@ fn list_pages_register_one_target_per_visible_row() {
         (Page::Tasks, RowKind::Tasks),
         (Page::Overview, RowKind::OverviewInstances),
     ];
-    for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight] {
         for (page, kind) in cases {
             let (app, boxes) = page_frame(preset, page, 120, 40);
             let rows = boxes
@@ -270,7 +232,7 @@ fn list_pages_register_one_target_per_visible_row() {
 
 #[test]
 fn a_click_on_a_drawn_row_selects_that_row() {
-    for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight] {
         let (mut app, _boxes) = page_frame(preset, Page::Instances, 120, 40);
         app.instances.apply(vec![
             crate::tui::pages::instances::InstanceSummary {
@@ -732,7 +694,7 @@ fn click_row(app: &mut App, page: Page, index: usize) {
 
 #[test]
 fn double_click_selects_the_row_and_runs_enter() {
-    for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight] {
         let mut app = instances_app(3);
         app.config.state.ui.preset = preset;
         draw_sized(&app, 120, 40);
@@ -847,7 +809,7 @@ fn the_single_line_prompt_is_clickable_and_submits() {
 #[test]
 fn the_step_arrows_change_the_setting_value() {
     let mut app = App::new();
-    app.config.state.ui.preset = UiPreset::Creeper;
+    app.config.state.ui.preset = UiPreset::Nightlight;
     app.page = Page::Settings;
     app.terminal_width = 120;
     app.terminal_height = 40;
@@ -884,7 +846,7 @@ fn both_step_arrows_are_drawn_under_their_hit_boxes() {
     use crate::tui::pages::settings::SettingsCategory;
 
     let mut app = App::new();
-    app.config.state.ui.preset = UiPreset::Creeper;
+    app.config.state.ui.preset = UiPreset::Nightlight;
     app.page = Page::Settings;
     app.terminal_width = WIDTH;
     app.terminal_height = HEIGHT;
@@ -1077,13 +1039,8 @@ fn the_selected_row_keeps_its_style_under_the_pointer() {
 }
 
 #[test]
-fn hover_uses_a_background_tint_on_creeper_and_a_foreground_tint_on_classic() {
-    for preset in [
-        UiPreset::Classic,
-        UiPreset::Creeper,
-        UiPreset::Nightlight,
-        UiPreset::Paper,
-    ] {
+fn hover_uses_a_background_tint_on_rgb_presets_and_a_foreground_tint_on_classic() {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight, UiPreset::Paper] {
         let mut app = instances_app(4);
         app.config.state.ui.preset = preset;
         draw_sized(&app, 120, 40);
@@ -1102,9 +1059,9 @@ fn hover_uses_a_background_tint_on_creeper_and_a_foreground_tint_on_classic() {
         match preset {
             UiPreset::Classic => assert!(changed_fg, "classic tints the foreground"),
             // Nightlight paints whole rows too, so the tint lands on the
-            // background exactly like creeper. Paper mixes the accent into the
-            // sheet, which is also a background change.
-            UiPreset::Creeper | UiPreset::Nightlight | UiPreset::Paper | UiPreset::Shelf => {
+            // background. Paper mixes the accent into the sheet, which is also
+            // a background change.
+            UiPreset::Nightlight | UiPreset::Paper | UiPreset::Shelf => {
                 assert!(changed_bg, "{preset:?} tints the background")
             }
         }
@@ -1113,7 +1070,7 @@ fn hover_uses_a_background_tint_on_creeper_and_a_foreground_tint_on_classic() {
 
 #[test]
 fn the_wheel_walks_the_fields_of_an_open_form() {
-    for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight] {
         let mut app = form_app(
             preset,
             Modal::form(
@@ -1140,7 +1097,7 @@ fn the_wheel_walks_the_fields_of_an_open_form() {
 
 #[test]
 fn dialog_controls_get_a_hover_highlight_but_the_body_does_not() {
-    for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight] {
         let mut app = form_app(
             preset,
             Modal::form(
@@ -1179,7 +1136,7 @@ fn dialog_controls_get_a_hover_highlight_but_the_body_does_not() {
 
 #[test]
 fn version_picker_chips_and_search_are_clickable_and_hover() {
-    for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight] {
         let mut app = form_app(
             preset,
             Modal::form(
@@ -1397,7 +1354,7 @@ fn the_category_entry_opens_the_filter() {
 /// re-deriving the geometry, so the guard survives another move of the entry.
 #[test]
 fn the_category_entry_covers_exactly_the_text_it_draws() {
-    for preset in [UiPreset::Classic, UiPreset::Creeper, UiPreset::Nightlight] {
+    for preset in [UiPreset::Classic, UiPreset::Nightlight] {
         let mut app = resource_download_app(crate::core::resource::model::ResourceSource::Modrinth);
         app.config.state.ui.preset = preset;
         app.i18n = crate::i18n::I18n::new(crate::core::config::models::Language::SimplifiedChinese);
@@ -1507,9 +1464,8 @@ fn curseforge_filter_explains_the_single_choice() {
 
 // ── download filter entry + version kind dialog ───────────────────
 
-fn creeper_download_app() -> App {
+fn download_app() -> App {
     let mut app = App::new();
-    app.config.state.ui.preset = UiPreset::Creeper;
     app.page = Page::DownloadCenter;
     app.terminal_width = WIDTH;
     app.terminal_height = HEIGHT;
@@ -1522,152 +1478,25 @@ fn download_sections(app: &App) -> [Rect; 5] {
         .expect("download sections")
 }
 
-fn category_entry_rect(app: &App, sections: &[Rect; 5]) -> Rect {
-    let row = sections[1];
-    let width = u16::try_from(crate::tui::palette::width(&app.download_filter_entry()) + 2)
-        .expect("entry width");
-    Rect::new(row.right().saturating_sub(width), row.y, width, 1)
-}
-
 fn row_text(buffer: &ratatui::buffer::Buffer, row: Rect) -> String {
     (row.x..row.right())
         .map(|x| buffer[(x, row.y)].symbol())
         .collect()
 }
 
-#[tokio::test]
-async fn creeper_download_filter_entry_sits_on_the_category_row() {
-    let mut app = creeper_download_app();
-    draw(&app);
-
-    let sections = download_sections(&app);
-    let entry = category_entry_rect(&app, &sections);
-    assert_eq!(entry.y, sections[1].y, "entry must share the tab row");
-    assert_eq!(
-        app.hitmap
-            .at(entry.x + 1, entry.y, app.top_layer())
-            .map(|hit| hit.action),
-        Some(Action::Page {
-            page: Page::DownloadCenter,
-            act: PageAct::FilterCategories,
-        })
-    );
-
-    click(&mut app, entry.x + 1, entry.y);
-    assert!(
-        matches!(app.modal, Some(crate::tui::modal::Modal::Checklist { .. })),
-        "the entry must open the filter dialog"
-    );
-}
-
-#[test]
-fn creeper_download_rows_use_the_card_surface() {
-    let app = creeper_download_app();
-    let sections = download_sections(&app);
-    let backend = TestBackend::new(WIDTH, HEIGHT);
-    let mut terminal = Terminal::new(backend).expect("terminal");
-    terminal.draw(|frame| app.draw(frame)).expect("draw");
-    let buffer = terminal.backend().buffer();
-
-    let bg = crate::tui::palette::BG;
-    for (name, row) in [("category", sections[1]), ("info", sections[3])] {
-        if row.height == 0 {
-            continue;
-        }
-        for x in row.x..row.right() {
-            assert_ne!(
-                buffer[(x, row.y)].bg,
-                bg,
-                "{name} row still paints the page background at column {x}"
-            );
-        }
-    }
-}
-
 /// Both sides of the page's two vertical seams are `SURFACE` cards: the column
 /// between the sidebar and the page, and the one between the result list and
 /// the detail card. Leaving them on the page background drew two black strips
 /// down the body.
-#[test]
-fn creeper_download_page_shows_no_page_background_between_its_cards() {
-    use crate::core::resource::model::{ResourceKind, ResourceProject, ResourceSource};
-
-    let mut app = creeper_download_app();
-    app.download_center.category =
-        crate::tui::pages::download_center::DownloadCategory::Resource(ResourceKind::Mod);
-    app.resource_projects = vec![ResourceProject {
-        source: ResourceSource::Modrinth,
-        project_id: "AANobbMI".into(),
-        title: "Sodium".into(),
-        author: "jellysquid3".into(),
-        description: "A modern rendering engine".into(),
-        icon_url: None,
-        categories: Vec::new(),
-        game_versions: vec!["1.21.1".into()],
-        loaders: vec!["fabric".into()],
-        downloads: Some(1234),
-        updated_at: None,
-    }];
-    assert!(
-        app.download_detail_areas(download_sections(&app)[4])
-            .is_some(),
-        "the detail card must be drawn, otherwise the seam is not exercised"
-    );
-
-    let regions = app.layout_chrome(Rect::new(0, 0, WIDTH, HEIGHT));
-    let backend = TestBackend::new(WIDTH, HEIGHT);
-    let mut terminal = Terminal::new(backend).expect("terminal");
-    terminal.draw(|frame| app.draw(frame)).expect("draw");
-    let buffer = terminal.backend().buffer();
-
-    let bg = crate::tui::palette::BG;
-    for y in regions.body.top()..regions.body.bottom() {
-        for x in regions.tabs.right()..regions.body.right() {
-            assert_ne!(
-                buffer[(x, y)].bg,
-                bg,
-                "the page background shows through at ({x}, {y})"
-            );
-        }
-    }
-}
-
 /// Cards on one surface, page by page: nothing inside the body may fall back
 /// to the page background, or the gaps read as black seams (the overview's row
 /// gaps, the instance and task filter rows, the settings rail, the download
 /// split).
-#[test]
-fn every_creeper_page_paints_the_body_with_the_card_surface() {
-    for page in Page::ALL {
-        let mut app = App::new();
-        app.config.state.ui.preset = UiPreset::Creeper;
-        app.page = page;
-        app.terminal_width = WIDTH;
-        app.terminal_height = HEIGHT;
-
-        let backend = TestBackend::new(WIDTH, HEIGHT);
-        let mut terminal = Terminal::new(backend).expect("terminal");
-        terminal.draw(|frame| app.draw(frame)).expect("draw");
-        let buffer = terminal.backend().buffer();
-
-        let regions = app.layout_chrome(Rect::new(0, 0, WIDTH, HEIGHT));
-        for y in regions.body.top()..regions.body.bottom() {
-            for x in regions.tabs.right()..regions.body.right() {
-                assert_ne!(
-                    buffer[(x, y)].bg,
-                    crate::tui::palette::BG,
-                    "{page:?}: the page background shows through at ({x}, {y})"
-                );
-            }
-        }
-    }
-}
-
 #[tokio::test]
 async fn game_versions_filter_opens_the_category_checklist() {
     use crate::core::version::models::{VersionCategory, VersionSummary};
 
-    let mut app = creeper_download_app();
+    let mut app = download_app();
     app.download_center.category =
         crate::tui::pages::download_center::DownloadCategory::GameVersions;
     app.versions = (0..3)
@@ -1742,7 +1571,7 @@ async fn game_versions_filter_opens_the_category_checklist() {
 fn game_versions_page_has_no_target() {
     use crate::tui::command::Command;
 
-    let mut app = creeper_download_app();
+    let mut app = download_app();
     app.download_center.category =
         crate::tui::pages::download_center::DownloadCategory::GameVersions;
     app.download_target_id = Some(uuid::Uuid::new_v4());
@@ -1790,7 +1619,7 @@ fn categories_that_do_not_install_into_an_instance_have_no_target() {
             "status.target_not_needed_save_path",
         ),
     ] {
-        let mut app = creeper_download_app();
+        let mut app = download_app();
         app.download_center.category = DownloadCategory::Resource(kind);
         app.download_target_id = Some(uuid::Uuid::new_v4());
 
@@ -1824,7 +1653,7 @@ fn categories_that_do_not_install_into_an_instance_have_no_target() {
             !caption.contains("目标") && !caption.contains("target"),
             "the {kind:?} caption must not mention a target: {caption:?}"
         );
-        // `creeper` puts the note in the page caption (`… · you pick the save
+        // `classic` puts the note in the page caption (`… · you pick the save
         // path`), not in the short `all · …` summary.
         let info = app.i18n.text(app.download_info_key());
         let tail = info.rsplit('\u{00b7}').next().unwrap_or_default().trim();
@@ -1841,7 +1670,7 @@ async fn version_filter_all_row_applies_to_every_kind() {
     use crate::tui::action::ModalAct;
     use crate::tui::modal::ModalResult;
 
-    let mut app = creeper_download_app();
+    let mut app = download_app();
     app.download_center.category =
         crate::tui::pages::download_center::DownloadCategory::GameVersions;
     app.open_filter_dialog();

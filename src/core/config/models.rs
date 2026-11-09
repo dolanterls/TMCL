@@ -126,8 +126,6 @@ pub enum UiPreset {
     /// Binsider-style framed shell (header box, top tabs, `|Title|` panels).
     #[default]
     Classic,
-    /// Card-based shell with a sidebar, gradient rule and neon palette.
-    Creeper,
     /// Night-light shell: no top banner, numbered sidebar nav, borderless
     /// cards and a single accent that derives the whole ladder.
     Nightlight,
@@ -141,18 +139,11 @@ pub enum UiPreset {
 }
 
 impl UiPreset {
-    pub const ALL: [Self; 5] = [
-        Self::Classic,
-        Self::Creeper,
-        Self::Nightlight,
-        Self::Paper,
-        Self::Shelf,
-    ];
+    pub const ALL: [Self; 4] = [Self::Classic, Self::Nightlight, Self::Paper, Self::Shelf];
 
     pub const fn code(self) -> &'static str {
         match self {
             Self::Classic => "classic",
-            Self::Creeper => "creeper",
             Self::Nightlight => "nightlight",
             Self::Paper => "paper",
             Self::Shelf => "shelf",
@@ -161,7 +152,6 @@ impl UiPreset {
 
     pub fn from_code(value: &str) -> Self {
         match value.trim().to_ascii_lowercase().as_str() {
-            "creeper" => Self::Creeper,
             "nightlight" => Self::Nightlight,
             "paper" => Self::Paper,
             "shelf" => Self::Shelf,
@@ -172,7 +162,6 @@ impl UiPreset {
     pub const fn label_key(self) -> &'static str {
         match self {
             Self::Classic => "settings.preset.classic",
-            Self::Creeper => "settings.preset.creeper",
             Self::Nightlight => "settings.preset.nightlight",
             Self::Paper => "settings.preset.paper",
             Self::Shelf => "settings.preset.shelf",
@@ -182,10 +171,9 @@ impl UiPreset {
     pub const fn next(self, direction: isize) -> Self {
         let index = match self {
             Self::Classic => 0,
-            Self::Creeper => 1,
-            Self::Nightlight => 2,
-            Self::Paper => 3,
-            Self::Shelf => 4,
+            Self::Nightlight => 1,
+            Self::Paper => 2,
+            Self::Shelf => 3,
         };
         let next = if direction < 0 {
             (index + Self::ALL.len() - 1) % Self::ALL.len()
@@ -818,15 +806,21 @@ mod tests {
             .expect("legacy ui config");
         assert_eq!(legacy.state.ui.preset, UiPreset::Classic);
 
-        let encoded = serde_json::to_string(&UiPreset::Creeper).expect("serialize preset");
-        assert_eq!(encoded, r#""creeper""#);
+        let encoded = serde_json::to_string(&UiPreset::Paper).expect("serialize preset");
+        assert_eq!(encoded, r#""paper""#);
 
         let mut config = Config::default();
-        config.state.ui.preset = UiPreset::Creeper;
+        config.state.ui.preset = UiPreset::Paper;
         let encoded = serde_json::to_string(&config).expect("serialize config");
-        assert!(encoded.contains(r#""preset":"creeper""#));
+        assert!(encoded.contains(r#""preset":"paper""#));
         let restored: Config = serde_json::from_str(&encoded).expect("restore config");
-        assert_eq!(restored.state.ui.preset, UiPreset::Creeper);
+        assert_eq!(restored.state.ui.preset, UiPreset::Paper);
+
+        // A config written while the retired `creeper` preset existed must
+        // still load: the code falls through to `classic`.
+        let retired: Config = serde_json::from_str(r#"{"state":{"ui":{"preset":"creeper"}}}"#)
+            .expect("retired preset falls back");
+        assert_eq!(retired.state.ui.preset, UiPreset::Classic);
 
         let unknown: Config = serde_json::from_str(r#"{"state":{"ui":{"preset":"unknown"}}}"#)
             .expect("unknown preset falls back");
@@ -835,14 +829,13 @@ mod tests {
 
     #[test]
     fn ui_preset_cycles_through_all_presets() {
-        assert_eq!(UiPreset::Classic.next(1), UiPreset::Creeper);
-        assert_eq!(UiPreset::Creeper.next(1), UiPreset::Nightlight);
+        assert_eq!(UiPreset::Classic.next(1), UiPreset::Nightlight);
         assert_eq!(UiPreset::Nightlight.next(1), UiPreset::Paper);
         assert_eq!(UiPreset::Paper.next(1), UiPreset::Shelf);
         assert_eq!(UiPreset::Shelf.next(1), UiPreset::Classic);
         assert_eq!(UiPreset::Classic.next(-1), UiPreset::Shelf);
         assert_eq!(UiPreset::Shelf.next(-1), UiPreset::Paper);
-        assert_eq!(UiPreset::ALL.len(), 5);
+        assert_eq!(UiPreset::ALL.len(), 4);
         assert_eq!(UiPreset::from_code("nightlight"), UiPreset::Nightlight);
         assert_eq!(UiPreset::Nightlight.code(), "nightlight");
         assert_eq!(

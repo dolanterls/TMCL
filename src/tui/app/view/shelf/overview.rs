@@ -110,7 +110,7 @@ impl App {
                 |java| format!("Java {}", java.major),
             );
         // The instance the launcher will start says `当前`, not `就绪`: the
-        // same swap classic, creeper, nightlight and paper make.
+        // same swap classic, nightlight and paper make.
         let (status, status_color) = if self.shelf_marks_current(item) {
             (self.i18n.text("common.current"), pal.accent)
         } else {

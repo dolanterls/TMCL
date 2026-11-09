@@ -160,9 +160,9 @@ impl App {
             .layout_chrome(Rect::new(0, 0, self.terminal_width, self.terminal_height))
             .main;
         // Every preset owns its head geometry: `nightlight` draws its own card
-        // (page margin, title padding, header), `creeper` drops a header row and
-        // a gutter, the sheets carry their own head. Ask each painter for the
-        // numbers it fills; the bordered-panel geometry clips the last rows.
+        // (page margin, title padding, header), the sheets carry their own
+        // head. Ask each painter for the numbers it fills; the bordered-panel
+        // geometry clips the last rows.
         let (width, height, clip) = match self.preset() {
             UiPreset::Paper => {
                 let body = self.paper_log_area(main);
@@ -175,19 +175,6 @@ impl App {
             UiPreset::Nightlight => {
                 let body = App::nightlight_log_body(main);
                 (body.width, body.height, false)
-            }
-            UiPreset::Creeper => {
-                // The stream card drops a header row and a gutter on each side
-                // before the first line.
-                let inner = main.inner(ratatui::layout::Margin {
-                    horizontal: 1,
-                    vertical: 1,
-                });
-                (
-                    inner.width.saturating_sub(2),
-                    inner.height.saturating_sub(1),
-                    false,
-                )
             }
             UiPreset::Classic => {
                 let inner = crate::tui::chrome::panel(

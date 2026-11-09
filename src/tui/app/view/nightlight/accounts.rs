@@ -134,8 +134,8 @@ impl App {
         let current = self.accounts.current == Some(account.id);
         let avatar = avatar_cells(&account.username);
         let kind = self.i18n.text(match account.kind {
-            AccountKind::Microsoft => "creeper.account.microsoft",
-            AccountKind::Offline => "creeper.account.offline",
+            AccountKind::Microsoft => "account.kind.microsoft",
+            AccountKind::Offline => "account.kind.offline",
         });
         let badge = pill(
             &kind,

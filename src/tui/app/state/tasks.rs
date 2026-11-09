@@ -411,18 +411,6 @@ impl App {
         )
     }
 
-    /// Labels of the `creeper` filter pills. Drawing and hit testing both use
-    /// this list, so the chips and their click boxes cannot drift apart.
-    pub(in crate::tui::app) fn creeper_task_filter_labels(&self) -> Vec<String> {
-        TaskFilter::ALL
-            .iter()
-            .map(|filter| {
-                let count = self.task_filter_count(*filter);
-                format!("{} {count}", self.i18n.text(filter.label_key()))
-            })
-            .collect()
-    }
-
     pub(in crate::tui::app) fn change_task_filter(&mut self, delta: isize) {
         let previous_id = self.task_selected_id;
         self.task_filter = self.task_filter.next(delta);

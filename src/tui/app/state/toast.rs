@@ -1,8 +1,7 @@
 //! Status toast bookkeeping, shared by every preset.
 //!
 //! Only the queue lives here: which statuses are worth a card, how many are
-//! kept, and when they expire. Drawing stays with the preset that draws it,
-//! whether it slides in (`creeper`) or appears at once (`nightlight`).
+//! kept, and when they expire. Drawing stays with the preset that draws it.
 
 use std::time::{Duration, Instant};
 
@@ -18,14 +17,6 @@ pub(in crate::tui::app) const TOAST_TTL: Duration = Duration::from_secs(5);
 pub(in crate::tui::app) struct Toast {
     pub text: String,
     pub kind: StatusKind,
-    /// Seconds since the message first appeared; drives the exit animation.
-    pub age_millis: u64,
-}
-
-impl Toast {
-    pub(in crate::tui::app) fn age_seconds(&self) -> f64 {
-        self.age_millis as f64 / 1000.0
-    }
 }
 
 /// Update the queue from the current status and return what is still visible.
@@ -52,10 +43,9 @@ pub(in crate::tui::app) fn collect(app: &App, ttl: Duration) -> Vec<Toast> {
     }
     log.iter()
         .filter(|entry| entry.2.elapsed() <= ttl)
-        .map(|(text, kind, born)| Toast {
+        .map(|(text, kind, _)| Toast {
             text: text.clone(),
             kind: *kind,
-            age_millis: born.elapsed().as_millis().min(u128::from(u64::MAX)) as u64,
         })
         .collect()
 }

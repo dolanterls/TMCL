@@ -14,7 +14,7 @@ use crate::tui::input::SearchTarget;
 /// What the pointer resolved to.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
-    /// Shell navigation: a header tab (classic) or a sidebar row (creeper).
+    /// Shell navigation: a header tab (classic) or a sidebar row (nightlight).
     Nav(Page),
     /// Something inside the current page.
     Page { page: Page, act: PageAct },
